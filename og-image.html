@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1200, initial-scale=1.0">
+  <title>VideoToSRT Open Graph Image</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0F172A;
+      --text: #FFFFFF;
+      --muted: #94A3B8;
+      --indigo: #6366F1;
+      --cyan: #22D3EE;
+      --panel: #182338;
+      --panel-soft: #202E47;
+      --line: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 1200px;
+      height: 630px;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    .canvas {
+      position: relative;
+      width: 1200px;
+      height: 630px;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .logo {
+      position: absolute;
+      top: 52px;
+      left: 64px;
+      display: grid;
+      place-items: center;
+      width: 64px;
+      height: 64px;
+      border-radius: 14px;
+      background: var(--indigo);
+      color: #FFFFFF;
+      font-size: 25px;
+      font-weight: 800;
+      box-shadow: 0 18px 48px rgba(99, 102, 241, .34);
+    }
+
+    .headline-wrap {
+      position: absolute;
+      top: 180px;
+      left: 80px;
+      right: 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      color: #FFFFFF;
+      font-size: 76px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .divider {
+      width: 380px;
+      height: 3px;
+      margin: 30px 0 25px;
+      border-radius: 999px;
+      background: var(--cyan);
+      box-shadow: 0 0 28px rgba(34, 211, 238, .34);
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 28px;
+      line-height: 1.25;
+      font-weight: 600;
+    }
+
+    .editor-preview {
+      position: absolute;
+      right: 58px;
+      bottom: 42px;
+      width: 376px;
+      height: 214px;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, .24);
+      border-radius: 8px;
+      background: #111827;
+      box-shadow: 0 28px 80px rgba(0, 0, 0, .42);
+    }
+
+    .preview-topbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      height: 27px;
+      padding: 0 10px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .mini-brand {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #E2E8F0;
+      font-size: 8px;
+      font-weight: 800;
+    }
+
+    .mini-mark {
+      display: grid;
+      place-items: center;
+      width: 15px;
+      height: 15px;
+      border-radius: 4px;
+      background: var(--indigo);
+      color: #FFFFFF;
+      font-size: 6px;
+      font-weight: 800;
+    }
+
+    .timecode {
+      padding: 3px 6px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #0B1220;
+      color: #F8FAFC;
+      font-size: 8px;
+      font-weight: 700;
+    }
+
+    .preview-body {
+      display: grid;
+      grid-template-columns: 58% 42%;
+      height: 187px;
+    }
+
+    .video-side {
+      display: grid;
+      grid-template-rows: 1fr 38px;
+      min-width: 0;
+      padding: 10px;
+      border-right: 1px solid var(--line);
+      background: #0F172A;
+    }
+
+    .video-window {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #243449;
+      border-radius: 6px;
+      background:
+        linear-gradient(155deg, rgba(34, 211, 238, .18), transparent 44%),
+        linear-gradient(25deg, #020617 0%, #101827 55%, #19243A 100%);
+    }
+
+    .play {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 38px;
+      height: 38px;
+      border: 1px solid rgba(148, 163, 184, .5);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(15, 23, 42, .88);
+    }
+
+    .play::after {
+      position: absolute;
+      top: 10px;
+      left: 14px;
+      width: 0;
+      height: 0;
+      border-top: 8px solid transparent;
+      border-bottom: 8px solid transparent;
+      border-left: 13px solid #FFFFFF;
+      content: "";
+    }
+
+    .caption-line {
+      position: absolute;
+      right: 28px;
+      bottom: 15px;
+      left: 28px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .82);
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-top: 9px;
+    }
+
+    .control-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--panel-soft);
+    }
+
+    .progress {
+      flex: 1;
+      height: 5px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #26364F;
+    }
+
+    .progress span {
+      display: block;
+      width: 46%;
+      height: 100%;
+      background: var(--cyan);
+    }
+
+    .table-side {
+      min-width: 0;
+      background: #162238;
+    }
+
+    .table-head,
+    .row {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      align-items: center;
+      column-gap: 8px;
+      border-bottom: 1px solid rgba(51, 65, 85, .86);
+    }
+
+    .table-head {
+      height: 28px;
+      padding: 0 10px;
+      color: var(--muted);
+      font-size: 8px;
+      font-weight: 800;
+      background: #1E293B;
+    }
+
+    .row {
+      height: 39px;
+      padding: 0 10px;
+      color: #CBD5E1;
+      font-size: 8px;
+      font-weight: 700;
+    }
+
+    .row.active {
+      background: rgba(34, 211, 238, .10);
+      color: #F8FAFC;
+    }
+
+    .line-stack {
+      display: grid;
+      gap: 5px;
+    }
+
+    .fake-text {
+      display: block;
+      height: 5px;
+      border-radius: 999px;
+      background: currentColor;
+      opacity: .78;
+    }
+
+    .fake-text.short {
+      width: 58%;
+    }
+
+    .fake-text.long {
+      width: 88%;
+    }
+  </style>
+</head>
+<body>
+  <main class="canvas" aria-label="VideoToSRT Open Graph image">
+    <div class="logo">VS</div>
+
+    <section class="headline-wrap">
+      <h1>Subtitles Done Right</h1>
+      <div class="divider" aria-hidden="true"></div>
+      <p class="subtitle">No Software Required · Online Subtitle Editor</p>
+    </section>
+
+    <aside class="editor-preview" aria-label="Editor screenshot preview">
+      <div class="preview-topbar">
+        <div class="mini-brand">
+          <span class="mini-mark">VS</span>
+          <span>VideoToSRT</span>
+        </div>
+        <div class="timecode">00:01:24</div>
+      </div>
+
+      <div class="preview-body">
+        <div class="video-side">
+          <div class="video-window">
+            <div class="play"></div>
+            <div class="caption-line"></div>
+          </div>
+          <div class="controls">
+            <span class="control-dot"></span>
+            <div class="progress"><span></span></div>
+          </div>
+        </div>
+
+        <div class="table-side">
+          <div class="table-head">
+            <span>Time</span>
+            <span>Subtitle</span>
+          </div>
+          <div class="row">
+            <span>00:12</span>
+            <span class="line-stack">
+              <span class="fake-text long"></span>
+              <span class="fake-text short"></span>
+            </span>
+          </div>
+          <div class="row active">
+            <span>00:18</span>
+            <span class="line-stack">
+              <span class="fake-text long"></span>
+              <span class="fake-text short"></span>
+            </span>
+          </div>
+          <div class="row">
+            <span>00:26</span>
+            <span class="line-stack">
+              <span class="fake-text long"></span>
+              <span class="fake-text short"></span>
+            </span>
+          </div>
+          <div class="row">
+            <span>00:33</span>
+            <span class="line-stack">
+              <span class="fake-text long"></span>
+              <span class="fake-text short"></span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+</body>
+</html>

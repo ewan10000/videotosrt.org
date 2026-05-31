@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VideoToSRT | Upload Status</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0F172A;
+      --panel: #111C32;
+      --panel-2: #17233A;
+      --panel-3: #1D2A44;
+      --line: #2A3852;
+      --text: #F8FAFC;
+      --muted: #CBD5E1;
+      --soft: #94A3B8;
+      --indigo: #6366F1;
+      --cyan: #22D3EE;
+      --success: #34D399;
+      --warning: #FBBF24;
+      --danger: #FB7185;
+      --radius: 8px;
+      --shadow: 0 24px 80px rgba(0, 0, 0, .28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      letter-spacing: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .container {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid rgba(148, 163, 184, .18);
+      background: rgba(15,23,42,0.95);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 72px;
+      gap: 24px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      font-weight: 800;
+      font-size: 18px;
+      white-space: nowrap;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--indigo);
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .nav-links a:hover,
+    .nav-links a.active {
+      color: var(--text);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 16px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text);
+      background: transparent;
+    }
+
+    .btn-secondary {
+      border-color: var(--line);
+      background: rgba(255, 255, 255, .03);
+    }
+
+    .btn-primary {
+      background: var(--indigo);
+      box-shadow: 0 12px 30px rgba(99, 102, 241, .22);
+    }
+
+    .btn-primary:hover,
+    .btn-secondary:hover {
+      transform: translateY(-1px);
+    }
+
+    main {
+      flex: 1;
+      padding: 56px 0 80px;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .page-header h1 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 4vw, 40px);
+      line-height: 1.1;
+    }
+
+    .page-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .status-card {
+      max-width: 640px;
+      margin: 0 auto 24px;
+      padding: 32px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .file-icon {
+      display: grid;
+      place-items: center;
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius);
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      flex-shrink: 0;
+    }
+
+    .file-icon svg {
+      width: 28px;
+      height: 28px;
+      color: var(--cyan);
+    }
+
+    .file-meta h2 {
+      margin: 0 0 4px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .file-meta p {
+      margin: 0;
+      color: var(--soft);
+      font-size: 14px;
+    }
+
+    .progress-section {
+      margin-bottom: 28px;
+    }
+
+    .progress-bar-bg {
+      height: 10px;
+      border-radius: 999px;
+      background: var(--panel-2);
+      overflow: hidden;
+      border: 1px solid var(--line);
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 100%;
+      border-radius: 999px;
+      background: var(--cyan);
+      box-shadow: 0 0 16px rgba(34, 211, 238, .35);
+      transition: width .4s ease;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .progress-label span:last-child {
+      color: var(--cyan);
+    }
+
+    .timeline {
+      display: grid;
+      gap: 0;
+      margin-bottom: 28px;
+    }
+
+    .timeline-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 0;
+      position: relative;
+    }
+
+    .timeline-step:not(:last-child)::before {
+      content: "";
+      position: absolute;
+      left: 15px;
+      top: 44px;
+      width: 2px;
+      height: calc(100% - 20px);
+      background: var(--line);
+    }
+
+    .timeline-step.completed:not(:last-child)::before {
+      background: var(--success);
+      opacity: .45;
+    }
+
+    .step-icon {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      flex-shrink: 0;
+      font-size: 14px;
+      font-weight: 800;
+      z-index: 1;
+    }
+
+    .timeline-step.completed .step-icon {
+      background: rgba(52, 211, 153, .15);
+      color: var(--success);
+      border: 1px solid rgba(52, 211, 153, .35);
+    }
+
+    .timeline-step.active .step-icon {
+      background: rgba(34, 211, 238, .12);
+      color: var(--cyan);
+      border: 1px solid rgba(34, 211, 238, .45);
+    }
+
+    .timeline-step.pending .step-icon {
+      background: var(--panel-2);
+      color: var(--soft);
+      border: 1px solid var(--line);
+    }
+
+    .step-body {
+      flex: 1;
+      padding-top: 4px;
+    }
+
+    .step-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 0 0 4px;
+    }
+
+    .timeline-step.completed .step-title {
+      color: var(--text);
+    }
+
+    .timeline-step.active .step-title {
+      color: var(--cyan);
+    }
+
+    .timeline-step.pending .step-title {
+      color: var(--soft);
+    }
+
+    .step-detail {
+      font-size: 13px;
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .timeline-step.completed .step-detail {
+      color: var(--success);
+    }
+
+    .timeline-step.active .step-detail {
+      color: var(--muted);
+    }
+
+    .timeline-step.pending .step-detail {
+      color: var(--soft);
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(34, 211, 238, .25);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .cancel-row {
+      display: flex;
+      justify-content: center;
+    }
+
+    .tip-box {
+      max-width: 640px;
+      margin: 0 auto 56px;
+      padding: 14px 18px;
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      background: rgba(34, 211, 238, .04);
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+      line-height: 1.55;
+    }
+
+    .recent-section {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    .recent-section h2 {
+      margin: 0 0 20px;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .recent-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .recent-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      overflow: hidden;
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+
+    .recent-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+
+    .recent-thumb {
+      aspect-ratio: 16 / 9;
+      background: var(--panel-2);
+      display: grid;
+      place-items: center;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .recent-thumb svg {
+      width: 36px;
+      height: 36px;
+      color: var(--soft);
+      opacity: .6;
+    }
+
+    .recent-info {
+      padding: 14px 16px;
+    }
+
+    .recent-info h3 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .recent-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--soft);
+    }
+
+    .status-ready {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--success);
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .status-ready::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--success);
+    }
+
+    .footer {
+      padding: 34px 0;
+      border-top: 1px solid rgba(148, 163, 184, .16);
+      color: var(--soft);
+      margin-top: auto;
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      font-size: 14px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+    }
+
+    @media (max-width: 980px) {
+      .nav-links {
+        display: none;
+      }
+
+      .recent-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        width: min(100% - 28px, 1180px);
+      }
+
+      .nav-inner {
+        min-height: 66px;
+      }
+
+      .nav-actions .btn-secondary {
+        display: none;
+      }
+
+      main {
+        padding: 36px 0 56px;
+      }
+
+      .status-card {
+        padding: 22px;
+      }
+
+      .recent-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-inner {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="brand" aria-label="VideoToSRT home">
+        <span class="brand-mark">VS</span>
+        <span>VideoToSRT</span>
+      </a>
+      <div class="nav-links" aria-label="Primary navigation">
+        <a href="index.html#workflow">Workflow</a>
+        <a href="index.html#editor">Editor</a>
+        <a href="index.html#features">Features</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="index.html#faq">FAQ</a>
+      </div>
+      <div class="nav-actions">
+        <a class="btn btn-secondary" href="login-modal.html">Sign in</a>
+        <a class="btn btn-primary" href="index.html#upload">Start free</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      <div class="page-header">
+        <h1>Uploading &amp; processing</h1>
+        <p>Your video is being transcribed. Track progress below.</p>
+      </div>
+
+      <div class="status-card">
+        <div class="file-info">
+          <div class="file-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m22 8-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <path d="M10 9H8v8h2V9zm4 0h-2v8h2V9z"/>
+            </svg>
+          </div>
+          <div class="file-meta">
+            <h2>interview-footage.mp4</h2>
+            <p>42.3 MB &middot; MP4</p>
+          </div>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-bar-bg" aria-label="Upload progress">
+            <div class="progress-bar-fill"></div>
+          </div>
+          <div class="progress-label">
+            <span>Upload complete</span>
+            <span>100%</span>
+          </div>
+        </div>
+
+        <div class="timeline" role="list" aria-label="Processing steps">
+          <div class="timeline-step completed" role="listitem">
+            <div class="step-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <div class="step-body">
+              <p class="step-title">Uploading</p>
+              <p class="step-detail">File uploaded successfully</p>
+            </div>
+          </div>
+
+          <div class="timeline-step active" role="listitem">
+            <div class="step-icon" aria-hidden="true">
+              <span class="spinner"></span>
+            </div>
+            <div class="step-body">
+              <p class="step-title">Transcribing audio</p>
+              <p class="step-detail">~3 min remaining</p>
+            </div>
+          </div>
+
+          <div class="timeline-step pending" role="listitem">
+            <div class="step-icon" aria-hidden="true">3</div>
+            <div class="step-body">
+              <p class="step-title">Generating subtitles</p>
+              <p class="step-detail">Waiting&hellip;</p>
+            </div>
+          </div>
+
+          <div class="timeline-step pending" role="listitem">
+            <div class="step-icon" aria-hidden="true">4</div>
+            <div class="step-body">
+              <p class="step-title">Ready for export</p>
+              <p class="step-detail">Waiting&hellip;</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="cancel-row">
+          <button type="button" class="btn btn-secondary">Cancel processing</button>
+        </div>
+      </div>
+
+      <div class="tip-box">
+        Tip: You can close this page. We'll email you when it's ready.
+      </div>
+
+      <div class="recent-section">
+        <h2>Recent uploads</h2>
+        <div class="recent-grid">
+          <article class="recent-card">
+            <div class="recent-thumb" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </div>
+            <div class="recent-info">
+              <h3>product-demo-v2.mp4</h3>
+              <div class="recent-meta">
+                <span>12:34</span>
+                <span class="status-ready">Ready</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="recent-card">
+            <div class="recent-thumb" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </div>
+            <div class="recent-info">
+              <h3>team-sync-jan.mp4</h3>
+              <div class="recent-meta">
+                <span>45:10</span>
+                <span class="status-ready">Ready</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="recent-card">
+            <div class="recent-thumb" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </div>
+            <div class="recent-info">
+              <h3>webinar-recording.mp4</h3>
+              <div class="recent-meta">
+                <span>58:22</span>
+                <span class="status-ready">Ready</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <a href="index.html" class="brand">
+        <span class="brand-mark">VS</span>
+        <span>VideoToSRT</span>
+      </a>
+      <div>&copy; 2026 VideoToSRT. Built for faster subtitle production.</div>
+      <div class="footer-links">
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+        <a href="#">Support</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

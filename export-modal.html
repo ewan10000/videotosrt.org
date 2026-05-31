@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VideoToSRT | Export</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0F172A;
+      --panel: #111C32;
+      --panel-2: #17233A;
+      --panel-3: #1D2A44;
+      --line: #2A3852;
+      --text: #F8FAFC;
+      --muted: #CBD5E1;
+      --soft: #94A3B8;
+      --indigo: #6366F1;
+      --cyan: #22D3EE;
+      --success: #34D399;
+      --warning: #FBBF24;
+      --radius: 8px;
+      --shadow: 0 24px 80px rgba(0, 0, 0, .28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      color: var(--text);
+      background: var(--bg);
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button, input {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+      cursor: pointer;
+    }
+
+    /* ===== Background: blurred editor preview ===== */
+    .page-preview {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      filter: blur(2px);
+      opacity: 0.35;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: 56px minmax(0, 1fr) 34px;
+      height: 100vh;
+      min-width: 980px;
+    }
+
+    .topbar, .statusbar {
+      display: grid;
+      align-items: center;
+      background: #1E293B;
+      border-color: #334155;
+    }
+
+    .topbar {
+      grid-template-columns: 1fr auto 1fr;
+      height: 56px;
+      padding: 0 16px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      font-size: 14px;
+      font-weight: 800;
+      color: #F8FAFC;
+      white-space: nowrap;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border: 1px solid #475569;
+      border-radius: 7px;
+      background: #111827;
+      color: var(--cyan);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .current-time {
+      min-width: 142px;
+      padding: 7px 12px;
+      border: 1px solid #334155;
+      border-radius: 7px;
+      background: #0B1220;
+      color: #F8FAFC;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    .top-actions {
+      display: inline-flex;
+      justify-self: end;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .action-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 34px;
+      padding: 0 13px;
+      border: 1px solid #334155;
+      border-radius: 7px;
+      background: #162238;
+      color: #CBD5E1;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .action-button.primary {
+      border-color: #2563EB;
+      background: #2563EB;
+      color: #FFFFFF;
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 60% 40%;
+      min-height: 0;
+      background: var(--bg);
+    }
+
+    .video-workspace {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) 96px;
+      padding: 20px;
+      border-right: 1px solid #334155;
+    }
+
+    .video-frame {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 360px;
+      border: 1px solid #334155;
+      border-radius: var(--radius);
+      background: #000000;
+      overflow: hidden;
+    }
+
+    .video-play {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 72px;
+      height: 72px;
+      border: 1px solid #475569;
+      border-radius: 50%;
+      background: rgba(15, 23, 42, .88);
+    }
+
+    .video-play svg {
+      width: 30px;
+      height: 30px;
+      margin-left: 4px;
+      fill: #F8FAFC;
+    }
+
+    .video-caption {
+      position: absolute;
+      left: 50%;
+      bottom: 42px;
+      transform: translateX(-50%);
+      width: min(620px, calc(100% - 80px));
+      padding: 10px 14px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, .72);
+      color: #FFFFFF;
+      text-align: center;
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 0 8px;
+    }
+
+    .timeline-track {
+      position: relative;
+      height: 8px;
+      border-radius: 999px;
+      background: #020617;
+      border: 1px solid #334155;
+    }
+
+    .timeline-progress {
+      position: absolute;
+      inset: -1px auto -1px -1px;
+      width: 22%;
+      border: 1px solid var(--cyan);
+      border-radius: 999px;
+      background: var(--cyan);
+    }
+
+    .timeline-handle {
+      position: absolute;
+      top: 50%;
+      right: -7px;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #FFFFFF;
+      border-radius: 50%;
+      background: var(--cyan);
+      transform: translateY(-50%);
+    }
+
+    .transport {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: #94A3B8;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .subtitle-panel {
+      display: grid;
+      grid-template-rows: 48px minmax(0, 1fr);
+      background: #1E293B;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 16px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .panel-title {
+      margin: 0;
+      color: #F8FAFC;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .panel-meta {
+      color: #94A3B8;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .table-wrap {
+      min-height: 0;
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th, td {
+      border-bottom: 1px solid #334155;
+      vertical-align: top;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      height: 36px;
+      padding: 0 12px;
+      background: #172033;
+      color: #94A3B8;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    td {
+      height: 58px;
+      padding: 10px 12px;
+      color: #CBD5E1;
+      font-size: 13px;
+      line-height: 1.35;
+      background: #1E293B;
+    }
+
+    .col-num {
+      width: 48px;
+      color: #94A3B8;
+      text-align: right;
+    }
+
+    .col-time {
+      width: 166px;
+    }
+
+    .timecode {
+      color: #BAE6FD;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    .subtitle-text {
+      color: #E2E8F0;
+    }
+
+    .statusbar {
+      grid-template-columns: auto auto auto 1fr;
+      gap: 18px;
+      height: 34px;
+      padding: 0 14px;
+      border-top: 1px solid #334155;
+      color: #CBD5E1;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      white-space: nowrap;
+    }
+
+    .ready-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22C55E;
+    }
+
+    /* ===== Modal overlay ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    .modal-card {
+      position: relative;
+      width: 100%;
+      max-width: 480px;
+      padding: 32px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow), 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .modal-heading {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .modal-close {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+      color: var(--soft);
+      font-size: 20px;
+      font-weight: 500;
+      cursor: pointer;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .modal-close:hover {
+      color: var(--text);
+      border-color: var(--muted);
+    }
+
+    /* Format selection */
+    .section-label {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .format-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .format-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 64px;
+      padding: 10px 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel-2);
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease, color .15s ease;
+    }
+
+    .format-card:hover {
+      border-color: var(--soft);
+      background: var(--panel-3);
+    }
+
+    .format-card.selected {
+      border-color: var(--indigo);
+      background: rgba(99, 102, 241, .10);
+      color: var(--text);
+    }
+
+    .format-card .checkmark {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--indigo);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: opacity .15s ease, transform .15s ease;
+    }
+
+    .format-card.selected .checkmark {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .format-ext {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .format-card.selected .format-ext {
+      color: var(--indigo);
+    }
+
+    .format-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--soft);
+    }
+
+    /* Options section */
+    .options-section {
+      margin-bottom: 24px;
+    }
+
+    .options-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--indigo);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .checkbox-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted);
+      user-select: none;
+    }
+
+    .checkbox-row input[type="checkbox"]:checked + .checkbox-label {
+      color: var(--text);
+    }
+
+    /* Filename input */
+    .filename-section {
+      margin-bottom: 24px;
+    }
+
+    .form-input {
+      width: 100%;
+      min-height: 44px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel-2);
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color .15s ease;
+    }
+
+    .form-input::placeholder {
+      color: var(--soft);
+    }
+
+    .form-input:focus {
+      border-color: rgba(99, 102, 241, .7);
+    }
+
+    /* Export button */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 46px;
+      padding: 0 16px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: var(--indigo);
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(99, 102, 241, .22);
+      transition: background .15s ease;
+    }
+
+    .btn-primary:hover {
+      background: #4F46E5;
+    }
+
+    .file-estimate {
+      margin-top: 12px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--soft);
+    }
+
+    @media (max-width: 520px) {
+      .modal-card {
+        padding: 24px 20px;
+      }
+
+      .format-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Blurred editor page preview behind modal -->
+  <div class="page-preview" aria-hidden="true">
+    <div class="app">
+      <header class="topbar">
+        <div class="brand" aria-label="VideoToSRT">
+          <span class="brand-mark">VS</span>
+          <span>VideoToSRT</span>
+        </div>
+        <div class="current-time">00:00:05.240</div>
+        <div class="top-actions">
+          <button class="action-button" type="button">Export</button>
+          <button class="action-button primary" type="button">Save</button>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="video-workspace" aria-label="Video editor">
+          <div class="video-frame">
+            <button class="video-play" type="button" aria-label="Play video">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M8 5v14l11-7z"></path>
+              </svg>
+            </button>
+            <div class="video-caption">Let us turn this video into clean subtitles.</div>
+          </div>
+          <div>
+            <div class="timeline" aria-label="Timeline scrubber">
+              <span class="timecode">00:00:00.000</span>
+              <div class="timeline-track">
+                <div class="timeline-progress">
+                  <span class="timeline-handle"></span>
+                </div>
+              </div>
+              <span class="timecode">00:04:32.000</span>
+            </div>
+            <div class="transport">
+              <span>Playback</span>
+              <span>Shortcuts keep the editing flow fast.</span>
+            </div>
+          </div>
+        </section>
+
+        <aside class="subtitle-panel" aria-label="Subtitle table">
+          <div class="panel-head">
+            <h1 class="panel-title">Subtitles</h1>
+            <span class="panel-meta">42 items</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="col-num">#</th>
+                  <th class="col-time">Start-End</th>
+                  <th>Text</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="col-num">1</td>
+                  <td class="col-time"><span class="timecode">00:00:00.000 - 00:00:02.180</span></td>
+                  <td><span class="subtitle-text">Welcome back. Today we are converting video speech into SRT.</span></td>
+                </tr>
+                <tr>
+                  <td class="col-num">2</td>
+                  <td class="col-time"><span class="timecode">00:00:02.180 - 00:00:04.720</span></td>
+                  <td><span class="subtitle-text">The first pass gives us accurate timestamps and editable text.</span></td>
+                </tr>
+                <tr>
+                  <td class="col-num">3</td>
+                  <td class="col-time"><span class="timecode">00:00:04.720 - 00:00:07.460</span></td>
+                  <td><span class="subtitle-text">Let us turn this video into clean subtitles.</span></td>
+                </tr>
+                <tr>
+                  <td class="col-num">4</td>
+                  <td class="col-time"><span class="timecode">00:00:07.460 - 00:00:10.120</span></td>
+                  <td><span class="subtitle-text">You can review each segment and adjust timing where needed.</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </aside>
+      </main>
+
+      <footer class="statusbar">
+        <span class="status-item"><span class="ready-dot"></span>Ready</span>
+        <span class="status-item">42 subtitles</span>
+        <span class="status-item"><span class="timecode">4:32</span> duration</span>
+        <span class="status-item">Whisper EN</span>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Export modal -->
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modal-title" class="modal-heading">Export subtitles</h2>
+        <button class="modal-close" aria-label="Close">&times;</button>
+      </div>
+
+      <!-- Format selection -->
+      <div class="format-section">
+        <span class="section-label">Format</span>
+        <div class="format-row" role="radiogroup" aria-label="Export format">
+          <div class="format-card selected" role="radio" aria-checked="true" tabindex="0">
+            <span class="checkmark">&#10003;</span>
+            <span class="format-ext">.srt</span>
+            <span class="format-name">SubRip</span>
+          </div>
+          <div class="format-card" role="radio" aria-checked="false" tabindex="0">
+            <span class="checkmark">&#10003;</span>
+            <span class="format-ext">.vtt</span>
+            <span class="format-name">WebVTT</span>
+          </div>
+          <div class="format-card" role="radio" aria-checked="false" tabindex="0">
+            <span class="checkmark">&#10003;</span>
+            <span class="format-ext">.txt</span>
+            <span class="format-name">Plain text</span>
+          </div>
+          <div class="format-card" role="radio" aria-checked="false" tabindex="0">
+            <span class="checkmark">&#10003;</span>
+            <span class="format-ext">.json</span>
+            <span class="format-name">JSON</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Options -->
+      <div class="options-section">
+        <span class="section-label">Options</span>
+        <div class="options-list">
+          <label class="checkbox-row">
+            <input type="checkbox" name="timestamps">
+            <span class="checkbox-label">Include timestamps</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" name="speaker_labels">
+            <span class="checkbox-label">Include speaker labels</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" name="utf8" checked>
+            <span class="checkbox-label">UTF-8 encoding</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Filename -->
+      <div class="filename-section">
+        <label class="section-label" for="filename">Filename</label>
+        <input class="form-input" id="filename" type="text" value="my-video-subtitles" aria-label="Export filename">
+      </div>
+
+      <!-- Export button -->
+      <button type="button" class="btn-primary">Export file</button>
+      <p class="file-estimate">Estimated: 12 KB</p>
+    </div>
+  </div>
+
+</body>
+</html>

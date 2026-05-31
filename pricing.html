@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VideoToSRT | Pricing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0F172A;
+      --panel: #111C32;
+      --panel-2: #17233A;
+      --panel-3: #1D2A44;
+      --line: #2A3852;
+      --text: #F8FAFC;
+      --muted: #CBD5E1;
+      --soft: #94A3B8;
+      --indigo: #6366F1;
+      --cyan: #22D3EE;
+      --success: #34D399;
+      --radius: 8px;
+      --shadow: 0 24px 80px rgba(0, 0, 0, .28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      letter-spacing: 0;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .container {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid rgba(148, 163, 184, .18);
+      background: rgba(15,23,42,0.95);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 72px;
+      gap: 24px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      font-weight: 800;
+      font-size: 18px;
+      white-space: nowrap;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--indigo);
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .nav-links a:hover,
+    .nav-links a.active {
+      color: var(--text);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 16px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text);
+      background: transparent;
+    }
+
+    .btn-secondary {
+      border-color: var(--line);
+      background: rgba(255, 255, 255, .03);
+    }
+
+    .btn-primary {
+      background: var(--indigo);
+      box-shadow: 0 12px 30px rgba(99, 102, 241, .22);
+    }
+
+    .btn-primary:hover,
+    .btn-secondary:hover {
+      transform: translateY(-1px);
+    }
+
+    .pricing-hero {
+      padding: 72px 0 44px;
+      border-bottom: 1px solid rgba(148, 163, 184, .14);
+    }
+
+    .hero-content {
+      display: grid;
+      grid-template-columns: minmax(0, .95fr) minmax(300px, .55fr);
+      gap: 42px;
+      align-items: end;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 30px;
+      padding: 0 11px;
+      border: 1px solid rgba(34, 211, 238, .34);
+      border-radius: 999px;
+      color: var(--cyan);
+      background: rgba(34, 211, 238, .08);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--cyan);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      margin: 18px 0;
+      font-size: clamp(42px, 6vw, 68px);
+      line-height: 1;
+      letter-spacing: 0;
+      max-width: 780px;
+    }
+
+    .hero-copy {
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.7;
+      max-width: 680px;
+    }
+
+    .billing-panel {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .billing-panel p {
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .billing-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #121B2F;
+    }
+
+    .billing-toggle button {
+      min-height: 40px;
+      border: 0;
+      border-radius: 7px;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .billing-toggle button.active {
+      color: #fff;
+      background: var(--indigo);
+    }
+
+    section {
+      padding: 76px 0;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 32px;
+      margin-bottom: 28px;
+    }
+
+    .section-head h2 {
+      margin-bottom: 0;
+      font-size: clamp(30px, 4vw, 44px);
+      line-height: 1.08;
+      max-width: 650px;
+    }
+
+    .section-head p {
+      margin-bottom: 0;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 440px;
+    }
+
+    .plans {
+      background: #101A2E;
+      border-bottom: 1px solid rgba(148, 163, 184, .12);
+    }
+
+    .price-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .price-card,
+    .faq-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .025);
+    }
+
+    .price-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: 460px;
+      padding: 24px;
+    }
+
+    .price-card.featured {
+      border-color: rgba(99, 102, 241, .78);
+      background: rgba(99, 102, 241, .09);
+    }
+
+    .plan-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+
+    .plan-top h2 {
+      margin-bottom: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border: 1px solid rgba(34, 211, 238, .42);
+      border-radius: 999px;
+      color: var(--cyan);
+      background: rgba(34, 211, 238, .08);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .plan-meta {
+      min-height: 48px;
+      margin-bottom: 18px;
+      color: var(--soft);
+      line-height: 1.55;
+    }
+
+    .price {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 18px;
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .price span {
+      color: var(--soft);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .checks {
+      display: grid;
+      gap: 12px;
+      margin: 0 0 24px;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    .checks li {
+      display: grid;
+      grid-template-columns: 20px 1fr;
+      gap: 8px;
+    }
+
+    .checks li::before {
+      content: "\2713";
+      color: var(--cyan);
+      font-weight: 800;
+    }
+
+    .price-card .btn {
+      width: 100%;
+      margin-top: auto;
+    }
+
+    .usage {
+      padding-top: 34px;
+    }
+
+    .usage h3 {
+      margin-bottom: 14px;
+      font-size: 18px;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .chip strong {
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    .faq-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .faq-item {
+      padding: 20px;
+    }
+
+    .faq-item h3 {
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+
+    .faq-item p {
+      margin-bottom: 0;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .footer {
+      padding: 34px 0;
+      border-top: 1px solid rgba(148, 163, 184, .16);
+      color: var(--soft);
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      font-size: 14px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+    }
+
+    @media (max-width: 980px) {
+      .nav-links {
+        display: none;
+      }
+
+      .hero-content,
+      .price-grid,
+      .faq-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-head {
+        display: block;
+      }
+
+      .section-head p {
+        margin-top: 12px;
+      }
+
+      .price-card {
+        min-height: auto;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        width: min(100% - 28px, 1180px);
+      }
+
+      .nav-inner {
+        min-height: 66px;
+      }
+
+      .nav-actions .btn-secondary {
+        display: none;
+      }
+
+      .pricing-hero {
+        padding-top: 46px;
+      }
+
+      h1 {
+        font-size: 42px;
+      }
+
+      .hero-copy {
+        font-size: 16px;
+      }
+
+      section {
+        padding: 58px 0;
+      }
+
+      .footer-inner {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="brand" aria-label="VideoToSRT home">
+        <span class="brand-mark">VS</span>
+        <span>VideoToSRT</span>
+      </a>
+      <div class="nav-links" aria-label="Primary navigation">
+        <a href="index.html#workflow">Workflow</a>
+        <a href="index.html#editor">Editor</a>
+        <a href="index.html#features">Features</a>
+        <a class="active" href="pricing.html">Pricing</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <div class="nav-actions">
+        <a class="btn btn-secondary" href="pricing.html">Sign in</a>
+        <a class="btn btn-primary" href="index.html#upload">Start free</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <header class="pricing-hero">
+      <div class="container hero-content">
+        <div>
+          <span class="eyebrow"><span class="dot"></span> Simple subtitle pricing</span>
+          <h1>Choose the plan that fits your video workload.</h1>
+          <p class="hero-copy">Start with free subtitle exports, move into burn-in and batch workflows when volume grows, or add team controls and API access for production work.</p>
+        </div>
+        <div class="billing-panel" aria-label="Billing period">
+          <p>Switch billing to compare monthly flexibility with annual savings.</p>
+          <div class="billing-toggle">
+            <button class="active" type="button" data-billing="monthly">Monthly</button>
+            <button type="button" data-billing="annual">Annual</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section class="plans" id="pricing">
+      <div class="container">
+        <div class="section-head">
+          <h2>Plans for creators, publishers, and subtitle teams.</h2>
+          <p>Every plan includes the focused VideoToSRT editor and export controls for clean caption handoff.</p>
+        </div>
+
+        <div class="price-grid">
+          <article class="price-card">
+            <div class="plan-top">
+              <h2>Starter</h2>
+            </div>
+            <p class="plan-meta">For quick subtitle files and short one-off videos.</p>
+            <div class="price" data-monthly="Free" data-annual="Free">Free <span></span></div>
+            <ul class="checks">
+              <li>30 transcription minutes</li>
+              <li>SRT, VTT, and TXT export</li>
+              <li>Basic subtitle editor</li>
+              <li>Single project workspace</li>
+            </ul>
+            <a class="btn btn-secondary" href="index.html#upload">Start free</a>
+          </article>
+
+          <article class="price-card featured">
+            <div class="plan-top">
+              <h2>Pro</h2>
+              <span class="badge">Popular</span>
+            </div>
+            <p class="plan-meta">For creators and small teams publishing video every week.</p>
+            <div class="price" data-monthly="$9" data-annual="$90">$9 <span>/mo</span></div>
+            <ul class="checks">
+              <li>10 transcription hours</li>
+              <li>Burn-in subtitles</li>
+              <li>Caption templates</li>
+              <li>Batch processing for 20 files</li>
+              <li>Priority processing queue</li>
+            </ul>
+            <a class="btn btn-primary" href="index.html#upload">Start Pro</a>
+          </article>
+
+          <article class="price-card">
+            <div class="plan-top">
+              <h2>Business</h2>
+            </div>
+            <p class="plan-meta">For agencies, course teams, and product media groups.</p>
+            <div class="price" data-monthly="$29" data-annual="$290">$29 <span>/mo</span></div>
+            <ul class="checks">
+              <li>50 transcription hours</li>
+              <li>Team workspace for 3 users</li>
+              <li>API access</li>
+              <li>Brand templates</li>
+              <li>Shared project review</li>
+            </ul>
+            <a class="btn btn-secondary" href="index.html#upload">Contact sales</a>
+          </article>
+        </div>
+
+        <div class="usage" aria-label="Pay as you go options">
+          <h3>Pay-as-you-go transcription</h3>
+          <div class="chip-row">
+            <span class="chip"><strong>$5</strong> 2 hours</span>
+            <span class="chip"><strong>$12</strong> 5 hours</span>
+            <span class="chip"><strong>$39</strong> 20 hours</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="container">
+        <div class="section-head">
+          <h2>Frequently asked questions.</h2>
+          <p>Common details about billing, transcription hours, exports, and team usage.</p>
+        </div>
+        <div class="faq-grid">
+          <article class="faq-item">
+            <h3>What happens when I run out of transcription hours?</h3>
+            <p>You can upgrade your plan or add pay-as-you-go hours without changing your existing workspace.</p>
+          </article>
+          <article class="faq-item">
+            <h3>Do unused hours roll over?</h3>
+            <p>Plan hours reset each billing cycle. Pay-as-you-go hours stay available until they are used.</p>
+          </article>
+          <article class="faq-item">
+            <h3>Can I export subtitles on the free plan?</h3>
+            <p>Yes. Starter supports SRT, VTT, and TXT export for projects within the free 30 minute allowance.</p>
+          </article>
+          <article class="faq-item">
+            <h3>Is burn-in included?</h3>
+            <p>Burn-in subtitle rendering is included with Pro and Business plans, along with reusable caption templates.</p>
+          </article>
+          <article class="faq-item">
+            <h3>Does Business include API access?</h3>
+            <p>Yes. Business includes API access for automated upload, transcription, export, and status workflows.</p>
+          </article>
+          <article class="faq-item">
+            <h3>Can I switch between monthly and annual billing?</h3>
+            <p>Yes. You can switch billing periods from workspace settings before the next renewal.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <a href="index.html" class="brand">
+        <span class="brand-mark">VS</span>
+        <span>VideoToSRT</span>
+      </a>
+      <div>&copy; 2026 VideoToSRT. Built for faster subtitle production.</div>
+      <div class="footer-links">
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+        <a href="#">Support</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const billingButtons = document.querySelectorAll("[data-billing]");
+    const prices = document.querySelectorAll(".price[data-monthly]");
+
+    function setBilling(period) {
+      billingButtons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.billing === period);
+      });
+
+      prices.forEach((price) => {
+        const value = price.dataset[period];
+        const suffix = value === "Free" ? "" : period === "monthly" ? "/mo" : "/yr";
+        price.innerHTML = `${value} <span>${suffix}</span>`;
+      });
+    }
+
+    billingButtons.forEach((button) => {
+      button.addEventListener("click", () => setBilling(button.dataset.billing));
+    });
+  </script>
+</body>
+</html>
