@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --bg: #0F172A;
+  --panel: #111C32;
+  --panel-2: #17233A;
+  --panel-3: #1D2A44;
+  --line: #2A3852;
+  --text: #F8FAFC;
+  --muted: #CBD5E1;
+  --soft: #94A3B8;
+  --indigo: #6366F1;
+  --cyan: #22D3EE;
+  --success: #34D399;
+  --warning: #FBBF24;
+  --danger: #FB7185;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  letter-spacing: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+@layer components {
+  .site-container {
+    @apply mx-auto w-[min(1180px,calc(100%_-_40px))];
+  }
+
+  .nav-link {
+    @apply text-sm font-semibold text-muted transition hover:text-text;
+  }
+
+  .brand-mark {
+    @apply grid h-[34px] w-[34px] place-items-center rounded bg-indigo text-sm font-extrabold text-white;
+  }
+
+  .eyebrow {
+    @apply inline-flex min-h-[30px] items-center gap-[9px] rounded-full border border-cyan/30 bg-cyan/10 px-[11px] text-[13px] font-bold text-cyan;
+  }
+
+  .dot {
+    @apply h-[7px] w-[7px] rounded-full bg-cyan;
+  }
+
+  .panel-card {
+    @apply rounded border border-line bg-white/[.025];
+  }
+
+  .window-bar {
+    @apply flex min-h-[46px] items-center justify-between border-b border-line bg-[#121B2F] px-4;
+  }
+
+  .traffic {
+    @apply flex gap-[7px];
+  }
+
+  .traffic span {
+    @apply h-2.5 w-2.5 rounded-full bg-line;
+  }
+
+  .traffic span:nth-child(1) {
+    @apply bg-danger;
+  }
+
+  .traffic span:nth-child(2) {
+    @apply bg-warning;
+  }
+
+  .traffic span:nth-child(3) {
+    @apply bg-success;
+  }
+
+  .section-pad {
+    @apply py-[76px];
+  }
+
+  .section-head {
+    @apply mb-7 flex items-end justify-between gap-8 max-md:block;
+  }
+
+  .section-head h2 {
+    @apply mb-0 max-w-[650px] text-[clamp(30px,4vw,44px)] font-extrabold leading-[1.08];
+  }
+
+  .section-head p {
+    @apply mb-0 max-w-[440px] text-muted leading-[1.7] max-md:mt-4;
+  }
+}

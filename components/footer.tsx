@@ -1,0 +1,20 @@
+import Link from "next/link";
+import { Brand } from "@/components/brand";
+
+export function Footer() {
+  return (
+    <footer className="border-t border-soft/15 py-8">
+      <div className="site-container flex flex-wrap items-center justify-between gap-5">
+        <Brand />
+        <div className="flex flex-wrap gap-4 text-sm font-semibold text-soft">
+          <Link href="/pricing">Pricing</Link>
+          <Link href="/editor">Editor</Link>
+          <Link href="/privacy-policy">Privacy</Link>
+          <Link href="/terms-of-service">Terms</Link>
+          <a href="mailto:support@videotosrt.org">Contact</a>
+        </div>
+        <p className="mb-0 text-sm text-soft">© 2026 VideoToSRT. Made for creators.</p>
+      </div>
+    </footer>
+  );
+}

@@ -1,0 +1,11 @@
+.next/
+.open-next/
+node_modules/
+.vercel/
+.wrangler/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env*
+!.env.example
