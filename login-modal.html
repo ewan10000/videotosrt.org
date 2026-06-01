@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VideoToSRT | Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0F172A;
+      --panel: #111C32;
+      --panel-2: #17233A;
+      --panel-3: #1D2A44;
+      --line: #2A3852;
+      --text: #F8FAFC;
+      --muted: #CBD5E1;
+      --soft: #94A3B8;
+      --indigo: #6366F1;
+      --cyan: #22D3EE;
+      --success: #34D399;
+      --radius: 8px;
+      --shadow: 0 24px 80px rgba(0, 0, 0, .28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      letter-spacing: 0;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .container {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    /* ===== Background page preview ===== */
+    .page-preview {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      filter: blur(2px);
+      opacity: 0.35;
+    }
+
+    .page-preview .nav {
+      position: sticky;
+      top: 0;
+      border-bottom: 1px solid rgba(148, 163, 184, .18);
+      background: rgba(15,23,42,0.95);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 72px;
+      gap: 24px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      font-weight: 800;
+      font-size: 18px;
+      white-space: nowrap;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--indigo);
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 16px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text);
+      background: transparent;
+    }
+
+    .btn-secondary {
+      border-color: var(--line);
+      background: rgba(255, 255, 255, .03);
+    }
+
+    .btn-primary {
+      background: var(--indigo);
+      box-shadow: 0 12px 30px rgba(99, 102, 241, .22);
+    }
+
+    .hero-preview {
+      padding: 72px 0 44px;
+      border-bottom: 1px solid rgba(148, 163, 184, .14);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, .92fr) minmax(430px, 1.08fr);
+      gap: 42px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 30px;
+      padding: 0 11px;
+      border: 1px solid rgba(34, 211, 238, .34);
+      border-radius: 999px;
+      color: var(--cyan);
+      background: rgba(34, 211, 238, .08);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--cyan);
+    }
+
+    h1 {
+      margin: 18px 0;
+      font-size: clamp(42px, 6vw, 72px);
+      line-height: .98;
+      letter-spacing: 0;
+      max-width: 780px;
+    }
+
+    .hero-copy {
+      margin: 22px 0 28px;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.7;
+      max-width: 660px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 30px;
+    }
+
+    .upload-shell {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .window-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 46px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      background: #121B2F;
+    }
+
+    .traffic {
+      display: flex;
+      gap: 7px;
+    }
+
+    .traffic span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--line);
+    }
+
+    .window-title {
+      color: var(--soft);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .upload-panel {
+      padding: 22px;
+    }
+
+    .drop-zone {
+      display: grid;
+      place-items: center;
+      min-height: 230px;
+      padding: 26px;
+      border: 1px dashed rgba(34, 211, 238, .62);
+      border-radius: 8px;
+      background: rgba(34, 211, 238, .045);
+      text-align: center;
+    }
+
+    .upload-icon {
+      display: grid;
+      place-items: center;
+      width: 58px;
+      height: 58px;
+      margin: 0 auto 18px;
+      border-radius: 8px;
+      background: var(--indigo);
+      color: #fff;
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    /* ===== Modal overlay ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    .modal-card {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      padding: 36px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow), 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+      color: var(--soft);
+      font-size: 20px;
+      font-weight: 500;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .modal-close:hover {
+      color: var(--text);
+      border-color: var(--muted);
+    }
+
+    .modal-heading {
+      margin: 0 0 28px;
+      font-size: 22px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .form-input {
+      width: 100%;
+      min-height: 44px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel-2);
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color .15s ease;
+    }
+
+    .form-input::placeholder {
+      color: var(--soft);
+    }
+
+    .form-input:focus {
+      border-color: rgba(99, 102, 241, .7);
+    }
+
+    .btn-block {
+      width: 100%;
+      min-height: 46px;
+      margin-top: 8px;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 24px 0;
+      color: var(--soft);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .oauth-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .oauth-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel-2);
+      color: var(--text);
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .oauth-btn:hover {
+      background: var(--panel-3);
+      border-color: var(--muted);
+    }
+
+    .oauth-icon {
+      font-size: 16px;
+    }
+
+    .modal-footer {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .modal-footer a {
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    .modal-footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 520px) {
+      .modal-card {
+        padding: 28px 22px;
+      }
+
+      .oauth-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Faint landing page preview behind modal -->
+  <div class="page-preview" aria-hidden="true">
+    <div class="nav">
+      <div class="container nav-inner">
+        <a href="index.html" class="brand">
+          <span class="brand-mark">VS</span>
+          <span>VideoToSRT</span>
+        </a>
+        <nav class="nav-links">
+          <a href="index.html#workflow">Workflow</a>
+          <a href="index.html#editor">Editor</a>
+          <a href="index.html#features">Features</a>
+          <a href="pricing.html">Pricing</a>
+          <a href="index.html#faq">FAQ</a>
+        </nav>
+        <div class="nav-actions">
+          <a class="btn btn-secondary" href="login-modal.html">Sign in</a>
+          <a class="btn btn-primary" href="index.html#upload">Get started</a>
+        </div>
+      </div>
+    </div>
+
+    <section class="hero-preview">
+      <div class="container hero-grid">
+        <div>
+          <span class="eyebrow"><span class="dot"></span> AI-powered subtitles</span>
+          <h1>Subtitles in seconds.</h1>
+          <p class="hero-copy">Upload any video, get accurate subtitles, and export to SRT or VTT in minutes.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="index.html#upload">Get started free</a>
+            <a class="btn btn-secondary" href="index.html#features">See how it works</a>
+          </div>
+        </div>
+        <div class="upload-shell">
+          <div class="window-bar">
+            <div class="traffic"><span></span><span></span><span></span></div>
+            <div class="window-title">Upload</div>
+            <div style="width:46px"></div>
+          </div>
+          <div class="upload-panel">
+            <div class="drop-zone">
+              <div class="upload-icon">&#8593;</div>
+              <h2 style="margin:0 0 9px;font-size:22px">Drop your video here</h2>
+              <p style="margin:0;color:var(--muted);font-size:14px">MP4, MOV, AVI up to 2 GB</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Login modal -->
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <button class="modal-close" aria-label="Close">&times;</button>
+
+      <h2 id="modal-title" class="modal-heading">Sign in to VideoToSRT</h2>
+
+      <form onsubmit="event.preventDefault();">
+        <div class="form-group">
+          <label class="form-label" for="email">Email</label>
+          <input class="form-input" id="email" type="email" placeholder="you@example.com" autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input class="form-input" id="password" type="password" placeholder="Enter your password" autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+      </form>
+
+      <div class="divider">Or continue with</div>
+
+      <div class="oauth-grid">
+        <button class="oauth-btn" type="button">
+          <span class="oauth-icon">&#9679;</span>
+          Google
+        </button>
+        <button class="oauth-btn" type="button">
+          <span class="oauth-icon">&#9733;</span>
+          GitHub
+        </button>
+      </div>
+
+      <p class="modal-footer">
+        Don't have an account? <a href="#">Sign up</a>
+      </p>
+    </div>
+  </div>
+
+</body>
+</html>

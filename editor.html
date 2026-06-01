@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VideoToSRT | Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0F172A;
+      --panel: #111C32;
+      --panel-2: #17233A;
+      --panel-3: #1D2A44;
+      --line: #2A3852;
+      --text: #F8FAFC;
+      --muted: #CBD5E1;
+      --soft: #94A3B8;
+      --indigo: #6366F1;
+      --cyan: #22D3EE;
+      --success: #34D399;
+      --danger: #FB7185;
+      --surface: var(--panel);
+      --surface-soft: var(--panel-2);
+      --surface-strong: var(--panel-3);
+      --border: var(--line);
+      --text-strong: var(--text);
+      --muted-strong: var(--muted);
+      --button: var(--indigo);
+      --button-hover: color-mix(in srgb, var(--indigo) 82%, var(--bg));
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      color: var(--text);
+      background: var(--bg);
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: 56px minmax(0, 1fr) 34px;
+      height: 100vh;
+      min-width: 980px;
+    }
+
+    .topbar,
+    .statusbar {
+      display: grid;
+      align-items: center;
+      background: var(--surface);
+      border-color: var(--border);
+    }
+
+    .topbar {
+      grid-template-columns: 1fr auto 1fr;
+      height: 56px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text-strong);
+      white-space: nowrap;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+      color: var(--cyan);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .current-time,
+    .timecode,
+    .duration,
+    .time-input {
+      font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0;
+    }
+
+    .current-time {
+      min-width: 142px;
+      padding: 7px 12px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--bg);
+      color: var(--text-strong);
+      text-align: center;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .top-actions {
+      display: inline-flex;
+      justify-self: end;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-button,
+    .action-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--surface-soft);
+      color: var(--muted-strong);
+    }
+
+    .icon-button {
+      width: 36px;
+      padding: 0;
+    }
+
+    .icon-button:hover,
+    .action-button:hover {
+      border-color: var(--line);
+      background: var(--surface-strong);
+      color: var(--text-strong);
+    }
+
+    .action-button {
+      padding: 0 13px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .action-button.primary {
+      border-color: var(--button);
+      background: var(--button);
+      color: var(--text);
+    }
+
+    .action-button.primary:hover {
+      border-color: var(--button-hover);
+      background: var(--button-hover);
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 60% 40%;
+      min-height: 0;
+      background: var(--bg);
+    }
+
+    .video-workspace,
+    .subtitle-panel {
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .video-workspace {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) 96px;
+      padding: 20px;
+      border-right: 1px solid var(--border);
+    }
+
+    .video-frame {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 360px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    .video-play {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 72px;
+      height: 72px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: rgba(15, 23, 42, .88);
+    }
+
+    .video-play svg {
+      width: 30px;
+      height: 30px;
+      margin-left: 4px;
+      fill: var(--text-strong);
+    }
+
+    .video-caption {
+      position: absolute;
+      left: 50%;
+      bottom: 42px;
+      transform: translateX(-50%);
+      width: min(620px, calc(100% - 80px));
+      padding: 10px 14px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, .72);
+      color: var(--text);
+      text-align: center;
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 0 8px;
+    }
+
+    .timeline-track {
+      position: relative;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+    }
+
+    .timeline-progress {
+      position: absolute;
+      inset: -1px auto -1px -1px;
+      width: 22%;
+      border: 1px solid var(--cyan);
+      border-radius: 999px;
+      background: var(--cyan);
+    }
+
+    .timeline-handle {
+      position: absolute;
+      top: 50%;
+      right: -7px;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--text);
+      border-radius: 50%;
+      background: var(--cyan);
+      transform: translateY(-50%);
+    }
+
+    .transport {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .transport-tools {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .subtitle-panel {
+      display: grid;
+      grid-template-rows: 48px minmax(0, 1fr);
+      background: var(--surface);
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-title {
+      margin: 0;
+      color: var(--text-strong);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .panel-meta {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .table-wrap {
+      min-height: 0;
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      height: 36px;
+      padding: 0 12px;
+      background: var(--panel-2);
+      color: var(--muted);
+      text-align: left;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    td {
+      height: 58px;
+      padding: 10px 12px;
+      color: var(--muted-strong);
+      font-size: 13px;
+      line-height: 1.35;
+      background: var(--surface);
+    }
+
+    .col-num {
+      width: 48px;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .col-time {
+      width: 166px;
+    }
+
+    tbody tr:hover td {
+      background: var(--panel-3);
+    }
+
+    tbody tr.active td {
+      background: var(--panel-2);
+    }
+
+    tbody tr.active td:first-child {
+      border-left: 4px solid var(--cyan);
+      color: var(--cyan);
+      padding-left: 8px;
+    }
+
+    .timecode {
+      color: var(--cyan);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .subtitle-text {
+      color: var(--text);
+    }
+
+    .edit-row td {
+      background: var(--panel);
+    }
+
+    .edit-fields {
+      display: grid;
+      gap: 8px;
+    }
+
+    .time-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .time-input,
+    .text-input {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      outline: none;
+      background: var(--bg);
+      color: var(--text-strong);
+    }
+
+    .time-input {
+      height: 28px;
+      padding: 0 7px;
+      font-size: 11px;
+    }
+
+    .text-input {
+      height: 34px;
+      padding: 0 9px;
+      font-size: 13px;
+    }
+
+    .time-input:focus,
+    .text-input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 2px rgba(34, 211, 238, .14);
+    }
+
+    .statusbar {
+      grid-template-columns: auto auto auto 1fr;
+      gap: 18px;
+      height: 34px;
+      padding: 0 14px;
+      border-top: 1px solid var(--border);
+      color: var(--muted-strong);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      white-space: nowrap;
+    }
+
+    .ready-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    @media (max-width: 1100px) {
+      .app {
+        min-width: 760px;
+      }
+
+      .main {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(360px, 52%) minmax(0, 48%);
+      }
+
+      .video-workspace {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .subtitle-panel {
+        min-height: 320px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand" aria-label="VideoToSRT">
+        <span class="brand-mark">VS</span>
+        <span>VideoToSRT</span>
+      </div>
+
+      <div class="current-time" aria-label="Current time">00:00:05.240</div>
+
+      <div class="top-actions">
+        <button class="icon-button" type="button" aria-label="Play or pause">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="currentColor" d="M8 5v14l11-7z"></path>
+          </svg>
+        </button>
+        <button class="action-button" type="button">Export</button>
+        <button class="action-button primary" type="button">Save</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="video-workspace" aria-label="Video editor">
+        <div class="video-frame">
+          <button class="video-play" type="button" aria-label="Play video">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5v14l11-7z"></path>
+            </svg>
+          </button>
+          <div class="video-caption">Let us turn this video into clean subtitles.</div>
+        </div>
+
+        <div>
+          <div class="timeline" aria-label="Timeline scrubber">
+            <span class="timecode">00:00:00.000</span>
+            <div class="timeline-track">
+              <div class="timeline-progress">
+                <span class="timeline-handle"></span>
+              </div>
+            </div>
+            <span class="timecode duration">00:04:32.000</span>
+          </div>
+          <div class="transport">
+            <span>Playback</span>
+            <div class="transport-tools">
+              <button class="icon-button" type="button" aria-label="Skip backward">
+                <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+                  <path fill="currentColor" d="M11 6v12l-8-6 8-6Zm2 0h2v12h-2V6Zm4 0h2v12h-2V6Z"></path>
+                </svg>
+              </button>
+              <button class="icon-button" type="button" aria-label="Skip forward">
+                <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+                  <path fill="currentColor" d="M13 18V6l8 6-8 6ZM9 6h2v12H9V6ZM5 6h2v12H5V6Z"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="subtitle-panel" aria-label="Subtitle table">
+        <div class="panel-head">
+          <h1 class="panel-title">Subtitles</h1>
+          <span class="panel-meta">42 items</span>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th class="col-num">#</th>
+                <th class="col-time">Start-End</th>
+                <th>Text</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="col-num">1</td>
+                <td class="col-time"><span class="timecode">00:00:00.000 - 00:00:02.180</span></td>
+                <td><span class="subtitle-text">Welcome back. Today we are converting video speech into SRT.</span></td>
+              </tr>
+              <tr>
+                <td class="col-num">2</td>
+                <td class="col-time"><span class="timecode">00:00:02.180 - 00:00:04.720</span></td>
+                <td><span class="subtitle-text">The first pass gives us accurate timestamps and editable text.</span></td>
+              </tr>
+              <tr class="active">
+                <td class="col-num">3</td>
+                <td class="col-time"><span class="timecode">00:00:04.720 - 00:00:07.460</span></td>
+                <td><span class="subtitle-text">Let us turn this video into clean subtitles.</span></td>
+              </tr>
+              <tr>
+                <td class="col-num">4</td>
+                <td class="col-time"><span class="timecode">00:00:07.460 - 00:00:10.120</span></td>
+                <td><span class="subtitle-text">You can review each segment and adjust timing where needed.</span></td>
+              </tr>
+              <tr class="edit-row">
+                <td class="col-num">5</td>
+                <td class="col-time">
+                  <div class="time-fields">
+                    <input class="time-input" type="text" value="00:00:10.120" aria-label="Start time row 5">
+                    <input class="time-input" type="text" value="00:00:13.300" aria-label="End time row 5">
+                  </div>
+                </td>
+                <td>
+                  <input class="text-input" type="text" value="This row is open for direct subtitle editing." aria-label="Subtitle text row 5">
+                </td>
+              </tr>
+              <tr>
+                <td class="col-num">6</td>
+                <td class="col-time"><span class="timecode">00:00:13.300 - 00:00:16.080</span></td>
+                <td><span class="subtitle-text">Shortcuts keep the editing flow fast and predictable.</span></td>
+              </tr>
+              <tr>
+                <td class="col-num">7</td>
+                <td class="col-time"><span class="timecode">00:00:16.080 - 00:00:19.640</span></td>
+                <td><span class="subtitle-text">The preview updates as you move across the timeline.</span></td>
+              </tr>
+              <tr>
+                <td class="col-num">8</td>
+                <td class="col-time"><span class="timecode">00:00:19.640 - 00:00:22.960</span></td>
+                <td><span class="subtitle-text">Export creates a standard subtitle file for your player.</span></td>
+              </tr>
+              <tr>
+                <td class="col-num">9</td>
+                <td class="col-time"><span class="timecode">00:00:22.960 - 00:00:26.420</span></td>
+                <td><span class="subtitle-text">Save your draft before switching projects.</span></td>
+              </tr>
+              <tr>
+                <td class="col-num">10</td>
+                <td class="col-time"><span class="timecode">00:00:26.420 - 00:00:30.000</span></td>
+                <td><span class="subtitle-text">VideoToSRT keeps the transcript and timing in one focused workspace.</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="statusbar">
+      <span class="status-item"><span class="ready-dot"></span>Ready</span>
+      <span class="status-item">42 subtitles</span>
+      <span class="status-item"><span class="timecode">4:32</span> duration</span>
+      <span class="status-item">Whisper EN</span>
+    </footer>
+  </div>
+</body>
+</html>
