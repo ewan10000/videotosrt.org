@@ -435,6 +435,32 @@
       font-size: 18px;
     }
 
+    .plan-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 9px;
+    }
+
+    .plan-top h3 {
+      margin-bottom: 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border: 1px solid rgba(34, 211, 238, .42);
+      border-radius: 999px;
+      color: var(--cyan);
+      background: rgba(34, 211, 238, .08);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
     .step p,
     .feature p,
     .faq-item p {
@@ -1092,9 +1118,12 @@
             <a class="btn btn-secondary" href="#upload">Try free</a>
           </article>
           <article class="price-card featured">
-            <h3>Pro</h3>
+            <div class="plan-top">
+              <h3>Pro</h3>
+              <span class="badge">Popular</span>
+            </div>
             <p class="plan-meta">For creators and teams publishing weekly video.</p>
-            <div class="price">$19 <span>/ month</span></div>
+            <div class="price">$9 <span>/ month</span></div>
             <ul class="checks">
               <li>20 transcription hours</li>
               <li>Translation drafts</li>
@@ -1107,7 +1136,7 @@
           <article class="price-card">
             <h3>Business</h3>
             <p class="plan-meta">For agencies, course teams, and internal media groups.</p>
-            <div class="price">$79 <span>/ month</span></div>
+            <div class="price">$29 <span>/ month</span></div>
             <ul class="checks">
               <li>100 transcription hours</li>
               <li>Shared team workspace</li>

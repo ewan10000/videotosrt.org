@@ -10,19 +10,25 @@
   <style>
     :root {
       --bg: #0F172A;
-      --surface: #1E293B;
-      --surface-soft: #162238;
-      --surface-strong: #243449;
-      --border: #334155;
-      --text: #E2E8F0;
-      --text-strong: #F8FAFC;
-      --muted: #94A3B8;
-      --muted-strong: #CBD5E1;
+      --panel: #111C32;
+      --panel-2: #17233A;
+      --panel-3: #1D2A44;
+      --line: #2A3852;
+      --text: #F8FAFC;
+      --muted: #CBD5E1;
+      --soft: #94A3B8;
+      --indigo: #6366F1;
       --cyan: #22D3EE;
-      --green: #22C55E;
-      --button: #2563EB;
-      --button-hover: #1D4ED8;
-      --danger: #F87171;
+      --success: #34D399;
+      --danger: #FB7185;
+      --surface: var(--panel);
+      --surface-soft: var(--panel-2);
+      --surface-strong: var(--panel-3);
+      --border: var(--line);
+      --text-strong: var(--text);
+      --muted-strong: var(--muted);
+      --button: var(--indigo);
+      --button-hover: color-mix(in srgb, var(--indigo) 82%, var(--bg));
       --radius: 8px;
     }
 
@@ -92,9 +98,9 @@
       place-items: center;
       width: 30px;
       height: 30px;
-      border: 1px solid #475569;
+      border: 1px solid var(--line);
       border-radius: 7px;
-      background: #111827;
+      background: var(--panel);
       color: var(--cyan);
       font-size: 12px;
       font-weight: 800;
@@ -113,7 +119,7 @@
       padding: 7px 12px;
       border: 1px solid var(--border);
       border-radius: 7px;
-      background: #0B1220;
+      background: var(--bg);
       color: var(--text-strong);
       text-align: center;
       font-size: 15px;
@@ -146,7 +152,7 @@
 
     .icon-button:hover,
     .action-button:hover {
-      border-color: #475569;
+      border-color: var(--line);
       background: var(--surface-strong);
       color: var(--text-strong);
     }
@@ -160,7 +166,7 @@
     .action-button.primary {
       border-color: var(--button);
       background: var(--button);
-      color: #FFFFFF;
+      color: var(--text);
     }
 
     .action-button.primary:hover {
@@ -195,7 +201,7 @@
       min-height: 360px;
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      background: #000000;
+      background: var(--bg);
       overflow: hidden;
     }
 
@@ -205,7 +211,7 @@
       place-items: center;
       width: 72px;
       height: 72px;
-      border: 1px solid #475569;
+      border: 1px solid var(--line);
       border-radius: 50%;
       background: rgba(15, 23, 42, .88);
     }
@@ -226,7 +232,7 @@
       padding: 10px 14px;
       border-radius: 6px;
       background: rgba(0, 0, 0, .72);
-      color: #FFFFFF;
+      color: var(--text);
       text-align: center;
       font-size: 18px;
       font-weight: 600;
@@ -245,7 +251,7 @@
       position: relative;
       height: 8px;
       border-radius: 999px;
-      background: #020617;
+      background: var(--bg);
       border: 1px solid var(--border);
     }
 
@@ -264,7 +270,7 @@
       right: -7px;
       width: 16px;
       height: 16px;
-      border: 2px solid #FFFFFF;
+      border: 2px solid var(--text);
       border-radius: 50%;
       background: var(--cyan);
       transform: translateY(-50%);
@@ -337,7 +343,7 @@
       z-index: 2;
       height: 36px;
       padding: 0 12px;
-      background: #172033;
+      background: var(--panel-2);
       color: var(--muted);
       text-align: left;
       font-size: 11px;
@@ -365,11 +371,11 @@
     }
 
     tbody tr:hover td {
-      background: #223047;
+      background: var(--panel-3);
     }
 
     tbody tr.active td {
-      background: #15263B;
+      background: var(--panel-2);
     }
 
     tbody tr.active td:first-child {
@@ -379,7 +385,7 @@
     }
 
     .timecode {
-      color: #BAE6FD;
+      color: var(--cyan);
       font-size: 12px;
       font-weight: 600;
       white-space: nowrap;
@@ -390,7 +396,7 @@
     }
 
     .edit-row td {
-      background: #111827;
+      background: var(--panel);
     }
 
     .edit-fields {
@@ -408,10 +414,10 @@
     .text-input {
       width: 100%;
       min-width: 0;
-      border: 1px solid #475569;
+      border: 1px solid var(--line);
       border-radius: 6px;
       outline: none;
-      background: #0B1220;
+      background: var(--bg);
       color: var(--text-strong);
     }
 
@@ -456,7 +462,7 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--green);
+      background: var(--success);
     }
 
     @media (max-width: 1100px) {
