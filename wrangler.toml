@@ -1,0 +1,27 @@
+name = "videotosrt-backend"
+main = "src/worker.ts"
+compatibility_date = "2026-04-30"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "videotosrt-db"
+database_id = "3a5b095b-3914-443f-b256-365a4d912063"
+
+[[queues.producers]]
+binding = "AI_QUEUE"
+queue = "videotosrt-ai-queue"
+
+[[queues.consumers]]
+queue = "videotosrt-ai-queue"
+max_batch_size = 5
+max_batch_timeout = 30
+
+[vars]
+SITE_NAME = "VideoToSRT"
+APP_ORIGIN = "https://videotosrt.org"
+AI_PROVIDER = "groq-whisper"
+PAYMENT_PROVIDER = "stripe"
