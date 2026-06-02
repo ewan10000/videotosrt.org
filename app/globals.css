@@ -48,7 +48,7 @@ textarea {
 
 @layer components {
   .site-container {
-    @apply mx-auto w-[min(1180px,calc(100%_-_40px))];
+    @apply mx-auto w-[min(1180px,calc(100%_-_24px))] sm:w-[min(1180px,calc(100%_-_40px))];
   }
 
   .nav-link {

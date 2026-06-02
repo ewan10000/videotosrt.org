@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
+import { LoginModal } from "@/components/modals/login-modal";
 import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
+import { api, type ApiUser } from "@/lib/api";
+import { getLocalUser, normalizeUser, onAuthChange } from "@/lib/auth";
 
 const plans = [
   {
@@ -37,9 +39,38 @@ const plans = [
 export function PricingClient() {
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
   const [loadingPlan, setLoadingPlan] = useState<"pro" | "business" | null>(null);
+  const [user, setUser] = useState<ApiUser | null>(null);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [pendingPlan, setPendingPlan] = useState<"pro" | "business" | null>(null);
+  const [checkoutError, setCheckoutError] = useState("");
 
-  async function startCheckout(plan: "pro" | "business") {
+  useEffect(() => {
+    let mounted = true;
+    const removeAuthListener = onAuthChange((nextUser) => setUser(nextUser));
+
+    setUser(getLocalUser());
+    api
+      .me()
+      .then((data) => {
+        if (mounted) {
+          setUser(normalizeUser(data) ?? getLocalUser());
+        }
+      })
+      .catch(() => {
+        if (mounted && !getLocalUser()) {
+          setUser(null);
+        }
+      });
+
+    return () => {
+      mounted = false;
+      removeAuthListener();
+    };
+  }, []);
+
+  async function runCheckout(plan: "pro" | "business") {
     setLoadingPlan(plan);
+    setCheckoutError("");
     try {
       const data = await api.checkout(plan);
       const url = data.url ?? data.checkout_url ?? data.sessionUrl;
@@ -50,14 +81,34 @@ export function PricingClient() {
 
       window.location.href = url;
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Could not start checkout. Please try again.");
+      setCheckoutError(error instanceof Error ? error.message : "Could not start checkout. Please try again.");
     } finally {
       setLoadingPlan(null);
     }
   }
 
+  function startCheckout(plan: "pro" | "business") {
+    if (!user) {
+      setPendingPlan(plan);
+      setLoginOpen(true);
+      return;
+    }
+
+    runCheckout(plan);
+  }
+
+  function handleLoginSuccess(nextUser: ApiUser) {
+    setUser(nextUser);
+    const plan = pendingPlan;
+    setPendingPlan(null);
+    if (plan) {
+      runCheckout(plan);
+    }
+  }
+
   return (
     <>
+      <LoginModal open={loginOpen} onOpenChange={setLoginOpen} onLoginSuccess={handleLoginSuccess} />
       <header className="border-b border-soft/15 py-[72px]">
         <div className="site-container grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
@@ -90,6 +141,14 @@ export function PricingClient() {
             <h2>Choose a plan.</h2>
             <p>Every plan includes the focused VideoToSRT editor and export controls for clean caption handoff.</p>
           </div>
+          {checkoutError ? (
+            <p className="mb-4 flex items-center justify-end gap-3 text-sm font-semibold text-red-300">
+              <span>{checkoutError}</span>
+              <button className="text-xs font-extrabold text-red-200 underline underline-offset-2" type="button" onClick={() => setCheckoutError("")}>
+                Close
+              </button>
+            </p>
+          ) : null}
           <div className="grid gap-4 lg:grid-cols-3">
             {plans.map((plan) => (
               <article key={plan.name} className={`panel-card p-[22px] ${plan.featured ? "border-cyan bg-cyan/[.045] shadow-panel" : ""}`}>

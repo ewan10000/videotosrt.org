@@ -1,4 +1,4 @@
-export const API_BASE_URL = "https://videotosrt-backend.ewan0862.workers.dev/api";
+export const API_BASE_URL = "https://api.videotosrt.org/api";
 
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: BodyInit | Record<string, unknown> | null;
@@ -8,6 +8,7 @@ export type ApiUser = {
   id?: string;
   email?: string;
   name?: string;
+  avatar?: string;
   image?: string;
 };
 

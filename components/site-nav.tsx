@@ -6,35 +6,25 @@ import { Brand } from "@/components/brand";
 import { LoginModal } from "@/components/modals/login-modal";
 import { Button } from "@/components/ui/button";
 import { api, type ApiUser } from "@/lib/api";
-
-type MeResponse = ApiUser | { user?: ApiUser | null } | null;
-
-function normalizeUser(data: MeResponse): ApiUser | null {
-  if (!data) {
-    return null;
-  }
-
-  if ("user" in data) {
-    return data.user ?? null;
-  }
-
-  return data as ApiUser;
-}
+import { getLocalUser, normalizeUser, onAuthChange, setLocalUser } from "@/lib/auth";
 
 export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" }) {
   const [user, setUser] = useState<ApiUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [logoutError, setLogoutError] = useState("");
 
   useEffect(() => {
     let mounted = true;
+    const removeAuthListener = onAuthChange((nextUser) => setUser(nextUser));
 
+    setUser(getLocalUser());
     api
       .me()
       .then((data) => {
         if (!mounted) {
           return;
         }
-        setUser(normalizeUser(data));
+        setUser(normalizeUser(data) ?? getLocalUser());
       })
       .catch(() => {
         if (mounted) {
@@ -49,15 +39,22 @@ export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" }) 
 
     return () => {
       mounted = false;
+      removeAuthListener();
     };
   }, []);
 
   async function handleLogout() {
+    const localUser = getLocalUser();
+    setLogoutError("");
     try {
       await api.logout();
-      setUser(null);
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Could not sign out. Please try again.");
+      if (!localUser) {
+        setLogoutError(error instanceof Error ? error.message : "Could not sign out. Please try again.");
+      }
+    } finally {
+      setLocalUser(null);
+      setUser(null);
     }
   }
 
@@ -82,13 +79,23 @@ export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" }) 
           ) : loading ? (
             <Button variant="secondary" type="button" disabled>Checking...</Button>
           ) : (
-            <LoginModal trigger={<Button variant="secondary">Sign in</Button>} />
+            <LoginModal trigger={<Button variant="secondary">Sign in</Button>} onLoginSuccess={setUser} />
           )}
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px" href="/#upload">
             Start free
           </Link>
         </div>
       </div>
+      {logoutError ? (
+        <div className="site-container pb-3">
+          <p className="mb-0 flex items-center justify-end gap-3 text-sm font-semibold text-red-300">
+            <span>{logoutError}</span>
+            <button className="text-xs font-extrabold text-red-200 underline underline-offset-2" type="button" onClick={() => setLogoutError("")}>
+              Close
+            </button>
+          </p>
+        </div>
+      ) : null}
     </nav>
   );
 }

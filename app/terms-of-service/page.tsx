@@ -9,6 +9,8 @@ export const metadata: Metadata = {
 };
 
 export default function TermsOfServicePage() {
+  const lastUpdated = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
   return (
     <>
       <SiteNav />
@@ -16,7 +18,7 @@ export default function TermsOfServicePage() {
         <article className="mx-auto max-w-3xl">
           <span className="eyebrow"><span className="dot" /> Legal</span>
           <h1 className="mb-5 mt-5 text-[clamp(38px,6vw,60px)] font-extrabold leading-none">Terms of Service</h1>
-          <p className="text-muted">Last updated: May 31, 2026</p>
+          <p className="text-muted">Last updated: {lastUpdated}</p>
           {[
             ["Use of service", "VideoToSRT provides browser-based subtitle generation, editing, and export workflows. You are responsible for the media you upload and the rights needed to process it."],
             ["Accounts and exports", "You may upload and edit before signing in. Export, billing, and saved project features may require an account."],

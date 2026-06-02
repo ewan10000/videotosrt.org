@@ -9,6 +9,8 @@ export const metadata: Metadata = {
 };
 
 export default function PrivacyPolicyPage() {
+  const lastUpdated = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
   return (
     <>
       <SiteNav />
@@ -16,7 +18,7 @@ export default function PrivacyPolicyPage() {
         <article className="mx-auto max-w-3xl">
           <span className="eyebrow"><span className="dot" /> Legal</span>
           <h1 className="mb-5 mt-5 text-[clamp(38px,6vw,60px)] font-extrabold leading-none">Privacy Policy</h1>
-          <p className="text-muted">Last updated: May 31, 2026</p>
+          <p className="text-muted">Last updated: {lastUpdated}</p>
           {[
             ["What we collect", "We collect account details you provide, uploaded media, generated transcripts, subtitle edits, export settings, and basic operational logs needed to run VideoToSRT."],
             ["How we use data", "We use data to process uploads, generate subtitles, save drafts, manage usage limits, provide support, prevent abuse, and improve reliability."],
