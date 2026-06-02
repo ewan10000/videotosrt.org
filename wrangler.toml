@@ -24,4 +24,4 @@ max_batch_timeout = 30
 SITE_NAME = "VideoToSRT"
 APP_ORIGIN = "https://videotosrt.org"
 AI_PROVIDER = "groq-whisper"
-PAYMENT_PROVIDER = "stripe"
+PAYMENT_PROVIDER = "creem"
