@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
 
 const plans = [
   {
@@ -34,6 +36,26 @@ const plans = [
 
 export function PricingClient() {
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
+  const [loadingPlan, setLoadingPlan] = useState<"pro" | "business" | null>(null);
+
+  async function startCheckout(plan: "pro" | "business") {
+    setLoadingPlan(plan);
+    try {
+      const data = await api.checkout(plan);
+      const url = data.url ?? data.checkout_url ?? data.sessionUrl;
+
+      if (!url) {
+        throw new Error("Checkout is not available right now. Please try again later.");
+      }
+
+      window.location.href = url;
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not start checkout. Please try again.");
+    } finally {
+      setLoadingPlan(null);
+    }
+  }
+
   return (
     <>
       <header className="border-b border-soft/15 py-[72px]">
@@ -85,9 +107,25 @@ export function PricingClient() {
                     <li key={feature} className="flex gap-2 text-sm text-muted"><Check className="h-4 w-4 shrink-0 text-success" />{feature}</li>
                   ))}
                 </ul>
-                <Link className={`inline-flex min-h-[42px] w-full items-center justify-center rounded px-4 text-sm font-bold ${plan.featured ? "bg-indigo" : "border border-line bg-white/[.03]"}`} href="/#upload">
-                  {plan.name === "Business" ? "Contact sales" : plan.name === "Pro" ? "Start Pro" : "Start free"}
-                </Link>
+                {plan.name === "Starter" ? (
+                  <Link className="inline-flex min-h-[42px] w-full items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold" href="/#upload">
+                    Start free
+                  </Link>
+                ) : (
+                  <Button
+                    variant={plan.featured ? "primary" : "secondary"}
+                    className="w-full"
+                    type="button"
+                    disabled={loadingPlan !== null}
+                    onClick={() => startCheckout(plan.name === "Pro" ? "pro" : "business")}
+                  >
+                    {loadingPlan === (plan.name === "Pro" ? "pro" : "business")
+                      ? "Opening checkout..."
+                      : plan.name === "Pro"
+                        ? "Start Pro"
+                        : "Start Business"}
+                  </Button>
+                )}
               </article>
             ))}
           </div>

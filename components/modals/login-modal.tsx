@@ -3,6 +3,7 @@
 import type * as React from "react";
 import { Github, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { authLoginUrl } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,10 @@ import {
 } from "@/components/ui/dialog";
 
 export function LoginModal({ trigger }: { trigger: React.ReactNode }) {
+  function startLogin(provider: "google" | "github" | "email") {
+    window.location.href = authLoginUrl(provider, window.location.href);
+  }
+
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -24,18 +29,18 @@ export function LoginModal({ trigger }: { trigger: React.ReactNode }) {
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
-          <Button variant="secondary" className="w-full gap-2">
+          <Button variant="secondary" className="w-full gap-2" type="button" onClick={() => startLogin("email")}>
             <Mail className="h-4 w-4" />
             Continue with email
           </Button>
-          <Button variant="secondary" className="w-full gap-2">
+          <Button variant="secondary" className="w-full gap-2" type="button" onClick={() => startLogin("github")}>
             <Github className="h-4 w-4" />
             Continue with GitHub
           </Button>
-          <Button variant="secondary" className="w-full">Continue with Google</Button>
+          <Button variant="secondary" className="w-full" type="button" onClick={() => startLogin("google")}>Continue with Google</Button>
         </div>
         <div className="my-2 h-px bg-line" />
-        <form className="grid gap-4">
+        <form className="grid gap-4" onSubmit={(event) => event.preventDefault()}>
           <label className="grid gap-2 text-sm font-bold">
             Email
             <input className="min-h-11 rounded border border-line bg-panel-2 px-3 text-text outline-none focus:border-cyan" type="email" placeholder="you@example.com" />
@@ -44,7 +49,7 @@ export function LoginModal({ trigger }: { trigger: React.ReactNode }) {
             Password
             <input className="min-h-11 rounded border border-line bg-panel-2 px-3 text-text outline-none focus:border-cyan" type="password" placeholder="••••••••" />
           </label>
-          <Button variant="primary" type="button">Create account and export</Button>
+          <Button variant="primary" type="button" onClick={() => startLogin("email")}>Create account and export</Button>
         </form>
         <p className="mb-0 text-xs leading-5 text-soft">
           By continuing you agree to the VideoToSRT Terms and Privacy Policy.
