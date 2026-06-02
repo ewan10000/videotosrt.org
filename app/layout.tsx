@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     description: "Upload, edit, and export production-ready subtitles in one browser workflow.",
     url: "https://videotosrt.org",
     siteName: "VideoToSRT",
-    images: [{ url: "/og-image.svg", width: 1200, height: 630 }],
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
     locale: "en_US",
     type: "website"
   },
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "VideoToSRT | AI Subtitle Editor",
     description: "AI transcription, inline subtitle editing, and clean SRT/VTT/TXT export.",
-    images: ["/og-image.svg"]
+    images: ["/og-image.png"]
   }
 };
 
