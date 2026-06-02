@@ -30,6 +30,20 @@ const config: Config = {
       boxShadow: {
         panel: "0 24px 80px rgba(0,0,0,.28)"
       },
+      keyframes: {
+        "collapsible-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-collapsible-content-height)" }
+        },
+        "collapsible-up": {
+          from: { height: "var(--radix-collapsible-content-height)" },
+          to: { height: "0" }
+        }
+      },
+      animation: {
+        "collapsible-down": "collapsible-down 200ms ease-out",
+        "collapsible-up": "collapsible-up 200ms ease-out"
+      },
       fontFamily: {
         mono: ["var(--font-jetbrains)", "ui-monospace", "SFMono-Regular", "monospace"],
         sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"]

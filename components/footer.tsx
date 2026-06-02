@@ -13,7 +13,7 @@ export function Footer() {
           <Link href="/terms-of-service">Terms</Link>
           <a href="mailto:support@videotosrt.org">Contact</a>
         </div>
-        <p className="mb-0 text-sm text-soft">© 2026 VideoToSRT. Made for creators.</p>
+        <p className="mb-0 text-sm text-soft">© {new Date().getFullYear()} VideoToSRT. Made for creators.</p>
       </div>
     </footer>
   );

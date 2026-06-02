@@ -7,20 +7,9 @@ import { ExportModal } from "@/components/modals/export-modal";
 import { Button } from "@/components/ui/button";
 import { api, type ApiJob } from "@/lib/api";
 
-const initialSubtitles = [
-  ["00:00:00.000", "00:00:02.180", "Welcome back. Today we are converting video speech into SRT."],
-  ["00:00:02.180", "00:00:04.720", "The first pass gives us accurate timestamps and editable text."],
-  ["00:00:04.720", "00:00:07.460", "Let us turn this video into clean subtitles."],
-  ["00:00:07.460", "00:00:10.120", "You can review each segment and adjust timing where needed."],
-  ["00:00:10.120", "00:00:13.300", "This row is open for direct subtitle editing."],
-  ["00:00:13.300", "00:00:16.080", "Shortcuts keep the editing flow fast and predictable."],
-  ["00:00:16.080", "00:00:19.640", "The preview updates as you move across the timeline."],
-  ["00:00:19.640", "00:00:22.960", "Export creates a standard subtitle file for your player."],
-  ["00:00:22.960", "00:00:26.420", "Save your draft before switching projects."],
-  ["00:00:26.420", "00:00:30.000", "VideoToSRT keeps the transcript and timing in one focused workspace."]
-];
-
 type SubtitleRow = [string, string, string];
+
+const initialSubtitles: SubtitleRow[] = [];
 
 function getJobId(job: ApiJob) {
   return job.id ?? job.job_id;
@@ -71,10 +60,10 @@ function formatDuration(seconds: number) {
 
 export function EditorClient() {
   const [playing, setPlaying] = useState(false);
-  const [active, setActive] = useState(2);
-  const [rows, setRows] = useState<SubtitleRow[]>(initialSubtitles as SubtitleRow[]);
+  const [active, setActive] = useState(0);
+  const [rows, setRows] = useState<SubtitleRow[]>(initialSubtitles);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
-  const [filename, setFilename] = useState("creator-launch-video.mp4");
+  const [filename, setFilename] = useState("");
   const [duration, setDuration] = useState(272);
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState("Ready");
@@ -205,7 +194,7 @@ export function EditorClient() {
             <Button variant="secondary" size="icon" type="button" aria-label="Play or pause" onClick={() => setPlaying((value) => !value)}>
               {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
-            <ExportModal trigger={<Button variant="secondary">Export</Button>} />
+            <ExportModal trigger={<Button variant="secondary">Export</Button>} subtitles={rows} filename={filename || undefined} />
             <Button variant="primary" className="gap-2"><Save className="h-4 w-4" /> Save</Button>
           </div>
         </header>
@@ -228,9 +217,11 @@ export function EditorClient() {
                   {status}
                 </div>
               ) : null}
-              <div className="absolute bottom-8 max-w-[70%] rounded bg-black/60 px-4 py-2 text-center text-lg font-extrabold">
-                {rows[active][2]}
-              </div>
+              {rows[active] ? (
+                <div className="absolute bottom-8 max-w-[70%] rounded bg-black/60 px-4 py-2 text-center text-lg font-extrabold">
+                  {rows[active][2]}
+                </div>
+              ) : null}
             </div>
             <div className="mt-5">
               <div className="grid grid-cols-[92px_1fr_104px] items-center gap-3" aria-label="Timeline scrubber">
@@ -247,7 +238,7 @@ export function EditorClient() {
                   <Button variant="secondary" size="icon" aria-label="Skip backward"><SkipBack className="h-4 w-4" /></Button>
                   <Button variant="secondary" size="icon" aria-label="Skip forward"><SkipForward className="h-4 w-4" /></Button>
                 </div>
-                <span className="text-sm font-semibold text-soft">Whisper EN · {rows.length} subtitles · {filename}</span>
+                <span className="text-sm font-semibold text-soft">Whisper EN · {rows.length} subtitles · {filename || "No file selected"}</span>
               </div>
             </div>
           </section>
@@ -257,39 +248,45 @@ export function EditorClient() {
               <span className="text-sm font-bold text-soft">{rows.length} items</span>
             </div>
             <div className="min-h-0 overflow-auto">
-              <table className="w-full border-collapse text-left text-sm">
-                <thead className="sticky top-0 z-10 bg-panel-2 text-xs uppercase tracking-normal text-soft">
-                  <tr>
-                    <th className="w-12 border-b border-line px-3 py-3">#</th>
-                    <th className="w-[190px] border-b border-line px-3 py-3">Start-End</th>
-                    <th className="border-b border-line px-3 py-3">Text</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(([start, end, text], index) => (
-                    <tr
-                      key={`${start}-${end}`}
-                      className={`cursor-pointer border-b border-line/70 ${active === index ? "bg-cyan/10" : "hover:bg-panel-2"}`}
-                      onClick={() => setActive(index)}
-                    >
-                      <td className="px-3 py-3 text-soft">{index + 1}</td>
-                      <td className="px-3 py-3 font-mono text-xs text-cyan">
-                        {index === 4 ? (
-                          <div className="grid gap-2">
-                            <input className="rounded border border-line bg-bg px-2 py-1 text-cyan outline-none focus:border-cyan" defaultValue={start} aria-label="Start time row 5" />
-                            <input className="rounded border border-line bg-bg px-2 py-1 text-cyan outline-none focus:border-cyan" defaultValue={end} aria-label="End time row 5" />
-                          </div>
-                        ) : `${start} - ${end}`}
-                      </td>
-                      <td className="px-3 py-3 text-muted">
-                        {index === 4 ? (
-                          <input className="min-h-10 w-full rounded border border-line bg-bg px-3 text-text outline-none focus:border-cyan" defaultValue={text} aria-label="Subtitle text row 5" />
-                        ) : text}
-                      </td>
+              {rows.length === 0 ? (
+                <div className="grid min-h-full place-items-center p-8 text-center text-sm font-semibold text-soft">
+                  Upload a video to generate subtitles
+                </div>
+              ) : (
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead className="sticky top-0 z-10 bg-panel-2 text-xs uppercase tracking-normal text-soft">
+                    <tr>
+                      <th className="w-12 border-b border-line px-3 py-3">#</th>
+                      <th className="w-[190px] border-b border-line px-3 py-3">Start-End</th>
+                      <th className="border-b border-line px-3 py-3">Text</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {rows.map(([start, end, text], index) => (
+                      <tr
+                        key={`${start}-${end}`}
+                        className={`cursor-pointer border-b border-line/70 ${active === index ? "bg-cyan/10" : "hover:bg-panel-2"}`}
+                        onClick={() => setActive(index)}
+                      >
+                        <td className="px-3 py-3 text-soft">{index + 1}</td>
+                        <td className="px-3 py-3 font-mono text-xs text-cyan">
+                          {index === 4 ? (
+                            <div className="grid gap-2">
+                              <input className="rounded border border-line bg-bg px-2 py-1 text-cyan outline-none focus:border-cyan" defaultValue={start} aria-label="Start time row 5" />
+                              <input className="rounded border border-line bg-bg px-2 py-1 text-cyan outline-none focus:border-cyan" defaultValue={end} aria-label="End time row 5" />
+                            </div>
+                          ) : `${start} - ${end}`}
+                        </td>
+                        <td className="px-3 py-3 text-muted">
+                          {index === 4 ? (
+                            <input className="min-h-10 w-full rounded border border-line bg-bg px-3 text-text outline-none focus:border-cyan" defaultValue={text} aria-label="Subtitle text row 5" />
+                          ) : text}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </aside>
         </main>

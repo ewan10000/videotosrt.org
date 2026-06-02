@@ -1,9 +1,14 @@
+"use client";
+
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { ArrowDown, Check, Scissors, Upload } from "lucide-react";
+import * as Collapsible from "@radix-ui/react-collapsible";
+import { ArrowDown, Check, ChevronDown, Scissors, Upload } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { ExportModal } from "@/components/modals/export-modal";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { UploadStatus } from "@/components/upload-status";
+import { cn } from "@/lib/utils";
 
 const features = [
   ["AI", "Whisper transcription", "Generate time-aligned captions from video or audio in 50+ languages."],
@@ -57,6 +62,8 @@ export function HeroSection() {
 }
 
 function UploadPanel() {
+  const router = useRouter();
+
   return (
     <div id="upload" className="overflow-hidden rounded border border-line bg-panel shadow-panel">
       <div className="window-bar">
@@ -73,17 +80,20 @@ function UploadPanel() {
             <p className="mx-auto mb-5 max-w-[410px] leading-[1.6] text-muted">
               MP4, MOV, M4A, MP3, or paste a YouTube, TikTok, Vimeo link. Up to 2GB per file.
             </p>
-            <Button variant="primary">Choose file</Button>
-          </div>
-        </div>
-        <div className="mt-[18px] grid grid-cols-[42px_1fr_auto] items-center gap-[13px] rounded border border-line bg-panel-2 p-[13px] max-sm:grid-cols-[42px_1fr]">
-          <div className="grid h-[42px] w-[42px] place-items-center rounded bg-indigo/15 text-xs font-extrabold text-cyan">MP4</div>
-          <div>
-            <strong className="mb-1 block text-sm">creator-launch-video.mp4</strong>
-            <span className="text-[13px] text-soft">1.2 GB · ready to transcribe</span>
-          </div>
-          <div className="h-2 w-28 overflow-hidden rounded-full bg-[#24324B] max-sm:col-span-2 max-sm:w-full" aria-label="Upload progress">
-            <i className="block h-full w-[72%] bg-cyan" />
+            <label className={cn(buttonVariants({ variant: "primary" }), "cursor-pointer")}>
+              Choose file
+              <input
+                className="sr-only"
+                type="file"
+                accept="video/*,audio/*"
+                onChange={(event) => {
+                  if (event.target.files?.[0]) {
+                    router.push("/editor");
+                  }
+                  event.target.value = "";
+                }}
+              />
+            </label>
           </div>
         </div>
       </div>
@@ -259,13 +269,24 @@ export function FaqSection() {
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           {faqs.map(([q, a]) => (
-            <article key={q} className="panel-card p-[22px]">
-              <h3 className="mb-[9px] text-lg font-extrabold">{q}</h3>
-              <p className="mb-0 leading-[1.65] text-muted">{a}</p>
-            </article>
+            <FAQItem key={q} question={q} answer={a} />
           ))}
         </div>
       </div>
     </section>
+  );
+}
+
+function FAQItem({ question, answer }: { question: string; answer: string }) {
+  return (
+    <Collapsible.Root className="panel-card group p-[22px]">
+      <Collapsible.Trigger className="flex w-full items-center justify-between gap-4 text-left">
+        <h3 className="mb-0 text-lg font-extrabold">{question}</h3>
+        <ChevronDown className="h-5 w-5 shrink-0 text-cyan transition-transform duration-200 group-data-[state=open]:rotate-180" />
+      </Collapsible.Trigger>
+      <Collapsible.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+        <p className="mb-0 mt-[9px] leading-[1.65] text-muted">{answer}</p>
+      </Collapsible.Content>
+    </Collapsible.Root>
   );
 }
