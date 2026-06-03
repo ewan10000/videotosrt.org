@@ -86,5 +86,6 @@ export const api = {
   transcribe: (payload: { filename: string; audio_url: string; duration_seconds: number }) =>
     apiFetch<ApiJob>("/transcribe", { method: "POST", body: payload }),
   job: (id: string) => apiFetch<ApiJob>(`/jobs/${encodeURIComponent(id)}`),
-  checkout: (plan: "pro" | "business") => apiFetch<CheckoutResponse>("/checkout", { method: "POST", body: { plan } })
+  checkout: (plan: "pro" | "business", billing?: "monthly" | "annual") =>
+    apiFetch<CheckoutResponse>("/checkout", { method: "POST", body: { plan, billing: billing ?? "monthly" } })
 };

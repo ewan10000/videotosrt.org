@@ -3,7 +3,6 @@
 import type * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Download, FileText } from "lucide-react";
-import { LoginModal } from "@/components/modals/login-modal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -97,6 +96,19 @@ export function ExportModal({ trigger, subtitles, filename }: { trigger: React.R
     setOutputFilename(`${baseFilename}-subtitles.${format}`);
   }, [baseFilename, format]);
 
+  function downloadExport() {
+    const blob = new Blob([preview], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = outputFilename.trim() || `${baseFilename}-subtitles.${format}`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -143,14 +155,10 @@ export function ExportModal({ trigger, subtitles, filename }: { trigger: React.R
             <FileText className="h-4 w-4" />
             Preview file
           </Button>
-          <LoginModal
-            trigger={
-              <Button variant="primary" className="gap-2 sm:flex-1">
-                <Download className="h-4 w-4" />
-                Download
-              </Button>
-            }
-          />
+          <Button variant="primary" className="gap-2 sm:flex-1" type="button" onClick={downloadExport}>
+            <Download className="h-4 w-4" />
+            Download
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

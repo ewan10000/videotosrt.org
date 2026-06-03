@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FileVideo, Loader2, Pause, Play, Save, SkipBack, SkipForward } from "lucide-react";
+import { FileVideo, Pause, Play, Plus, Save, SkipBack, SkipForward, Trash2 } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ExportModal } from "@/components/modals/export-modal";
 import { Button } from "@/components/ui/button";
-import { api, type ApiJob } from "@/lib/api";
 
 const initialSubtitles = [
   ["00:00:00.000", "00:00:02.180", "Welcome back. Today we are converting video speech into SRT."],
@@ -21,34 +20,6 @@ const initialSubtitles = [
 ];
 
 type SubtitleRow = [string, string, string];
-
-function getJobId(job: ApiJob) {
-  return job.id ?? job.job_id;
-}
-
-function getJobSrt(job: ApiJob) {
-  return job.srt ?? job.result?.srt ?? job.result?.subtitles;
-}
-
-function parseSrt(srt: string): SubtitleRow[] {
-  return srt
-    .trim()
-    .split(/\n\s*\n/)
-    .map((block) => {
-      const lines = block.trim().split(/\r?\n/);
-      const timingLine = lines.find((line) => line.includes("-->"));
-      if (!timingLine) {
-        return null;
-      }
-
-      const [start, end] = timingLine.split("-->").map((value) => value.trim().replace(",", "."));
-      const textStart = lines.indexOf(timingLine) + 1;
-      const text = lines.slice(textStart).join(" ").trim();
-
-      return start && end && text ? ([start, end, text] as SubtitleRow) : null;
-    })
-    .filter((row): row is SubtitleRow => Boolean(row));
-}
 
 function readMediaDuration(url: string, type: string) {
   return new Promise<number>((resolve) => {
@@ -69,18 +40,33 @@ function formatDuration(seconds: number) {
   return `${minutes}:${remaining.toString().padStart(2, "0")}`;
 }
 
+function formatFileSize(bytes: number | null) {
+  if (!bytes) {
+    return "Size unknown";
+  }
+
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
 export function EditorClient() {
   const [playing, setPlaying] = useState(false);
   const [active, setActive] = useState(2);
   const [rows, setRows] = useState<SubtitleRow[]>(initialSubtitles as SubtitleRow[]);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [filename, setFilename] = useState("creator-launch-video.mp4");
+  const [fileSize, setFileSize] = useState<number | null>(null);
   const [duration, setDuration] = useState(272);
-  const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState("Ready");
-  const [transcribing, setTranscribing] = useState(false);
   const [readError, setReadError] = useState("");
-  const [submitError, setSubmitError] = useState("");
   const objectUrlRef = useRef<string | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -88,10 +74,13 @@ export function EditorClient() {
     const storedUpload = window.sessionStorage.getItem("videotosrt.upload");
     if (storedUpload) {
       try {
-        const upload = JSON.parse(storedUpload) as { name?: string; size?: number };
+        const upload = JSON.parse(storedUpload) as { name?: string; size?: number; type?: string };
         if (upload.name) {
           setFilename(upload.name);
-          setStatus("File selected on home page. Upload it here to start transcription.");
+          setStatus("File selected on home page");
+        }
+        if (typeof upload.size === "number") {
+          setFileSize(upload.size);
         }
       } catch {
         window.sessionStorage.removeItem("videotosrt.upload");
@@ -105,58 +94,6 @@ export function EditorClient() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!jobId) {
-      return;
-    }
-
-    const currentJobId = jobId;
-    let cancelled = false;
-
-    async function pollJob() {
-      try {
-        while (!cancelled) {
-          const job = await api.job(currentJobId);
-          const nextStatus = job.status ?? "processing";
-          setStatus(nextStatus);
-
-          if (["completed", "complete", "done", "succeeded", "success"].includes(nextStatus.toLowerCase())) {
-            const srt = getJobSrt(job);
-            const parsedRows = srt ? parseSrt(srt) : [];
-
-            if (parsedRows.length > 0) {
-              setRows(parsedRows);
-              setActive(0);
-              setStatus("Transcription complete");
-            } else {
-              setStatus("Transcription finished, but no subtitles were returned.");
-            }
-            setTranscribing(false);
-            return;
-          }
-
-          if (["failed", "error", "cancelled", "canceled"].includes(nextStatus.toLowerCase())) {
-            throw new Error(job.error ?? job.message ?? "Transcription failed. Please try another file.");
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, 2500));
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setTranscribing(false);
-          setStatus("Ready");
-          setReadError(error instanceof Error ? error.message : "Could not read the transcription result.");
-        }
-      }
-    }
-
-    pollJob();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [jobId]);
-
   async function handleFile(file: File) {
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);
@@ -166,33 +103,18 @@ export function EditorClient() {
     objectUrlRef.current = objectUrl;
     setMediaUrl(objectUrl);
     setFilename(file.name);
+    setFileSize(file.size);
     setStatus("Reading media...");
-    setTranscribing(true);
     setReadError("");
-    setSubmitError("");
+    window.sessionStorage.setItem("videotosrt.upload", JSON.stringify({ name: file.name, size: file.size, type: file.type }));
 
     try {
       const mediaDuration = await readMediaDuration(objectUrl, file.type);
       setDuration(mediaDuration);
-      setStatus("Submitting transcription...");
-
-      const job = await api.transcribe({
-        filename: file.name,
-        audio_url: objectUrl,
-        duration_seconds: mediaDuration
-      });
-      const nextJobId = getJobId(job);
-
-      if (!nextJobId) {
-        throw new Error("The transcription service did not return a job id.");
-      }
-
-      setJobId(nextJobId);
-      setStatus(job.status ?? "Transcription queued");
+      setStatus("Local file ready");
     } catch (error) {
-      setTranscribing(false);
       setStatus("Ready");
-      setSubmitError(error instanceof Error ? error.message : "Could not submit this file for transcription.");
+      setReadError(error instanceof Error ? error.message : "Could not read this file.");
     }
   }
 
@@ -200,18 +122,55 @@ export function EditorClient() {
     uploadInputRef.current?.click();
   }
 
+  function updateRow(index: number, field: 0 | 1 | 2, value: string) {
+    setRows((currentRows) => currentRows.map((row, rowIndex) => {
+      if (rowIndex !== index) {
+        return row;
+      }
+
+      const nextRow: SubtitleRow = [...row];
+      nextRow[field] = value;
+      return nextRow;
+    }));
+  }
+
+  function addRow() {
+    const nextActive = rows.length;
+
+    setRows((currentRows) => {
+      const lastRow = currentRows[currentRows.length - 1];
+      const nextRow: SubtitleRow = lastRow
+        ? [lastRow[1], lastRow[1], "New subtitle text"]
+        : ["00:00:00.000", "00:00:02.000", "New subtitle text"];
+
+      return [...currentRows, nextRow];
+    });
+    setActive(nextActive);
+  }
+
+  function deleteRow(index: number) {
+    setRows((currentRows) => {
+      const nextRows = currentRows.filter((_, rowIndex) => rowIndex !== index);
+      setActive((currentActive) => Math.max(0, Math.min(currentActive, nextRows.length - 1)));
+      return nextRows;
+    });
+  }
+
+  const activeRow = rows[active] ?? rows[0];
+
   return (
     <>
       <div className="hidden min-h-screen min-w-[760px] grid-rows-[64px_1fr_36px] bg-bg text-text min-[760px]:grid">
         <header className="flex items-center justify-between border-b border-line bg-panel px-4">
           <Brand />
-          <div className="font-mono text-sm font-bold text-cyan" aria-label="Current time">00:00:05.240</div>
+          <div className="min-w-0 max-w-[42vw] truncate text-center text-sm font-bold text-cyan" aria-label="Current file">
+            {filename}
+          </div>
           <div className="flex items-center gap-2">
             <Button
               variant="secondary"
               className="gap-2"
               type="button"
-              disabled={transcribing}
               onClick={openFilePicker}
             >
               <FileVideo className="h-4 w-4" />
@@ -222,7 +181,6 @@ export function EditorClient() {
               className="sr-only"
               type="file"
               accept="video/*,audio/*,.mp4,.mov,.m4a,.mp3"
-              disabled={transcribing}
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (file) {
@@ -251,26 +209,30 @@ export function EditorClient() {
                   </button>
                 </>
               )}
-              {transcribing ? (
-                <div className="absolute top-4 flex items-center gap-2 rounded border border-line bg-panel/90 px-3 py-2 text-sm font-bold text-cyan">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {status}
+              {!mediaUrl ? (
+                <div className="relative z-[1] max-w-[420px] rounded border border-line bg-panel/90 p-5 text-center shadow-panel">
+                  <FileVideo className="mx-auto mb-3 h-8 w-8 text-cyan" />
+                  <h2 className="mb-2 text-lg font-extrabold">{filename}</h2>
+                  <p className="text-sm font-semibold text-soft">
+                    {formatFileSize(fileSize)} · Select the file again here to preview it in the browser.
+                  </p>
                 </div>
               ) : null}
-              {readError || submitError ? (
+              {readError ? (
                 <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3 rounded border border-red-400/30 bg-panel/95 px-3 py-2 text-sm font-semibold text-red-300">
-                  <span>{readError || submitError}</span>
+                  <span>{readError}</span>
                   <button className="shrink-0 text-xs font-extrabold text-red-200 underline underline-offset-2" type="button" onClick={() => {
                     setReadError("");
-                    setSubmitError("");
                   }}>
                     Close
                   </button>
                 </div>
               ) : null}
-              <div className="absolute bottom-8 max-w-[70%] rounded bg-black/60 px-4 py-2 text-center text-lg font-extrabold">
-                {rows[active][2]}
-              </div>
+              {activeRow ? (
+                <div className="absolute bottom-8 max-w-[70%] rounded bg-black/60 px-4 py-2 text-center text-lg font-extrabold">
+                  {activeRow[2]}
+                </div>
+              ) : null}
             </div>
             <div className="mt-5">
               <div className="grid grid-cols-[92px_1fr_104px] items-center gap-3" aria-label="Timeline scrubber">
@@ -287,14 +249,17 @@ export function EditorClient() {
                   <Button variant="secondary" size="icon" aria-label="Skip backward"><SkipBack className="h-4 w-4" /></Button>
                   <Button variant="secondary" size="icon" aria-label="Skip forward"><SkipForward className="h-4 w-4" /></Button>
                 </div>
-                <span className="text-sm font-semibold text-soft">Whisper EN · {rows.length} subtitles · {filename}</span>
+                <span className="text-sm font-semibold text-soft">{rows.length} subtitles · {filename} · {formatFileSize(fileSize)}</span>
               </div>
             </div>
           </section>
           <aside className="grid min-h-0 grid-rows-[62px_1fr] bg-panel" aria-label="Subtitle table">
             <div className="flex items-center justify-between border-b border-line px-5">
               <h1 className="mb-0 text-xl font-extrabold">Subtitles</h1>
-              <span className="text-sm font-bold text-soft">{rows.length} items</span>
+              <Button variant="secondary" size="sm" className="gap-2" type="button" onClick={addRow}>
+                <Plus className="h-4 w-4" />
+                Row
+              </Button>
             </div>
             <div className="min-h-0 overflow-auto">
               <table className="w-full border-collapse text-left text-sm">
@@ -303,28 +268,54 @@ export function EditorClient() {
                     <th className="w-12 border-b border-line px-3 py-3">#</th>
                     <th className="w-[190px] border-b border-line px-3 py-3">Start-End</th>
                     <th className="border-b border-line px-3 py-3">Text</th>
+                    <th className="w-12 border-b border-line px-3 py-3" aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map(([start, end, text], index) => (
                     <tr
-                      key={`${start}-${end}`}
+                      key={index}
                       className={`cursor-pointer border-b border-line/70 ${active === index ? "bg-cyan/10" : "hover:bg-panel-2"}`}
                       onClick={() => setActive(index)}
                     >
                       <td className="px-3 py-3 text-soft">{index + 1}</td>
                       <td className="px-3 py-3 font-mono text-xs text-cyan">
-                        {index === 4 ? (
-                          <div className="grid gap-2">
-                            <input className="rounded border border-line bg-bg px-2 py-1 text-cyan outline-none focus:border-cyan" defaultValue={start} aria-label="Start time row 5" />
-                            <input className="rounded border border-line bg-bg px-2 py-1 text-cyan outline-none focus:border-cyan" defaultValue={end} aria-label="End time row 5" />
-                          </div>
-                        ) : `${start} - ${end}`}
+                        <div className="grid gap-2">
+                          <input
+                            className="rounded border border-line bg-bg px-2 py-1 text-cyan outline-none focus:border-cyan"
+                            value={start}
+                            aria-label={`Start time row ${index + 1}`}
+                            onChange={(event) => updateRow(index, 0, event.target.value)}
+                          />
+                          <input
+                            className="rounded border border-line bg-bg px-2 py-1 text-cyan outline-none focus:border-cyan"
+                            value={end}
+                            aria-label={`End time row ${index + 1}`}
+                            onChange={(event) => updateRow(index, 1, event.target.value)}
+                          />
+                        </div>
                       </td>
                       <td className="px-3 py-3 text-muted">
-                        {index === 4 ? (
-                          <input className="min-h-10 w-full rounded border border-line bg-bg px-3 text-text outline-none focus:border-cyan" defaultValue={text} aria-label="Subtitle text row 5" />
-                        ) : text}
+                        <textarea
+                          className="min-h-16 w-full resize-y rounded border border-line bg-bg px-3 py-2 text-text outline-none focus:border-cyan"
+                          value={text}
+                          aria-label={`Subtitle text row ${index + 1}`}
+                          onChange={(event) => updateRow(index, 2, event.target.value)}
+                        />
+                      </td>
+                      <td className="px-3 py-3">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          type="button"
+                          aria-label={`Delete subtitle row ${index + 1}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            deleteRow(index);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-soft" />
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -334,10 +325,10 @@ export function EditorClient() {
           </aside>
         </main>
         <footer className="flex items-center gap-5 border-t border-line bg-panel px-4 text-xs font-semibold text-soft">
-          <span className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${transcribing ? "bg-cyan" : "bg-success"}`} />{status}</span>
+          <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-success" />{status}</span>
           <span>{rows.length} subtitles</span>
           <span><span className="font-mono text-cyan">{formatDuration(duration)}</span> duration</span>
-          <span>Whisper EN</span>
+          <span>{filename}</span>
         </footer>
       </div>
       <div className="grid min-h-screen place-items-center bg-bg p-6 min-[760px]:hidden">

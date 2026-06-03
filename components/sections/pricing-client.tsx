@@ -72,7 +72,7 @@ export function PricingClient() {
     setLoadingPlan(plan);
     setCheckoutError("");
     try {
-      const data = await api.checkout(plan);
+      const data = await api.checkout(plan, billing);
       const url = data.url ?? data.checkout_url ?? data.sessionUrl;
 
       if (!url) {

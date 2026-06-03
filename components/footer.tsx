@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Brand } from "@/components/brand";
+import { ContactModal } from "@/components/modals/contact-modal";
 
 export function Footer() {
   return (
@@ -11,7 +12,13 @@ export function Footer() {
           <Link href="/editor">Editor</Link>
           <Link href="/privacy-policy">Privacy</Link>
           <Link href="/terms-of-service">Terms</Link>
-          <a href="mailto:support@videotosrt.org">Contact</a>
+          <ContactModal
+            trigger={
+              <button className="cursor-pointer bg-transparent p-0 text-sm font-semibold text-soft" type="button">
+                Contact
+              </button>
+            }
+          />
         </div>
         <p className="mb-0 text-sm text-soft">© {new Date().getFullYear()} VideoToSRT. Made for creators.</p>
       </div>

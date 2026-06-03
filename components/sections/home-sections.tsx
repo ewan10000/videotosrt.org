@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRef, type ChangeEvent } from "react";
 import type { LucideIcon } from "lucide-react";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { ArrowDown, Check, ChevronDown, Scissors, Upload } from "lucide-react";
@@ -26,7 +27,31 @@ const faqs = [
   ["Can I use exported subtitles commercially?", "Yes. Your exported subtitle files are yours to use in commercial projects."]
 ];
 
+function useHomeUploadPicker() {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const openFilePicker = () => {
+    inputRef.current?.click();
+  };
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (file) {
+      window.sessionStorage.setItem("videotosrt.upload", JSON.stringify({ name: file.name, size: file.size }));
+      router.push("/editor");
+    }
+
+    event.target.value = "";
+  };
+
+  return { handleFileChange, inputRef, openFilePicker };
+}
+
 export function HeroSection() {
+  const { handleFileChange, inputRef, openFilePicker } = useHomeUploadPicker();
+
   return (
     <header className="border-b border-soft/15 py-[72px] pb-11">
       <div className="site-container grid items-center gap-[42px] lg:grid-cols-[minmax(0,.92fr)_minmax(430px,1.08fr)]">
@@ -39,9 +64,20 @@ export function HeroSection() {
             VideoToSRT turns raw video into clean, time-aligned subtitles with a focused editor for fixing captions, syncing speaker timing, and exporting production-ready files.
           </p>
           <div className="mb-[30px] flex flex-wrap gap-3">
-            <Link className="inline-flex min-h-[42px] items-center justify-center rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px" href="#upload">
+            <button
+              className="inline-flex min-h-[42px] items-center justify-center rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px"
+              type="button"
+              onClick={openFilePicker}
+            >
               Upload video
-            </Link>
+            </button>
+            <input
+              ref={inputRef}
+              className="sr-only"
+              type="file"
+              accept="video/*,audio/*"
+              onChange={handleFileChange}
+            />
             <Link className="inline-flex min-h-[42px] items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold text-text transition hover:-translate-y-px" href="#editor">
               View editor
             </Link>
@@ -62,7 +98,7 @@ export function HeroSection() {
 }
 
 function UploadPanel() {
-  const router = useRouter();
+  const { handleFileChange } = useHomeUploadPicker();
 
   return (
     <div id="upload" className="overflow-hidden rounded border border-line bg-panel shadow-panel">
@@ -86,12 +122,7 @@ function UploadPanel() {
                 className="sr-only"
                 type="file"
                 accept="video/*,audio/*"
-                onChange={(event) => {
-                  if (event.target.files?.[0]) {
-                    router.push("/editor");
-                  }
-                  event.target.value = "";
-                }}
+                onChange={handleFileChange}
               />
             </label>
           </div>
@@ -236,11 +267,14 @@ export function PricingTeaserSection() {
         <div className="grid gap-4 lg:grid-cols-3">
           {[
             ["Starter", "$0", "30 minutes/month", ["No sign-up to edit", "SRT, VTT, TXT export", "Inline editor"]],
-            ["Creator", "$9", "10 hours/month", ["Burn-in export", "Style templates", "Batch processing"]],
+            ["Pro", "$9", "10 hours/month", ["Burn-in export", "Style templates", "Batch processing"]],
             ["Business", "$29", "50 hours/month", ["Team seats", "API access", "Brand templates"]]
           ].map(([plan, price, meta, items]) => (
-            <article key={plan as string} className={`panel-card p-[22px] ${(plan as string) === "Creator" ? "border-cyan bg-cyan/[.045]" : ""}`}>
-              <h3 className="mb-2 text-lg font-extrabold">{plan as string}</h3>
+            <article key={plan as string} className={`panel-card p-[22px] ${(plan as string) === "Pro" ? "border-cyan bg-cyan/[.045]" : ""}`}>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="mb-0 text-lg font-extrabold">{plan as string}</h3>
+                {(plan as string) === "Pro" ? <span className="rounded bg-cyan/10 px-3 py-1 text-xs font-extrabold text-cyan">Popular</span> : null}
+              </div>
               <div className="mb-1 text-4xl font-extrabold">{price as string}<span className="text-base text-soft">/mo</span></div>
               <p className="mb-5 text-sm text-muted">{meta as string}</p>
               <ul className="mb-6 grid gap-3">
