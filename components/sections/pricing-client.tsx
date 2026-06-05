@@ -10,8 +10,8 @@ import { getLocalUser, normalizeUser, onAuthChange } from "@/lib/auth";
 
 const plans = [
   {
-    name: "Starter",
-    meta: "For quick subtitle files and short one-off videos.",
+    name: "Free",
+    meta: "For trying it out. One video, no commitment.",
     monthly: "Free",
     annual: "Free",
     suffix: "",
@@ -19,7 +19,7 @@ const plans = [
   },
   {
     name: "Pro",
-    meta: "For creators and small teams publishing video every week.",
+    meta: "For creators who ship weekly. Burn-in, styles, batch — everything you need to move fast.",
     monthly: "$9",
     annual: "$90",
     suffix: "/mo",
@@ -27,8 +27,8 @@ const plans = [
     features: ["10 hours per month", "Burn-in export preview", "Style templates", "Batch processing"]
   },
   {
-    name: "Business",
-    meta: "For agencies, course teams, and product media groups.",
+    name: "Studio",
+    meta: "For teams with standards. Shared templates, API, brand control.",
     monthly: "$29",
     annual: "$290",
     suffix: "/mo",
@@ -113,9 +113,9 @@ export function PricingClient() {
         <div className="site-container grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <span className="eyebrow"><span className="dot" /> Simple subtitle pricing</span>
-            <h1 className="mb-4 mt-5 max-w-[760px] text-[clamp(42px,6vw,68px)] font-extrabold leading-[1]">Plans that match your subtitle volume.</h1>
+            <h1 className="mb-4 mt-5 max-w-[760px] text-[clamp(42px,6vw,68px)] font-extrabold leading-[1]">Simple Pricing. No Surprises.</h1>
             <p className="mb-0 max-w-[720px] text-lg leading-[1.7] text-muted">
-              Start with free subtitle exports, move into burn-in and batch workflows when volume grows, or add team controls and API access for production work.
+              Start free. Upgrade when you need more. Downgrade anytime. No tricks.
             </p>
           </div>
           <div className="rounded border border-line bg-panel p-2">
@@ -131,7 +131,7 @@ export function PricingClient() {
                 </button>
               ))}
             </div>
-            <p className="mb-0 mt-2 text-center text-xs font-semibold text-cyan">Annual saves two months</p>
+            <p className="mb-0 mt-2 text-center text-xs font-semibold text-cyan">Annual: 2 months free</p>
           </div>
         </div>
       </header>
@@ -166,9 +166,9 @@ export function PricingClient() {
                     <li key={feature} className="flex gap-2 text-sm text-muted"><Check className="h-4 w-4 shrink-0 text-success" />{feature}</li>
                   ))}
                 </ul>
-                {plan.name === "Starter" ? (
+                {plan.name === "Free" ? (
                   <Link className="inline-flex min-h-[42px] w-full items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold" href="/#upload">
-                    Start free
+                    Start Free
                   </Link>
                 ) : (
                   <Button
@@ -182,12 +182,15 @@ export function PricingClient() {
                       ? "Opening checkout..."
                       : plan.name === "Pro"
                         ? "Start Pro"
-                        : "Start Business"}
+                        : "Start Studio"}
                   </Button>
                 )}
               </article>
             ))}
           </div>
+          <p className="mb-0 mt-5 text-center text-sm font-semibold text-soft">
+            <Link className="text-cyan underline underline-offset-4" href="/terms-of-service">30-day money-back guarantee. No questions asked.</Link>
+          </p>
           <div className="mt-5 rounded border border-line bg-panel p-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>

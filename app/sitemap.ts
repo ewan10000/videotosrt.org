@@ -1,6 +1,22 @@
 import type { MetadataRoute } from "next";
 
-const routes = ["", "/pricing", "/editor", "/privacy-policy", "/terms-of-service"] as const;
+const routes = [
+  "",
+  "/pricing",
+  "/editor",
+  "/privacy-policy",
+  "/terms-of-service",
+  "/dmca",
+  "/video-to-srt",
+  "/srt-editor",
+  "/burn-subtitles",
+  "/youtube-subtitles",
+  "/tiktok-subtitles",
+  "/podcast-transcription",
+  "/course-captions",
+  "/subtitle-translator",
+  "/ass-subtitle-editor"
+] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return routes.map((route) => ({

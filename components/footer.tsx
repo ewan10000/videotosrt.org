@@ -12,6 +12,7 @@ export function Footer() {
           <Link href="/editor">Editor</Link>
           <Link href="/privacy-policy">Privacy</Link>
           <Link href="/terms-of-service">Terms</Link>
+          <Link href="/dmca">DMCA</Link>
           <ContactModal
             trigger={
               <button className="cursor-pointer bg-transparent p-0 text-sm font-semibold text-soft" type="button">
@@ -20,7 +21,7 @@ export function Footer() {
             }
           />
         </div>
-        <p className="mb-0 text-sm text-soft">© {new Date().getFullYear()} VideoToSRT. Made for creators.</p>
+        <p className="mb-0 text-sm text-soft">© {new Date().getFullYear()} VideoToSRT. Made for creators who ship.</p>
       </div>
     </footer>
   );

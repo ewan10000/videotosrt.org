@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type * as React from "react";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { CookieBanner } from "@/components/cookie-banner";
 import "./globals.css";
 
 const inter = Inter({
@@ -18,11 +19,11 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://videotosrt.org"),
   title: {
-    default: "VideoToSRT | AI Subtitle Editor",
+    default: "VideoToSRT — Online Subtitle Editor & Burn-in Tool",
     template: "%s | VideoToSRT"
   },
   description:
-    "Generate, edit, and export accurate SRT subtitles from video in your browser. No sign-up required until export.",
+    "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up.",
   icons: {
     icon: [
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
@@ -31,8 +32,8 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }]
   },
   openGraph: {
-    title: "VideoToSRT | AI Subtitle Editor",
-    description: "Upload, edit, and export production-ready subtitles in one browser workflow.",
+    title: "VideoToSRT — Online Subtitle Editor & Burn-in Tool",
+    description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up.",
     url: "https://videotosrt.org",
     siteName: "VideoToSRT",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
@@ -41,7 +42,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "VideoToSRT | AI Subtitle Editor",
+    title: "VideoToSRT — Online Subtitle Editor & Burn-in Tool",
     description: "AI transcription, inline subtitle editing, and clean SRT/VTT/TXT export.",
     images: ["/og-image.png"]
   }
@@ -58,6 +59,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className="dark">
       <body className={`${inter.variable} ${jetbrains.variable} min-h-screen font-sans antialiased`}>
         {children}
+        <CookieBanner />
       </body>
     </html>
   );

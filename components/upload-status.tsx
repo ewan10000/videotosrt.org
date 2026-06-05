@@ -61,8 +61,8 @@ export function UploadStatus({ filename, progress = 0, status = "idle" }: Upload
     return (
       <div className="rounded border border-line bg-panel p-5 shadow-panel">
         <div>
-          <h3 className="mb-1 text-lg font-extrabold">No active upload</h3>
-          <p className="mb-5 text-sm text-muted">Upload a video to see processing status.</p>
+          <h3 className="mb-1 text-lg font-extrabold">No Active Upload</h3>
+          <p className="mb-5 text-sm text-muted">Drop a video to get started.</p>
         </div>
         <Link
           href="/editor"

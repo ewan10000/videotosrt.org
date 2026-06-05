@@ -4,16 +4,18 @@ import {
   EditorPreviewSection,
   FaqSection,
   FeaturesSection,
+  FinalCtaSection,
   HeroSection,
   PricingTeaserSection,
   StatusSection,
+  UseCasesSection,
   WorkflowSection
 } from "@/components/sections/home-sections";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata: Metadata = {
-  title: "AI Subtitle Editor",
-  description: "Upload video, edit AI-generated subtitles inline, and export SRT, VTT, or TXT from your browser.",
+  title: "VideoToSRT — Online Subtitle Editor & Burn-in Tool",
+  description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up.",
   alternates: { canonical: "/" }
 };
 
@@ -26,9 +28,11 @@ export default function HomePage() {
         <WorkflowSection />
         <EditorPreviewSection />
         <FeaturesSection />
+        <UseCasesSection />
         <StatusSection />
         <PricingTeaserSection />
         <FaqSection />
+        <FinalCtaSection />
       </main>
       <Footer />
     </>
