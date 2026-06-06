@@ -13,7 +13,7 @@ import { UploadStatus } from "@/components/upload-status";
 const features = [
   ["ED", "Inline Editor", "Edit text and timestamps directly. No external tools, no format juggling."],
   ["ST", "Style Export", "ASS/SSA with fonts, colors, positioning. Studio-grade output from a browser."],
-  ["MP4", "Burn-in Export", "Hardcode subtitles into MP4. One file, any platform, no compatibility headaches."],
+  ["MP4", "Burn-in Preview", "Preview hardcoded subtitles before MP4 export. Full burn-in export is coming soon."],
   ["50+", "50+ Languages", "Auto-detect or manually set. Whisper-powered, edit-friendly accuracy."],
   ["20", "Batch Process", "Drop 20 files at once. Let it run, come back when it's done."],
   ["URL", "URL Import", "YouTube, TikTok, Vimeo — paste and go. No download-upload loop."]
@@ -21,13 +21,13 @@ const features = [
 
 const faqs = [
   ["Do I need to create an account?", "No. Upload and edit immediately. We only ask for your email when you hit Export — so we can send you the file."],
-  ["What formats can I export?", "SRT, VTT, TXT. ASS/SSA styled export and MP4 burn-in are available on paid plans."],
+  ["What formats can I export?", "SRT, VTT, and TXT are available today. ASS/SSA styled export and MP4 burn-in export are coming soon for paid plans."],
   ["How accurate is transcription?", "Powered by Whisper. 95%+ for clear audio. Every line is editable inline, so perfect accuracy is one click away."],
   ["Can I use exported subtitles commercially?", "Yes. Everything you export is yours. We don't watermark, we don't claim rights, we don't look at your content."],
   ["What happens to my video after upload?", "Processed and deleted automatically. We don't store your original video or your subtitles longer than necessary. Anonymous projects expire in 7 days."],
   ["Is there a file size limit?", "2GB per file for uploads. URL imports have no size limit — we handle the heavy lifting."],
   ["Can I edit an existing SRT file?", "Yes. Upload your SRT alongside the video, or paste it directly into the editor. Fix timing without touching code."],
-  ["What's the difference between Free and Pro?", "Free gives you 30 minutes a month and basic formats. Pro unlocks burn-in, style templates, and 10 hours — enough for a weekly creator."],
+  ["What's the difference between Free and Pro?", "Free gives you 30 minutes a month and basic formats. Pro adds burn-in preview, style templates, and 10 hours — enough for a weekly creator."],
   ["Does the pay-as-you-go credit expire?", "Never. Buy once, use whenever. No monthly pressure."],
   ["Can my team share templates and projects?", "Studio plan supports 3 team members with shared brand templates and cloud history. Need more seats? Contact us."]
 ];
@@ -308,7 +308,7 @@ export function PricingTeaserSection() {
         <div className="grid gap-4 lg:grid-cols-3">
           {[
             ["Free", "$0", "30 min/mo", ["No sign-up to edit", "SRT, VTT, TXT export", "Inline editor"], "Start Free"],
-            ["Pro", "$9", "10 hrs/mo", ["Burn-in export", "20 style templates", "Batch 20 files"], "Start Pro"],
+            ["Pro", "$9", "10 hrs/mo", ["Burn-in preview", "20 style templates", "Batch 20 files"], "Start Pro"],
             ["Studio", "$29", "50 hrs/mo", ["Team (3 seats)", "API access", "Brand templates"], "Start Studio"]
           ].map(([plan, price, meta, items, cta]) => (
             <article key={plan as string} className={`panel-card p-[22px] ${(plan as string) === "Pro" ? "border-cyan bg-cyan/[.045]" : ""}`}>
@@ -403,7 +403,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
         <h3 className="mb-0 text-lg font-extrabold">{question}</h3>
         <ChevronDown className="h-5 w-5 shrink-0 text-cyan transition-transform duration-200 group-data-[state=open]:rotate-180" />
       </Collapsible.Trigger>
-      <Collapsible.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+      <Collapsible.Content forceMount className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
         <p className="mb-0 px-[22px] pb-[22px] leading-[1.65] text-muted">{answer}</p>
       </Collapsible.Content>
     </Collapsible.Root>

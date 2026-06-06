@@ -1,17 +1,17 @@
-import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { FaqSection } from "@/components/sections/home-sections";
 import { PricingClient } from "@/components/sections/pricing-client";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { HomeNoscriptContent } from "@/components/seo/noscript-content";
 import { JsonLd } from "@/components/seo/json-ld";
+import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
+  path: "/pricing",
   title: "Pricing",
-  description: "VideoToSRT pricing: free subtitle exports, Pro creator plan at $9/mo, and Studio team workflow at $29/mo. No watermark. 50+ languages.",
-  alternates: { canonical: "/pricing" }
-};
+  description: "VideoToSRT pricing: free subtitle exports, Pro creator plan at $9/mo, and Studio team workflow at $29/mo. No watermark. 50+ languages."
+});
 
 const pricingOffersJsonLd = {
   "@context": "https://schema.org",

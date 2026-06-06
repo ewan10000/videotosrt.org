@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
+import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
+  path: "/ass-subtitle-editor",
   title: "ASS Subtitle Editor Online — Styled Subtitles",
-  description: "Full ASS style editing: fonts, colors, positioning, animation. Preview and export studio-grade subtitles.",
-  alternates: { canonical: "/ass-subtitle-editor" }
-};
+  description: "Full ASS style editing: fonts, colors, positioning, animation. Preview and export studio-grade subtitles."
+});
 
 export default function AssSubtitleEditorPage() {
   return (

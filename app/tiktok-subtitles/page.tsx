@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
+import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
+  path: "/tiktok-subtitles",
   title: "TikTok Subtitle Generator — Styled Captions",
-  description: "Vertical video captions with ASS styling. Auto-break lines, preview in browser, export ready-to-post.",
-  alternates: { canonical: "/tiktok-subtitles" }
-};
+  description: "Vertical video captions with ASS styling. Auto-break lines, preview in browser, export ready-to-post."
+});
 
 export default function TiktokSubtitlesPage() {
   return (

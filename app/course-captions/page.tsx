@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
+import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
+  path: "/course-captions",
   title: "Online Course Caption Generator — Educators",
-  description: "Batch process lectures, export multi-language captions. VTT for players, SRT for downloads.",
-  alternates: { canonical: "/course-captions" }
-};
+  description: "Batch process lectures, export multi-language captions. VTT for players, SRT for downloads."
+});
 
 export default function CourseCaptionsPage() {
   return (

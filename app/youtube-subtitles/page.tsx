@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
+import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
+  path: "/youtube-subtitles",
   title: "YouTube Subtitle Editor — Auto-Generate & Edit",
-  description: "Paste a YouTube link, get editable subtitles. Fix auto-captions, export SRT, re-upload.",
-  alternates: { canonical: "/youtube-subtitles" }
-};
+  description: "Paste a YouTube link, get editable subtitles. Fix auto-captions, export SRT, re-upload."
+});
 
 export default function YoutubeSubtitlesPage() {
   return (

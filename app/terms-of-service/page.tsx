@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
+import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
+  path: "/terms-of-service",
   title: "Terms of Service",
-  description: "Terms of Service for VideoToSRT subtitle generation, editing, exports, plans, and account usage.",
-  alternates: { canonical: "/terms-of-service" }
-};
+  description: "Terms of Service for VideoToSRT subtitle generation, editing, exports, plans, and account usage."
+});
 
 export default function TermsOfServicePage() {
   const lastUpdated = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });

@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
+import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
+  path: "/privacy-policy",
   title: "Privacy Policy",
-  description: "Privacy Policy for VideoToSRT, including uploaded media, account data, exports, and support contact.",
-  alternates: { canonical: "/privacy-policy" }
-};
+  description: "Privacy Policy for VideoToSRT, including uploaded media, account data, exports, and support contact."
+});
 
 export default function PrivacyPolicyPage() {
   const lastUpdated = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });

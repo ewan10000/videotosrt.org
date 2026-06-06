@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
+import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
+  path: "/srt-editor",
   title: "SRT Editor Online — Edit Subtitles in Browser",
-  description: "Fix timing and text without installing software. Upload your SRT, sync with video, export perfect files.",
-  alternates: { canonical: "/srt-editor" }
-};
+  description: "Fix timing and text without installing software. Upload your SRT, sync with video, export perfect files."
+});
 
 export default function SrtEditorPage() {
   return (

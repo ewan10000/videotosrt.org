@@ -1,15 +1,15 @@
-import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { JsonLd } from "@/components/seo/json-ld";
+import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
+  path: "/video-to-srt",
   title: "Video to SRT Converter — Free Online",
-  description: "Convert any video to SRT in seconds. AI-powered, editable inline, export clean subtitles. No download required.",
-  alternates: { canonical: "/video-to-srt" }
-};
+  description: "Convert any video to SRT in seconds. AI-powered, editable inline, export clean subtitles. No download required."
+});
 
 const howToJsonLd = {
   "@context": "https://schema.org",

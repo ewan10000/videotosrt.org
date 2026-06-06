@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import {
   EditorPreviewSection,
@@ -13,13 +12,14 @@ import {
 } from "@/components/sections/home-sections";
 import { HomeNoscriptContent } from "@/components/seo/noscript-content";
 import { JsonLd } from "@/components/seo/json-ld";
+import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
-export const metadata: Metadata = {
-  title: "VideoToSRT — Online Subtitle Editor & Burn-in Tool",
-  description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up.",
-  alternates: { canonical: "/" }
-};
+export const metadata = createPageMetadata({
+  path: "/",
+  title: "VideoToSRT — Online Subtitle Editor",
+  description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up."
+});
 
 const homeJsonLd = [
   {
