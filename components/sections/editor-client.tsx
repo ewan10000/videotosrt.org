@@ -255,7 +255,7 @@ export function EditorClient() {
           </section>
           <aside className="grid min-h-0 grid-rows-[62px_1fr] bg-panel" aria-label="Subtitle table">
             <div className="flex items-center justify-between border-b border-line px-5">
-              <h1 className="mb-0 text-xl font-extrabold">Subtitles</h1>
+              <h2 className="mb-0 text-xl font-extrabold">Subtitles</h2>
               <Button variant="secondary" size="sm" className="gap-2" type="button" onClick={addRow}>
                 <Plus className="h-4 w-4" />
                 Row

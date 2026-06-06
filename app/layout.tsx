@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type * as React from "react";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { CookieBanner } from "@/components/cookie-banner";
+import { Analytics } from "@/components/seo/analytics";
 import "./globals.css";
 
 const inter = Inter({
@@ -24,6 +25,8 @@ export const metadata: Metadata = {
   },
   description:
     "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up.",
+  robots: { index: true, follow: true },
+  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
@@ -57,9 +60,19 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <link rel="preconnect" href="https://api.videotosrt.org" />
+        <link rel="dns-prefetch" href="https://api.videotosrt.org" />
+        <link rel="preconnect" href="https://plausible.io" />
+        <link rel="dns-prefetch" href="https://plausible.io" />
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+        <link rel="alternate" href="https://videotosrt.org/" {...{ hreflang: "x-default" }} />
+      </head>
       <body className={`${inter.variable} ${jetbrains.variable} min-h-screen font-sans antialiased`}>
         {children}
         <CookieBanner />
+        <Analytics />
       </body>
     </html>
   );

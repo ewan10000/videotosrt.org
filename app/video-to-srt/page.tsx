@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata: Metadata = {
@@ -9,10 +11,37 @@ export const metadata: Metadata = {
   alternates: { canonical: "/video-to-srt" }
 };
 
+const howToJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "3 steps to convert video to SRT",
+  description: "Upload a video, edit generated subtitles, and export an SRT file in VideoToSRT.",
+  totalTime: "PT1M",
+  step: [
+    {
+      "@type": "HowToStep",
+      name: "Upload",
+      text: "Upload a video or audio file in your browser."
+    },
+    {
+      "@type": "HowToStep",
+      name: "Edit",
+      text: "Review the generated transcript and adjust subtitle text or timing inline."
+    },
+    {
+      "@type": "HowToStep",
+      name: "Export",
+      text: "Export a clean SRT subtitle file."
+    }
+  ]
+};
+
 export default function VideoToSrtPage() {
   return (
     <>
+      <JsonLd data={howToJsonLd} />
       <SiteNav />
+      <Breadcrumbs items={[{ label: "Video to SRT", href: "/video-to-srt" }]} />
       <main>
         <SeoLanding
           title="Video to SRT Converter — Free Online"

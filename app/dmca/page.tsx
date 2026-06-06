@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata: Metadata = {
@@ -15,6 +16,7 @@ export default function DmcaPage() {
   return (
     <>
       <SiteNav />
+      <Breadcrumbs items={[{ label: "DMCA", href: "/dmca" }]} />
       <main className="site-container py-16">
         <article className="mx-auto max-w-3xl">
           <span className="eyebrow"><span className="dot" /> Legal</span>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata: Metadata = {
@@ -14,6 +15,7 @@ export default function PrivacyPolicyPage() {
   return (
     <>
       <SiteNav />
+      <Breadcrumbs items={[{ label: "Privacy Policy", href: "/privacy-policy" }]} />
       <main className="site-container py-16">
         <article className="mx-auto max-w-3xl">
           <span className="eyebrow"><span className="dot" /> Legal</span>
