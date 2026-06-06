@@ -83,42 +83,48 @@ export function HeroSection() {
 
   return (
     <header className="border-b border-soft/15 py-[72px] pb-11">
-      <div className="site-container grid items-center gap-[42px] lg:grid-cols-[minmax(0,.92fr)_minmax(430px,1.08fr)]">
-        <div>
-          <span className="eyebrow"><span className="dot" /> Forge Perfect Subtitles. No Software. No Sign-Up.</span>
-          <h1 className="mb-[18px] mt-5 max-w-[780px] text-[clamp(42px,6vw,72px)] font-extrabold leading-[.98]">
-            Turn Any Video Into Accurate Subtitles in 60 Seconds
-          </h1>
-          <p className="mb-7 mt-[22px] max-w-[660px] text-lg leading-[1.7] text-muted">
-            Upload your video. Our AI transcribes in 50+ languages. You edit inline, fix timing, and export SRT/VTT/TXT — all in your browser. Done in 60 seconds.
-          </p>
-          <div className="mb-[30px] flex flex-wrap gap-3">
-            <button
-              className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded bg-indigo px-4 text-sm font-bold text-white shadow-[0_4px_14px_rgba(99,102,241,.3)] transition hover:-translate-y-px"
-              type="button"
-              onClick={openFilePicker}
-            >
-              <FolderUp className="h-4 w-4" />
-              Upload Video — Free
-            </button>
-            <input
-              ref={inputRef}
-              className="sr-only"
-              type="file"
-              accept="video/*,audio/*"
-              onChange={handleFileChange}
-            />
-            <Link className="inline-flex min-h-[42px] items-center justify-center rounded border border-indigo-300/30 bg-transparent px-4 text-sm font-bold text-indigo-300 transition hover:-translate-y-px hover:border-indigo-300/50 hover:text-indigo-200" href="#editor">
-              View editor
-            </Link>
+      <div className="site-container grid items-stretch gap-[42px] lg:grid-cols-[minmax(0,.92fr)_minmax(430px,1.08fr)]">
+        <div className="h-full overflow-hidden rounded border border-line bg-panel shadow-panel">
+          <div className="window-bar">
+            <div className="traffic" aria-hidden="true"><span /><span /><span /></div>
+            <div className="text-[13px] font-bold text-soft">Get started</div>
           </div>
-          <div className="grid max-w-[620px] grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Product metrics">
-            {["No sign-up to edit", "Export with email", "No watermark"].map((metric, index) => (
-              <div key={metric} className="rounded border border-line bg-white/[.025] p-[15px]">
-                <strong className="mb-1 block text-[22px]">{index === 0 ? "0" : index === 1 ? "Email" : "0"}</strong>
-                <span className="text-[13px] font-semibold text-soft">{metric}</span>
-              </div>
-            ))}
+          <div className="p-[22px]">
+            <span className="eyebrow"><span className="dot" /> Forge Perfect Subtitles. No Software. No Sign-Up.</span>
+            <h1 className="mb-[18px] mt-5 max-w-[780px] text-[clamp(42px,6vw,72px)] font-extrabold leading-[.98]">
+              Turn Any Video Into Accurate Subtitles in 60 Seconds
+            </h1>
+            <p className="mb-7 mt-[22px] max-w-[660px] text-lg leading-[1.7] text-muted">
+              Upload your video. Our AI transcribes in 50+ languages. You edit inline, fix timing, and export SRT/VTT/TXT — all in your browser. Done in 60 seconds.
+            </p>
+            <div className="mb-[30px] flex flex-wrap gap-3">
+              <button
+                className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded bg-indigo px-4 text-sm font-bold text-white shadow-[0_4px_14px_rgba(99,102,241,.3)] transition hover:-translate-y-px"
+                type="button"
+                onClick={openFilePicker}
+              >
+                <FolderUp className="h-4 w-4" />
+                Upload Video — Free
+              </button>
+              <input
+                ref={inputRef}
+                className="sr-only"
+                type="file"
+                accept="video/*,audio/*"
+                onChange={handleFileChange}
+              />
+              <Link className="inline-flex min-h-[42px] items-center justify-center rounded border border-indigo-300/30 bg-transparent px-4 text-sm font-bold text-indigo-300 transition hover:-translate-y-px hover:border-indigo-300/50 hover:text-indigo-200" href="#editor">
+                View editor
+              </Link>
+            </div>
+            <div className="grid max-w-[620px] grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Product metrics">
+              {["No sign-up to edit", "Export with email", "No watermark"].map((metric, index) => (
+                <div key={metric} className="rounded border border-line bg-white/[.025] p-[15px]">
+                  <strong className="mb-1 block text-[22px]">{index === 0 ? "0" : index === 1 ? "Email" : "0"}</strong>
+                  <span className="text-[13px] font-semibold text-soft">{metric}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
         <UploadPanel />
@@ -131,14 +137,14 @@ function UploadPanel() {
   const { handleDragOver, handleDrop, handleFileChange, inputRef, openFilePicker } = useHomeUploadPicker();
 
   return (
-    <div id="upload" className="overflow-hidden rounded border border-line bg-panel shadow-panel">
+    <div id="upload" className="flex h-full flex-col overflow-hidden rounded border border-line bg-panel shadow-panel">
       <div className="window-bar">
         <div className="traffic" aria-hidden="true"><span /><span /><span /></div>
         <div className="text-[13px] font-bold text-soft">New subtitle project</div>
       </div>
-      <div className="p-[22px]">
+      <div className="flex flex-1 flex-col p-[22px]">
         <div
-          className="grid min-h-[230px] cursor-pointer place-items-center rounded border border-dashed border-cyan/60 bg-cyan/[.045] p-6 text-center transition hover:border-cyan hover:bg-cyan/[.07]"
+          className="grid flex-1 cursor-pointer place-items-center rounded border border-dashed border-cyan/60 bg-cyan/[.045] p-6 text-center transition hover:border-cyan hover:bg-cyan/[.07]"
           role="button"
           tabIndex={0}
           onClick={openFilePicker}
