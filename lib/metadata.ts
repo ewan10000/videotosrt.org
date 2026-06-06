@@ -12,11 +12,13 @@ const image = {
 export function createPageMetadata({
   path,
   title,
-  description
+  description,
+  robots
 }: {
   path: string;
   title: string;
   description: string;
+  robots?: Metadata["robots"];
 }): Metadata {
   const url = path === "/" ? siteUrl : `${siteUrl}${path}`;
 
@@ -24,6 +26,7 @@ export function createPageMetadata({
     title: path === "/" ? { absolute: title } : title,
     description,
     alternates: { canonical: path },
+    robots,
     openGraph: {
       title,
       description,
