@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
+import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
+  path: "/podcast-transcription",
   title: "Podcast Transcription to SRT — Online",
-  description: "Audio-optimized transcription with speaker detection. Clean SRTs for show notes and distribution.",
-  alternates: { canonical: "/podcast-transcription" }
-};
+  description: "Audio-optimized transcription with speaker detection. Clean SRTs for show notes and distribution."
+});
 
 export default function PodcastTranscriptionPage() {
   return (

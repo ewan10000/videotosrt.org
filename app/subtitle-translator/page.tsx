@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
+import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
+  path: "/subtitle-translator",
   title: "Translate Subtitles Online — SRT Translation",
-  description: "Upload SRT, translate to 50+ languages. Edit inline, preserve timing, export localized files.",
-  alternates: { canonical: "/subtitle-translator" }
-};
+  description: "Upload SRT, translate to 50+ languages. Edit inline, preserve timing, export localized files."
+});
 
 export default function SubtitleTranslatorPage() {
   return (

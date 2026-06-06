@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
+import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
+  path: "/dmca",
   title: "DMCA Takedown Policy",
-  description: "DMCA takedown policy for VideoToSRT, including infringement notices, counter-notifications, and repeat infringer rules.",
-  alternates: { canonical: "/dmca" }
-};
+  description: "DMCA takedown policy for VideoToSRT, including infringement notices, counter-notifications, and repeat infringer rules."
+});
 
 export default function DmcaPage() {
   const lastUpdated = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });

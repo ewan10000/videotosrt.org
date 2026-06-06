@@ -19,7 +19,7 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://videotosrt.org"),
   title: {
-    default: "VideoToSRT — Online Subtitle Editor & Burn-in Tool",
+    default: "VideoToSRT — Online Subtitle Editor",
     template: "%s | VideoToSRT"
   },
   description:
@@ -32,17 +32,17 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }]
   },
   openGraph: {
-    title: "VideoToSRT — Online Subtitle Editor & Burn-in Tool",
+    title: "VideoToSRT — Online Subtitle Editor",
     description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up.",
     url: "https://videotosrt.org",
     siteName: "VideoToSRT",
-    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "VideoToSRT" }],
     locale: "en_US",
     type: "website"
   },
   twitter: {
     card: "summary_large_image",
-    title: "VideoToSRT — Online Subtitle Editor & Burn-in Tool",
+    title: "VideoToSRT — Online Subtitle Editor",
     description: "AI transcription, inline subtitle editing, and clean SRT/VTT/TXT export.",
     images: ["/og-image.png"]
   }
