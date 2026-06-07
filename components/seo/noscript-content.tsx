@@ -12,7 +12,7 @@ export function HomeNoscriptContent() {
         </ul>
         <h2>FAQ</h2>
         <h3>Do I need to create an account?</h3>
-        <p>No. Upload and edit immediately. We only ask for your email when you export.</p>
+        <p>Yes. Sign in to upload and transcribe media. Editing remains free, and exports use your account email.</p>
         <h3>What formats can I export?</h3>
         <p>SRT, VTT, and TXT. ASS/SSA styled export and MP4 burn-in are available on paid plans.</p>
         <h3>How accurate is transcription?</h3>

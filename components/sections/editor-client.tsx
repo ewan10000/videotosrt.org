@@ -6,22 +6,33 @@ import { Brand } from "@/components/brand";
 import { ExportModal } from "@/components/modals/export-modal";
 import { Button } from "@/components/ui/button";
 
-const initialSubtitles = [
-  ["00:00:00.000", "00:00:02.180", "Welcome back. Today we are converting video speech into SRT."],
-  ["00:00:02.180", "00:00:04.720", "The first pass gives us accurate timestamps and editable text."],
-  ["00:00:04.720", "00:00:07.460", "Let us turn this video into clean subtitles."],
-  ["00:00:07.460", "00:00:10.120", "You can review each segment and adjust timing where needed."],
-  ["00:00:10.120", "00:00:13.300", "This row is open for direct subtitle editing."],
-  ["00:00:13.300", "00:00:16.080", "Shortcuts keep the editing flow fast and predictable."],
-  ["00:00:16.080", "00:00:19.640", "The preview updates as you move across the timeline."],
-  ["00:00:19.640", "00:00:22.960", "Export creates a standard subtitle file for your player."],
-  ["00:00:22.960", "00:00:26.420", "Save your draft before switching projects."],
-  ["00:00:26.420", "00:00:30.000", "VideoToSRT keeps the transcript and timing in one focused workspace."]
-];
+const API_BASE_URL = "https://api.videotosrt.org";
 
 type SubtitleRow = [string, string, string];
 
-function readMediaDuration(url: string, type: string) {
+type StoredUpload = {
+  jobId?: string;
+  filename?: string;
+  mediaUrl?: string;
+  name?: string;
+  size?: number;
+};
+
+type UploadResult = {
+  url: string;
+  filename: string;
+  size: number;
+};
+
+type JobResult = {
+  id: string;
+  status: string;
+  srt_content?: string | null;
+  error?: string;
+  message?: string;
+};
+
+function readMediaDuration(url: string, type = "video") {
   return new Promise<number>((resolve) => {
     const media = document.createElement(type.startsWith("audio") ? "audio" : "video");
     media.preload = "metadata";
@@ -57,61 +68,256 @@ function formatFileSize(bytes: number | null) {
   return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
+function parseSrtTimestamp(value: string) {
+  const match = value.trim().replace(",", ".").match(/^(?:(\d+):)?(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?$/);
+
+  if (!match) {
+    return 0;
+  }
+
+  const hours = Number(match[1] ?? 0);
+  const minutes = Number(match[2] ?? 0);
+  const seconds = Number(match[3] ?? 0);
+  const milliseconds = Number((match[4] ?? "0").padEnd(3, "0"));
+
+  return (((hours * 60 + minutes) * 60) + seconds) * 1000 + milliseconds;
+}
+
+function formatSrtTimestamp(milliseconds: number) {
+  const total = Math.max(0, Math.round(milliseconds));
+  const hours = Math.floor(total / 3600000);
+  const minutes = Math.floor((total % 3600000) / 60000);
+  const seconds = Math.floor((total % 60000) / 1000);
+  const ms = total % 1000;
+
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}.${ms.toString().padStart(3, "0")}`;
+}
+
+function parseSrt(srt: string): Array<{ start: number; end: number; text: string }> {
+  return srt
+    .replace(/\r/g, "")
+    .trim()
+    .split(/\n{2,}/)
+    .map((block) => {
+      const lines = block.split("\n").filter(Boolean);
+      const timingIndex = lines.findIndex((line) => line.includes("-->"));
+
+      if (timingIndex === -1) {
+        return null;
+      }
+
+      const [start = "", end = ""] = lines[timingIndex].split("-->").map((part) => part.trim().split(/\s+/)[0]);
+      const text = lines.slice(timingIndex + 1).join("\n").trim();
+
+      if (!text) {
+        return null;
+      }
+
+      return {
+        start: parseSrtTimestamp(start),
+        end: parseSrtTimestamp(end),
+        text
+      };
+    })
+    .filter((row): row is { start: number; end: number; text: string } => Boolean(row));
+}
+
+function getApiErrorMessage(status: number, fallback: string) {
+  if (status === 401 || status === 403) {
+    return "Please sign in before uploading or checking this transcription.";
+  }
+
+  if (status === 413) {
+    return "This file is too large to upload.";
+  }
+
+  return fallback || "Request failed. Please try again.";
+}
+
+async function uploadFile(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_BASE_URL}/api/upload`, {
+    method: "POST",
+    credentials: "include",
+    body: formData
+  });
+  const payload = await response.json().catch(() => null) as Partial<UploadResult> & { error?: string } | null;
+
+  if (!response.ok || !payload?.url || !payload.filename || typeof payload.size !== "number") {
+    throw new Error(getApiErrorMessage(response.status, payload?.error || response.statusText));
+  }
+
+  return { url: payload.url, filename: payload.filename, size: payload.size };
+}
+
+async function createTranscriptionJob(upload: UploadResult, durationSeconds: number) {
+  const response = await fetch(`${API_BASE_URL}/api/transcribe`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      filename: upload.filename,
+      audio_url: upload.url,
+      duration_seconds: durationSeconds
+    })
+  });
+  const payload = await response.json().catch(() => null) as { job_id?: string; error?: string } | null;
+
+  if (!response.ok || !payload?.job_id) {
+    throw new Error(getApiErrorMessage(response.status, payload?.error || response.statusText));
+  }
+
+  return payload.job_id;
+}
+
 export function EditorClient() {
   const [playing, setPlaying] = useState(false);
   const [active, setActive] = useState(2);
-  const [rows, setRows] = useState<SubtitleRow[]>(initialSubtitles as SubtitleRow[]);
+  const [rows, setRows] = useState<SubtitleRow[]>([]);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
-  const [filename, setFilename] = useState("creator-launch-video.mp4");
+  const [filename, setFilename] = useState("");
   const [fileSize, setFileSize] = useState<number | null>(null);
-  const [duration, setDuration] = useState(272);
+  const [duration, setDuration] = useState(0);
   const [status, setStatus] = useState("Ready");
+  const [jobId, setJobId] = useState<string | null>(null);
   const [readError, setReadError] = useState("");
-  const objectUrlRef = useRef<string | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const storedUpload = window.sessionStorage.getItem("videotosrt.upload");
     if (storedUpload) {
       try {
-        const upload = JSON.parse(storedUpload) as { name?: string; size?: number; type?: string };
-        if (upload.name) {
-          setFilename(upload.name);
-          setStatus("File selected on home page");
+        const upload = JSON.parse(storedUpload) as StoredUpload;
+        const storedFilename = upload.filename || upload.name;
+
+        if (storedFilename) {
+          setFilename(storedFilename);
+        }
+        if (upload.mediaUrl) {
+          setMediaUrl(upload.mediaUrl);
+          setStatus(upload.jobId ? "Transcription queued" : "Media ready");
         }
         if (typeof upload.size === "number") {
           setFileSize(upload.size);
+        }
+        if (upload.jobId) {
+          setJobId(upload.jobId);
         }
       } catch {
         window.sessionStorage.removeItem("videotosrt.upload");
       }
     }
-
-    return () => {
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current);
-      }
-    };
   }, []);
 
-  async function handleFile(file: File) {
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
+  useEffect(() => {
+    if (!mediaUrl) {
+      return;
     }
 
-    const objectUrl = URL.createObjectURL(file);
-    objectUrlRef.current = objectUrl;
-    setMediaUrl(objectUrl);
+    let cancelled = false;
+
+    readMediaDuration(mediaUrl).then((mediaDuration) => {
+      if (!cancelled && mediaDuration > 0) {
+        setDuration(mediaDuration);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mediaUrl]);
+
+  useEffect(() => {
+    if (!jobId) {
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    async function pollJob() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}`, {
+          credentials: "include"
+        });
+        const payload = await response.json().catch(() => null) as JobResult | null;
+
+        if (!response.ok || !payload) {
+          throw new Error(getApiErrorMessage(response.status, payload?.error || response.statusText));
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        if (payload.status === "completed") {
+          const parsedRows = parseSrt(payload.srt_content || "").map(({ start, end, text }) => [
+            formatSrtTimestamp(start),
+            formatSrtTimestamp(end),
+            text
+          ] as SubtitleRow);
+
+          setRows(parsedRows);
+          setActive(0);
+          setStatus("Transcription completed");
+          setReadError(parsedRows.length ? "" : "Transcription completed, but no subtitles were returned.");
+          return;
+        }
+
+        if (payload.status === "failed") {
+          setStatus("Transcription failed");
+          setReadError(payload.error || payload.message || "Transcription failed. Please try another file.");
+          return;
+        }
+
+        setStatus(`Transcription ${payload.status}`);
+        timeoutId = setTimeout(pollJob, 2000);
+      } catch (error) {
+        if (!cancelled) {
+          setStatus("Could not check transcription");
+          setReadError(error instanceof Error ? error.message : "Could not check transcription status.");
+        }
+      }
+    }
+
+    pollJob();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [jobId]);
+
+  async function handleFile(file: File) {
     setFilename(file.name);
     setFileSize(file.size);
-    setStatus("Reading media...");
+    setStatus("Uploading media...");
     setReadError("");
-    window.sessionStorage.setItem("videotosrt.upload", JSON.stringify({ name: file.name, size: file.size, type: file.type }));
 
     try {
-      const mediaDuration = await readMediaDuration(objectUrl, file.type);
+      const localUrl = URL.createObjectURL(file);
+      const mediaDuration = await readMediaDuration(localUrl, file.type);
+      URL.revokeObjectURL(localUrl);
       setDuration(mediaDuration);
-      setStatus("Local file ready");
+      const uploadResult = await uploadFile(file);
+      setMediaUrl(uploadResult.url);
+      setFileSize(uploadResult.size);
+      setStatus("Creating transcription job...");
+      const nextJobId = await createTranscriptionJob(uploadResult, mediaDuration);
+      window.sessionStorage.setItem("videotosrt.upload", JSON.stringify({
+        jobId: nextJobId,
+        filename: uploadResult.filename,
+        mediaUrl: uploadResult.url,
+        size: uploadResult.size
+      }));
+      setJobId(nextJobId);
+      setStatus("Transcription queued");
     } catch (error) {
       setStatus("Ready");
       setReadError(error instanceof Error ? error.message : "Could not read this file.");
@@ -209,12 +415,12 @@ export function EditorClient() {
                   </button>
                 </>
               )}
-              {!mediaUrl ? (
+              {!mediaUrl && rows.length === 0 ? (
                 <div className="relative z-[1] max-w-[420px] rounded border border-line bg-panel/90 p-5 text-center shadow-panel">
                   <FileVideo className="mx-auto mb-3 h-8 w-8 text-cyan" />
-                  <h2 className="mb-2 text-lg font-extrabold">{filename}</h2>
+                  <h2 className="mb-2 text-lg font-extrabold">Upload a video to get started</h2>
                   <p className="text-sm font-semibold text-soft">
-                    {formatFileSize(fileSize)} · Select the file again here to preview it in the browser.
+                    Drag and drop or click Upload to transcribe
                   </p>
                 </div>
               ) : null}

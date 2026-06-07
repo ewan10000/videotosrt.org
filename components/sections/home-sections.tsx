@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, type ChangeEvent, type DragEvent } from "react";
+import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import type { LucideIcon } from "lucide-react";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { ArrowDown, Check, ChevronDown, FolderUp, Scissors, Upload } from "lucide-react";
@@ -20,7 +20,7 @@ const features = [
 ];
 
 const faqs = [
-  ["Do I need to create an account?", "No. Upload and edit immediately. We only ask for your email when you hit Export — so we can send you the file."],
+  ["Do I need to create an account?", "Yes. Sign in to upload and transcribe media. Editing remains free, and exports use your account email."],
   ["What formats can I export?", "SRT, VTT, and TXT are available today. ASS/SSA styled export and MP4 burn-in export are coming soon for paid plans."],
   ["How accurate is transcription?", "Powered by Whisper. 95%+ for clear audio. Every line is editable inline, so perfect accuracy is one click away."],
   ["Can I use exported subtitles commercially?", "Yes. Everything you export is yours. We don't watermark, we don't claim rights, we don't look at your content."],
@@ -39,13 +39,130 @@ const useCases = [
   ["TikTok Creator", "Vertical captions with styled ASS — finally something that doesn't look like it was made in 2008. And it's in my browser."]
 ];
 
+const API_BASE_URL = "https://api.videotosrt.org";
+
+type UploadResult = {
+  url: string;
+  filename: string;
+  size: number;
+};
+
+function getUploadErrorMessage(status: number, fallback: string) {
+  if (status === 401 || status === 403) {
+    return "Please sign in before uploading.";
+  }
+
+  if (status === 413) {
+    return "This file is too large to upload.";
+  }
+
+  return fallback || "Upload failed. Please try again.";
+}
+
+function uploadFile(file: File, onProgress: (progress: number) => void) {
+  return new Promise<UploadResult>((resolve, reject) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE_URL}/api/upload`);
+    xhr.withCredentials = true;
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress((event.loaded / event.total) * 100);
+      }
+    };
+
+    xhr.onload = () => {
+      let payload: unknown = null;
+
+      try {
+        payload = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        payload = null;
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300 && payload && typeof payload === "object") {
+        const result = payload as Partial<UploadResult>;
+
+        if (typeof result.url === "string" && typeof result.filename === "string" && typeof result.size === "number") {
+          resolve({ url: result.url, filename: result.filename, size: result.size });
+          return;
+        }
+      }
+
+      const message = payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
+        ? payload.error
+        : xhr.statusText;
+
+      reject(new Error(getUploadErrorMessage(xhr.status, message)));
+    };
+
+    xhr.onerror = () => reject(new Error("Network error while uploading. Please try again."));
+    xhr.send(formData);
+  });
+}
+
+async function createTranscriptionJob(upload: UploadResult) {
+  const response = await fetch(`${API_BASE_URL}/api/transcribe`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      filename: upload.filename,
+      audio_url: upload.url,
+      duration_seconds: 0
+    })
+  });
+
+  const payload = await response.json().catch(() => null) as { job_id?: string; error?: string } | null;
+
+  if (!response.ok || !payload?.job_id) {
+    throw new Error(getUploadErrorMessage(response.status, payload?.error || response.statusText));
+  }
+
+  return payload.job_id;
+}
+
 function useHomeUploadPicker() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [uploadFilename, setUploadFilename] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "processing" | "complete" | "error">("idle");
+  const [uploadError, setUploadError] = useState("");
 
-  const startUpload = (file: File) => {
-    window.sessionStorage.setItem("videotosrt.upload", JSON.stringify({ name: file.name, size: file.size }));
-    router.push("/editor");
+  const startUpload = async (file: File) => {
+    if (uploadStatus === "uploading" || uploadStatus === "processing") {
+      return;
+    }
+
+    setUploadFilename(file.name);
+    setUploadProgress(0);
+    setUploadStatus("uploading");
+    setUploadError("");
+
+    try {
+      const uploadResult = await uploadFile(file, setUploadProgress);
+      setUploadProgress(100);
+      setUploadStatus("processing");
+      const jobId = await createTranscriptionJob(uploadResult);
+
+      window.sessionStorage.setItem("videotosrt.upload", JSON.stringify({
+        jobId,
+        filename: uploadResult.filename,
+        mediaUrl: uploadResult.url,
+        size: uploadResult.size
+      }));
+      setUploadStatus("complete");
+      router.push("/editor");
+    } catch (error) {
+      setUploadStatus("error");
+      setUploadError(error instanceof Error ? error.message : "Upload failed. Please try again.");
+    }
   };
 
   const openFilePicker = () => {
@@ -75,11 +192,22 @@ function useHomeUploadPicker() {
     }
   };
 
-  return { handleDragOver, handleDrop, handleFileChange, inputRef, openFilePicker };
+  return {
+    handleDragOver,
+    handleDrop,
+    handleFileChange,
+    inputRef,
+    isUploading: uploadStatus === "uploading" || uploadStatus === "processing",
+    openFilePicker,
+    uploadError,
+    uploadFilename,
+    uploadProgress,
+    uploadStatus
+  };
 }
 
 export function HeroSection() {
-  const { handleFileChange, inputRef, openFilePicker } = useHomeUploadPicker();
+  const { handleFileChange, inputRef, isUploading, openFilePicker, uploadError, uploadFilename, uploadProgress, uploadStatus } = useHomeUploadPicker();
 
   return (
     <header className="border-b border-soft/15 py-[72px] pb-11">
@@ -90,7 +218,7 @@ export function HeroSection() {
             <div className="text-[13px] font-bold text-soft">Get started</div>
           </div>
           <div className="p-[22px]">
-            <span className="eyebrow"><span className="dot" /> Forge Perfect Subtitles. No Software. No Sign-Up.</span>
+            <span className="eyebrow"><span className="dot" /> Forge Perfect Subtitles. No Software. Free to Edit.</span>
             <h1 className="mb-[18px] mt-5 max-w-[780px] text-[clamp(42px,6vw,72px)] font-extrabold leading-[.98]">
               Turn Any Video Into Accurate Subtitles in 60 Seconds
             </h1>
@@ -102,9 +230,10 @@ export function HeroSection() {
                 className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded bg-indigo px-4 text-sm font-bold text-white shadow-[0_4px_14px_rgba(99,102,241,.3)] transition hover:-translate-y-px"
                 type="button"
                 onClick={openFilePicker}
+                disabled={isUploading}
               >
                 <FolderUp className="h-4 w-4" />
-                Upload Video — Free
+                {isUploading ? "Uploading..." : "Upload Video — Free"}
               </button>
               <input
                 ref={inputRef}
@@ -117,8 +246,16 @@ export function HeroSection() {
                 View editor
               </Link>
             </div>
+            {uploadFilename ? (
+              <div className="mb-5 max-w-[520px]">
+                <UploadStatus filename={uploadFilename} progress={uploadProgress} status={uploadStatus} />
+              </div>
+            ) : null}
+            {uploadError ? (
+              <p className="mb-5 max-w-[520px] rounded border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm font-semibold text-red-200">{uploadError}</p>
+            ) : null}
             <div className="grid max-w-[620px] grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Product metrics">
-              {["No sign-up to edit", "Export with email", "No watermark"].map((metric, index) => (
+              {["Free to edit", "Export with email", "No watermark"].map((metric, index) => (
                 <div key={metric} className="rounded border border-line bg-white/[.025] p-[15px]">
                   <strong className="mb-1 block text-[22px]">{index === 0 ? "0" : index === 1 ? "Email" : "0"}</strong>
                   <span className="text-[13px] font-semibold text-soft">{metric}</span>
@@ -134,7 +271,7 @@ export function HeroSection() {
 }
 
 function UploadPanel() {
-  const { handleDragOver, handleDrop, handleFileChange, inputRef, openFilePicker } = useHomeUploadPicker();
+  const { handleDragOver, handleDrop, handleFileChange, inputRef, isUploading, openFilePicker, uploadError, uploadFilename, uploadProgress, uploadStatus } = useHomeUploadPicker();
 
   return (
     <div id="upload" className="flex h-full flex-col overflow-hidden rounded border border-line bg-panel shadow-panel">
@@ -163,8 +300,16 @@ function UploadPanel() {
             </div>
             <h2 className="mb-[9px] text-2xl font-extrabold leading-[1.2]">Drop your video here</h2>
             <p className="mx-auto mb-5 max-w-[410px] leading-[1.6] text-muted">
-              Drag in your video or paste a link. AI handles the rest.
+              {isUploading ? "Uploading your file and creating a transcription job." : "Drag in your video or paste a link. AI handles the rest."}
             </p>
+            {uploadFilename ? (
+              <div className="mx-auto mb-5 max-w-[410px] text-left">
+                <UploadStatus filename={uploadFilename} progress={uploadProgress} status={uploadStatus} />
+              </div>
+            ) : null}
+            {uploadError ? (
+              <p className="mx-auto mb-5 max-w-[410px] rounded border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm font-semibold text-red-200">{uploadError}</p>
+            ) : null}
             <input
               ref={inputRef}
               className="sr-only"
@@ -313,7 +458,7 @@ export function PricingTeaserSection() {
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           {[
-            ["Free", "$0", "30 min/mo", ["No sign-up to edit", "SRT, VTT, TXT export", "Inline editor"], "Start Free"],
+            ["Free", "$0", "30 min/mo", ["Sign in to transcribe", "SRT, VTT, TXT export", "Inline editor"], "Start Free"],
             ["Pro", "$9", "10 hrs/mo", ["Burn-in preview", "20 style templates", "Batch 20 files"], "Start Pro"],
             ["Studio", "$29", "50 hrs/mo", ["Team (3 seats)", "API access", "Brand templates"], "Start Studio"]
           ].map(([plan, price, meta, items, cta]) => (

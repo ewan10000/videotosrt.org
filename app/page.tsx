@@ -18,7 +18,7 @@ import { SiteNav } from "@/components/site-nav";
 export const metadata = createPageMetadata({
   path: "/",
   title: "VideoToSRT — Online Subtitle Editor",
-  description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up."
+  description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software. Free to edit."
 });
 
 const homeJsonLd = [
@@ -47,7 +47,7 @@ const homeJsonLd = [
     "@context": "https://schema.org",
     "@type": "FAQPage",
     mainEntity: [
-      ["Do I need to create an account?", "No. Upload and edit immediately. We only ask for your email when you hit Export, so we can send you the file."],
+      ["Do I need to create an account?", "Yes. Sign in to upload and transcribe media. Editing remains free, and exports use your account email."],
       ["What formats can I export?", "SRT, VTT, TXT. ASS/SSA styled export and MP4 burn-in are available on paid plans."],
       ["How accurate is transcription?", "Powered by Whisper. 95%+ for clear audio. Every line is editable inline, so perfect accuracy is one click away."],
       ["Can I use exported subtitles commercially?", "Yes. Everything you export is yours. We do not watermark, claim rights, or look at your content."],

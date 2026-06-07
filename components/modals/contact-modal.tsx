@@ -13,8 +13,13 @@ import {
 } from "@/components/ui/dialog";
 
 const supportEmail = "support@videotosrt.org";
+const defaultTrigger = (
+  <button className="cursor-pointer bg-transparent p-0 text-sm font-semibold text-soft" type="button">
+    Contact
+  </button>
+);
 
-export function ContactModal({ trigger }: { trigger: React.ReactNode }) {
+export function ContactModal({ trigger = defaultTrigger }: { trigger?: React.ReactNode }) {
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>

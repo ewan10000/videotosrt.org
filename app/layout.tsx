@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s | VideoToSRT"
   },
   description:
-    "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up.",
+    "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software. Free to edit.",
   robots: { index: true, follow: true },
   manifest: "/manifest.json",
   icons: {
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "VideoToSRT — Online Subtitle Editor",
-    description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up.",
+    description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software. Free to edit.",
     url: "https://videotosrt.org",
     siteName: "VideoToSRT",
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "VideoToSRT" }],
