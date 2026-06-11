@@ -14,15 +14,15 @@ import {
 
 const supportEmail = "support@videotosrt.org";
 const defaultTrigger = (
-  <button className="cursor-pointer bg-transparent p-0 text-sm font-semibold text-soft" type="button">
+  <span className="cursor-pointer bg-transparent p-0 text-sm font-semibold text-soft">
     Contact
-  </button>
+  </span>
 );
 
 export function ContactModal({ trigger = defaultTrigger }: { trigger?: React.ReactNode }) {
   return (
     <Dialog>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogTrigger>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="text-2xl font-extrabold">Contact us</DialogTitle>

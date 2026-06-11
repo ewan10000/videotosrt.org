@@ -3,6 +3,7 @@ import type * as React from "react";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { CookieBanner } from "@/components/cookie-banner";
 import { Analytics } from "@/components/seo/analytics";
+import { AuthTokenHandler } from "@/components/auth-token-handler";
 import "./globals.css";
 
 const inter = Inter({
@@ -61,8 +62,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className="dark">
       <head>
-        <link rel="preconnect" href="https://api.videotosrt.org" />
-        <link rel="dns-prefetch" href="https://api.videotosrt.org" />
+        <link rel="preconnect" href="https://videotosrt-backend.ewan0862.workers.dev" />
+        <link rel="dns-prefetch" href="https://videotosrt-backend.ewan0862.workers.dev" />
         <link rel="preconnect" href="https://plausible.io" />
         <link rel="dns-prefetch" href="https://plausible.io" />
         <link rel="preconnect" href="https://www.googletagmanager.com" />
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link rel="alternate" href="https://videotosrt.org/" {...{ hreflang: "x-default" }} />
       </head>
       <body className={`${inter.variable} ${jetbrains.variable} min-h-screen font-sans antialiased`}>
+        <AuthTokenHandler />
         {children}
         <CookieBanner />
         <Analytics />

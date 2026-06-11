@@ -4,7 +4,7 @@ import { Footer } from "@/components/footer";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata: Metadata = {
-  title: "Page Not Found",
+  title: { absolute: "Page Not Found | VideoToSRT" },
   description: "The requested VideoToSRT page could not be found."
 };
 

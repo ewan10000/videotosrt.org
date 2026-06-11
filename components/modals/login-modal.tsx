@@ -118,7 +118,7 @@ export function LoginModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
+      {trigger ? <DialogTrigger>{trigger}</DialogTrigger> : null}
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="text-2xl font-extrabold">Save your export</DialogTitle>

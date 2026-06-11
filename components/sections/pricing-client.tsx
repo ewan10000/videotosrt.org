@@ -6,7 +6,7 @@ import { Check } from "lucide-react";
 import { LoginModal } from "@/components/modals/login-modal";
 import { Button } from "@/components/ui/button";
 import { api, type ApiUser } from "@/lib/api";
-import { getLocalUser, normalizeUser, onAuthChange } from "@/lib/auth";
+import { useAuthUser } from "@/lib/auth";
 
 const plans = [
   {
@@ -40,33 +40,14 @@ export function PricingClient() {
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
   const [loadingPlan, setLoadingPlan] = useState<"pro" | "business" | null>(null);
   const [user, setUser] = useState<ApiUser | null>(null);
+  const auth = useAuthUser();
   const [loginOpen, setLoginOpen] = useState(false);
   const [pendingPlan, setPendingPlan] = useState<"pro" | "business" | null>(null);
   const [checkoutError, setCheckoutError] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-    const removeAuthListener = onAuthChange((nextUser) => setUser(nextUser));
-
-    setUser(getLocalUser());
-    api
-      .me()
-      .then((data) => {
-        if (mounted) {
-          setUser(normalizeUser(data) ?? getLocalUser());
-        }
-      })
-      .catch(() => {
-        if (mounted && !getLocalUser()) {
-          setUser(null);
-        }
-      });
-
-    return () => {
-      mounted = false;
-      removeAuthListener();
-    };
-  }, []);
+    setUser(auth.user);
+  }, [auth.user]);
 
   async function runCheckout(plan: "pro" | "business") {
     setLoadingPlan(plan);

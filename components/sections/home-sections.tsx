@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation";
 import { ExportModal } from "@/components/modals/export-modal";
 import { Button } from "@/components/ui/button";
 import { UploadStatus } from "@/components/upload-status";
+import { API_BASE_URL } from "@/lib/api";
+import { refreshAuthUser, useAuthUser } from "@/lib/auth";
 
 const features = [
   ["ED", "Inline Editor", "Edit text and timestamps directly. No external tools, no format juggling."],
@@ -39,8 +41,6 @@ const useCases = [
   ["TikTok Creator", "Vertical captions with styled ASS — finally something that doesn't look like it was made in 2008. And it's in my browser."]
 ];
 
-const API_BASE_URL = "https://api.videotosrt.org";
-
 type UploadResult = {
   url: string;
   filename: string;
@@ -65,8 +65,11 @@ function uploadFile(file: File, onProgress: (progress: number) => void) {
     formData.append("file", file);
 
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_BASE_URL}/api/upload`);
-    xhr.withCredentials = true;
+    xhr.open("POST", `${API_BASE_URL}/upload`);
+    const token = typeof window !== "undefined" ? window.localStorage.getItem("videotosrt.auth.session_token") : null;
+    if (token) {
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    }
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
@@ -105,12 +108,17 @@ function uploadFile(file: File, onProgress: (progress: number) => void) {
 }
 
 async function createTranscriptionJob(upload: UploadResult) {
-  const response = await fetch(`${API_BASE_URL}/api/transcribe`, {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json"
+  };
+  const token = typeof window !== "undefined" ? window.localStorage.getItem("videotosrt.auth.session_token") : null;
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/transcribe`, {
     method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers,
     body: JSON.stringify({
       filename: upload.filename,
       audio_url: upload.url,
@@ -129,6 +137,7 @@ async function createTranscriptionJob(upload: UploadResult) {
 
 function useHomeUploadPicker() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuthUser();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploadFilename, setUploadFilename] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -137,6 +146,16 @@ function useHomeUploadPicker() {
 
   const startUpload = async (file: File) => {
     if (uploadStatus === "uploading" || uploadStatus === "processing") {
+      return;
+    }
+
+    const authUser = user ?? (authLoading ? await refreshAuthUser() : null);
+
+    if (!authUser) {
+      setUploadFilename("");
+      setUploadProgress(0);
+      setUploadStatus("idle");
+      setUploadError("Please sign in before uploading.");
       return;
     }
 

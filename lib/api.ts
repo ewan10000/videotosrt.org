@@ -1,4 +1,4 @@
-export const API_BASE_URL = "https://api.videotosrt.org/api";
+export const API_BASE_URL = "https://videotosrt-backend.ewan0862.workers.dev/api";
 
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: BodyInit | Record<string, unknown> | null;
@@ -57,10 +57,15 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
     body = JSON.stringify(body);
   }
 
+  // Add auth token if available
+  const token = typeof window !== "undefined" ? window.localStorage.getItem("videotosrt.auth.session_token") : null;
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
   const response = await fetch(buildUrl(path), {
     ...options,
     body: body as BodyInit | null | undefined,
-    credentials: "include",
     headers
   });
 

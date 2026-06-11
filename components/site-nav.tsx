@@ -7,7 +7,7 @@ import { Brand } from "@/components/brand";
 import { LoginModal } from "@/components/modals/login-modal";
 import { Button } from "@/components/ui/button";
 import { api, type ApiUser } from "@/lib/api";
-import { getLocalUser, normalizeUser, onAuthChange, setLocalUser } from "@/lib/auth";
+import { clearAuthToken, setLocalUser, useAuthUser } from "@/lib/auth";
 
 function getUserInitial(user: ApiUser) {
   const label = user.name ?? user.email ?? "User";
@@ -16,49 +16,21 @@ function getUserInitial(user: ApiUser) {
 
 export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" }) {
   const [user, setUser] = useState<ApiUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const auth = useAuthUser();
   const [logoutError, setLogoutError] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-    const removeAuthListener = onAuthChange((nextUser) => setUser(nextUser));
-
-    setUser(getLocalUser());
-    api
-      .me()
-      .then((data) => {
-        if (!mounted) {
-          return;
-        }
-        setUser(normalizeUser(data) ?? getLocalUser());
-      })
-      .catch(() => {
-        if (mounted) {
-          setUser(null);
-        }
-      })
-      .finally(() => {
-        if (mounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      mounted = false;
-      removeAuthListener();
-    };
-  }, []);
+    setUser(auth.user);
+  }, [auth.user]);
 
   async function handleLogout() {
-    const localUser = getLocalUser();
     setLogoutError("");
     try {
       await api.logout();
     } catch (error) {
-      if (!localUser) {
-        setLogoutError(error instanceof Error ? error.message : "Could not sign out. Please try again.");
-      }
+      setLogoutError(error instanceof Error ? error.message : "Could not sign out. Please try again.");
     } finally {
+      clearAuthToken();
       setLocalUser(null);
       setUser(null);
     }
@@ -113,7 +85,7 @@ export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" }) 
                 </div>
               </div>
             </div>
-          ) : loading ? (
+          ) : auth.loading ? (
             <Button variant="secondary" type="button" disabled>Checking...</Button>
           ) : (
             <LoginModal trigger={<Button variant="secondary">Sign in</Button>} onLoginSuccess={setUser} />

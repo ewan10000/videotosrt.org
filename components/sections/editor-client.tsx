@@ -5,8 +5,8 @@ import { FileVideo, Pause, Play, Plus, Save, SkipBack, SkipForward, Trash2 } fro
 import { Brand } from "@/components/brand";
 import { ExportModal } from "@/components/modals/export-modal";
 import { Button } from "@/components/ui/button";
-
-const API_BASE_URL = "https://api.videotosrt.org";
+import { API_BASE_URL } from "@/lib/api";
+import { refreshAuthUser, useAuthUser } from "@/lib/auth";
 
 type SubtitleRow = [string, string, string];
 
@@ -134,31 +134,93 @@ function getApiErrorMessage(status: number, fallback: string) {
   return fallback || "Request failed. Please try again.";
 }
 
-async function uploadFile(file: File) {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const response = await fetch(`${API_BASE_URL}/api/upload`, {
-    method: "POST",
-    credentials: "include",
-    body: formData
+async function uploadFile(file: File, onProgress?: (pct: number) => void): Promise<UploadResult> {
+  const contentType = file.type || "application/octet-stream";
+  const params = new URLSearchParams({
+    filename: file.name,
+    contentType
   });
-  const payload = await response.json().catch(() => null) as Partial<UploadResult> & { error?: string } | null;
+  const presignRes = await fetch(`${API_BASE_URL}/upload/presign?${params}`, {
+    method: "GET",
+    headers: (() => {
+      const h: Record<string, string> = {};
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("videotosrt.auth.session_token") : null;
+      if (token) h["Authorization"] = `Bearer ${token}`;
+      return h;
+    })()
+  });
+  const presign = await presignRes.json().catch(() => null) as {
+    url?: string;
+    key?: string;
+    filename?: string;
+    error?: string;
+  } | null;
 
-  if (!response.ok || !payload?.url || !payload.filename || typeof payload.size !== "number") {
-    throw new Error(getApiErrorMessage(response.status, payload?.error || response.statusText));
+  if (!presignRes.ok || !presign?.url || !presign.key) {
+    throw new Error(getApiErrorMessage(presignRes.status, presign?.error || "Failed to get upload URL"));
   }
 
-  return { url: payload.url, filename: payload.filename, size: payload.size };
+  const uploadUrl = presign.url;
+  const uploadKey = presign.key;
+
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", uploadUrl, true);
+    xhr.setRequestHeader("Content-Type", contentType);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`Upload failed: ${xhr.statusText || xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error("Network error while uploading. Please try again."));
+    xhr.onabort = () => reject(new Error("Upload cancelled."));
+
+    xhr.send(file);
+  });
+
+  const urlRes = await fetch(
+    `${API_BASE_URL}/upload/url?key=${encodeURIComponent(uploadKey)}`,
+    {
+      method: "GET",
+      headers: (() => {
+        const h: Record<string, string> = {};
+        const token = typeof window !== "undefined" ? window.localStorage.getItem("videotosrt.auth.session_token") : null;
+        if (token) h["Authorization"] = `Bearer ${token}`;
+        return h;
+      })()
+    }
+  );
+  const urlPayload = await urlRes.json().catch(() => null) as { url?: string; error?: string } | null;
+
+  if (!urlRes.ok || !urlPayload?.url) {
+    throw new Error(getApiErrorMessage(urlRes.status, urlPayload?.error || "Failed to get media URL"));
+  }
+
+  return { url: urlPayload.url, filename: presign.filename || file.name, size: file.size };
 }
 
 async function createTranscriptionJob(upload: UploadResult, durationSeconds: number) {
-  const response = await fetch(`${API_BASE_URL}/api/transcribe`, {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json"
+  };
+  const token = typeof window !== "undefined" ? window.localStorage.getItem("videotosrt.auth.session_token") : null;
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/transcribe`, {
     method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers,
     body: JSON.stringify({
       filename: upload.filename,
       audio_url: upload.url,
@@ -175,6 +237,7 @@ async function createTranscriptionJob(upload: UploadResult, durationSeconds: num
 }
 
 export function EditorClient() {
+  const { user, loading: authLoading } = useAuthUser();
   const [playing, setPlaying] = useState(false);
   const [active, setActive] = useState(2);
   const [rows, setRows] = useState<SubtitleRow[]>([]);
@@ -183,6 +246,7 @@ export function EditorClient() {
   const [fileSize, setFileSize] = useState<number | null>(null);
   const [duration, setDuration] = useState(0);
   const [status, setStatus] = useState("Ready");
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
   const [readError, setReadError] = useState("");
   const uploadInputRef = useRef<HTMLInputElement>(null);
@@ -241,8 +305,13 @@ export function EditorClient() {
 
     async function pollJob() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}`, {
-          credentials: "include"
+        const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`, {
+          headers: (() => {
+            const h: Record<string, string> = {};
+            const token = typeof window !== "undefined" ? window.localStorage.getItem("videotosrt.auth.session_token") : null;
+            if (token) h["Authorization"] = `Bearer ${token}`;
+            return h;
+          })()
         });
         const payload = await response.json().catch(() => null) as JobResult | null;
 
@@ -295,8 +364,16 @@ export function EditorClient() {
   }, [jobId]);
 
   async function handleFile(file: File) {
+    const authUser = user ?? (authLoading ? await refreshAuthUser() : null);
+
+    if (!authUser) {
+      setReadError("Please sign in before uploading or checking this transcription.");
+      return;
+    }
+
     setFilename(file.name);
     setFileSize(file.size);
+    setUploadProgress(0);
     setStatus("Uploading media...");
     setReadError("");
 
@@ -305,7 +382,10 @@ export function EditorClient() {
       const mediaDuration = await readMediaDuration(localUrl, file.type);
       URL.revokeObjectURL(localUrl);
       setDuration(mediaDuration);
-      const uploadResult = await uploadFile(file);
+      const uploadResult = await uploadFile(file, (pct) => {
+        setUploadProgress(pct);
+        setStatus(`Uploading media... ${pct}%`);
+      });
       setMediaUrl(uploadResult.url);
       setFileSize(uploadResult.size);
       setStatus("Creating transcription job...");
