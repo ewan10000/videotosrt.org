@@ -1,1 +1,4 @@
-/www.videotosrt.org/* /:splat 301
+/privacy /privacy-policy 301
+/terms /terms-of-service 301
+/faq /#faq 301
+https://www.videotosrt.org/* https://videotosrt.org/:splat 301
