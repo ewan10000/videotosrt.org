@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
@@ -91,7 +91,7 @@ export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" }) 
             <LoginModal trigger={<Button variant="secondary">Sign in</Button>} onLoginSuccess={setUser} />
           )}
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px" href="/#upload">
-            Upload Video — Free
+            Upload Video - Free
           </Link>
         </div>
       </div>

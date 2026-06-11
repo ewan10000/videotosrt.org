@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { FileVideo, Pause, Play, Plus, Save, SkipBack, SkipForward, Trash2 } from "lucide-react";
@@ -491,7 +491,7 @@ export function EditorClient() {
                 <>
                   <div className="absolute inset-0 [background:radial-gradient(circle_at_30%_20%,rgba(99,102,241,.25),transparent_30%),linear-gradient(135deg,rgba(34,211,238,.12),transparent_45%)]" />
                   <button className="relative grid h-[68px] w-[68px] place-items-center rounded-full bg-indigo text-xl" type="button" aria-label="Play video" onClick={() => setPlaying((value) => !value)}>
-                    {playing ? "Ⅱ" : "▶"}
+                    {playing ? "Pause : "Play}
                   </button>
                 </>
               )}
@@ -620,7 +620,7 @@ export function EditorClient() {
       <div className="grid min-h-screen place-items-center bg-bg p-6 min-[760px]:hidden">
         <div className="max-w-md rounded border border-line bg-panel p-6 text-center shadow-panel">
           <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded bg-indigo font-extrabold">VS</div>
-          <h1 className="mb-3 text-2xl font-extrabold">Editor requires a wider screen.</h1>
+          <h2 className="mb-3 text-2xl font-extrabold">Editor requires a wider screen.</h2>
           <p className="mb-5 leading-6 text-muted">The MVP subtitle editor is built for desktop workflows with a minimum width of 760px.</p>
           <Button variant="primary" onClick={() => history.back()}>Go back</Button>
         </div>

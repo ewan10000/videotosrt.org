@@ -1,4 +1,4 @@
-import { Footer } from "@/components/footer";
+﻿import { Footer } from "@/components/footer";
 import {
   EditorPreviewSection,
   FaqSection,
@@ -17,7 +17,7 @@ import { SiteNav } from "@/components/site-nav";
 
 export const metadata = createPageMetadata({
   path: "/",
-  title: "VideoToSRT — Online Subtitle Editor",
+  title: "VideoToSRT - Online Subtitle Editor",
   description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software. Free to edit."
 });
 
@@ -27,6 +27,16 @@ const homeJsonLd = [
     "@type": "WebSite",
     name: "VideoToSRT",
     url: "https://videotosrt.org"
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "VideoToSRT - Online Subtitle Editor",
+    url: "https://videotosrt.org",
+    speakable: {
+      "@type": "SpeakableSpecification",
+      cssSelector: ["main h1", "#faq"]
+    }
   },
   {
     "@context": "https://schema.org",

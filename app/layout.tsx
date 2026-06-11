@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from "next";
+﻿import type { Metadata, Viewport } from "next";
 import type * as React from "react";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { CookieBanner } from "@/components/cookie-banner";
@@ -21,12 +21,11 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://videotosrt.org"),
   title: {
-    default: "VideoToSRT — Online Subtitle Editor",
+    default: "VideoToSRT - Online Subtitle Editor",
     template: "%s | VideoToSRT"
   },
   description:
     "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software. Free to edit.",
-  robots: { index: true, follow: true },
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -36,7 +35,7 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }]
   },
   openGraph: {
-    title: "VideoToSRT — Online Subtitle Editor",
+    title: "VideoToSRT - Online Subtitle Editor",
     description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software. Free to edit.",
     url: "https://videotosrt.org",
     siteName: "VideoToSRT",
@@ -46,7 +45,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "VideoToSRT — Online Subtitle Editor",
+    title: "VideoToSRT - Online Subtitle Editor",
     description: "AI transcription, inline subtitle editing, and clean SRT/VTT/TXT export.",
     images: ["/og-image.png"]
   }

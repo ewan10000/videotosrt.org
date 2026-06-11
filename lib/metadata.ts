@@ -9,6 +9,12 @@ const image = {
   alt: siteName
 };
 
+const pageImages: Record<string, typeof image> = {
+  "/pricing": { ...image, url: "/og-pricing.png", alt: "VideoToSRT pricing" },
+  "/video-to-srt": { ...image, url: "/og-video-to-srt.png", alt: "Video to SRT converter" },
+  "/editor": { ...image, url: "/og-editor.png", alt: "Online subtitle editor" }
+};
+
 export function createPageMetadata({
   path,
   title,
@@ -21,18 +27,19 @@ export function createPageMetadata({
   robots?: Metadata["robots"];
 }): Metadata {
   const url = path === "/" ? siteUrl : `${siteUrl}${path}`;
+  const pageImage = pageImages[path] ?? image;
 
   return {
     title: path === "/" ? { absolute: title } : title,
     description,
     alternates: { canonical: path },
-    robots,
+    robots: robots ?? { index: true, follow: true },
     openGraph: {
       title,
       description,
       url,
       siteName,
-      images: [image],
+      images: [pageImage],
       locale: "en_US",
       type: "website"
     },
@@ -40,7 +47,7 @@ export function createPageMetadata({
       card: "summary_large_image",
       title,
       description,
-      images: [image.url]
+      images: [pageImage.url]
     }
   };
 }
