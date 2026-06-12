@@ -1,5 +1,7 @@
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { isValidEmail, localAuthCookieHeader, normalizeEmail, userFromEmail } from "@/lib/local-auth";
 import { jsonResponse, readJson } from "@/lib/paypal";
+import { upsertUserLogin, type UserStoreEnv } from "@/lib/user-store";
 
 type VerifyPayload = {
   code?: string;
@@ -15,6 +17,9 @@ export async function POST(request: Request) {
   }
 
   const user = userFromEmail(email);
+  const env = (await getCloudflareContext({ async: true })).env as UserStoreEnv;
+  await upsertUserLogin(env, user);
+
   return jsonResponse(
     {
       data: { user },

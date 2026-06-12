@@ -7,6 +7,7 @@ const securityHeaders = {
   "X-Frame-Options": "DENY"
 };
 const LOCAL_API_ROUTES = new Set([
+  "/api/admin/users",
   "/api/auth/email/send-code",
   "/api/auth/email/verify",
   "/api/auth/logout",

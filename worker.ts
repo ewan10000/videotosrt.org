@@ -367,6 +367,7 @@ export default {
     }
 
     if (
+      url.pathname === "/api/admin/users" ||
       url.pathname === "/api/auth/email/send-code" ||
       url.pathname === "/api/auth/email/verify" ||
       url.pathname === "/api/auth/logout" ||

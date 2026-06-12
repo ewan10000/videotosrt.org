@@ -1,5 +1,7 @@
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { readLocalAuthUser } from "@/lib/local-auth";
 import { jsonResponse } from "@/lib/paypal";
+import { upsertUserLogin, type UserStoreEnv } from "@/lib/user-store";
 
 const UPSTREAM_API_BASE = "https://api.videotosrt.org/api";
 
@@ -15,6 +17,8 @@ function filterProxyRequestHeaders(headers: Headers) {
 export async function GET(request: Request) {
   const localUser = readLocalAuthUser(request);
   if (localUser) {
+    const env = (await getCloudflareContext({ async: true })).env as UserStoreEnv;
+    await upsertUserLogin(env, localUser);
     return jsonResponse({ data: { user: localUser }, user: localUser });
   }
 
