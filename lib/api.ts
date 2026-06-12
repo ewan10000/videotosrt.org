@@ -73,11 +73,13 @@ export type PaypalSyncResponse = {
 };
 
 export type CreditsCaptureResponse = {
+  applied?: boolean;
   credits?: "2h" | "5h" | "20h";
   hours?: number;
   ok?: boolean;
   status?: string;
   update?: string;
+  user?: ApiUser | null;
 };
 
 export type UploadResponse = {

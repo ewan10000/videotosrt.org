@@ -1,5 +1,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { readLocalAuthUser } from "@/lib/local-auth";
+import { addUserExtraCreditsOnce } from "@/lib/user-store";
 
 export type PaypalBillingCycle = "monthly" | "yearly";
 export type PaypalPlanTier = "pro" | "studio";
@@ -22,11 +23,14 @@ type CloudflareEnvWithPaypal = CloudflareEnv & {
 };
 
 type D1DatabaseLike = {
-  prepare(query: string): {
-    bind(...values: unknown[]): {
-      run(): Promise<unknown>;
-    };
-  };
+  prepare(query: string): D1PreparedStatementLike;
+};
+
+type D1PreparedStatementLike = {
+  all<T = unknown>(): Promise<{ results?: T[] }>;
+  bind(...values: unknown[]): D1PreparedStatementLike;
+  first<T = unknown>(): Promise<T | null>;
+  run(): Promise<unknown>;
 };
 
 type ApiUser = {
@@ -454,7 +458,8 @@ export async function capturePaypalCreditsOrder(input: {
   user: ApiUser;
 }) {
   const token = await getPaypalAccessToken(input.env);
-  const response = await fetch(`${paypalApiBase(input.env)}/v2/checkout/orders/${encodeURIComponent(input.orderId)}/capture`, {
+  const orderUrl = `${paypalApiBase(input.env)}/v2/checkout/orders/${encodeURIComponent(input.orderId)}`;
+  const response = await fetch(`${orderUrl}/capture`, {
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json"
@@ -462,7 +467,7 @@ export async function capturePaypalCreditsOrder(input: {
     method: "POST"
   });
 
-  const data = await response.json() as PaypalOrder & {
+  let data = await response.json() as PaypalOrder & {
     purchase_units?: Array<{
       custom_id?: string;
       payments?: {
@@ -479,6 +484,21 @@ export async function capturePaypalCreditsOrder(input: {
     throw new Error(data.message ?? data.name ?? "Could not capture PayPal order.");
   }
 
+  if (!response.ok && data.name === "UNPROCESSABLE_ENTITY") {
+    const orderResponse = await fetch(orderUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      method: "GET"
+    });
+    data = await orderResponse.json() as typeof data;
+
+    if (!orderResponse.ok) {
+      throw new Error(data.message ?? data.name ?? "Could not read PayPal order.");
+    }
+  }
+
   const purchaseUnit = data.purchase_units?.[0];
   const capture = purchaseUnit?.payments?.captures?.[0];
   const parsed = parseCustomId(capture?.custom_id ?? purchaseUnit?.custom_id);
@@ -493,10 +513,20 @@ export async function capturePaypalCreditsOrder(input: {
   }
 
   const packageDetails = getPaypalCreditPackage(creditPackage);
+  const updateResult = input.env.DB && input.user.email
+    ? await addUserExtraCreditsOnce(input.env, {
+        email: input.user.email,
+        id: input.user.id ?? `email:${input.user.email.toLowerCase()}`,
+        name: userLabel(input.user)
+      }, packageDetails.hours, input.orderId)
+    : null;
+
   return {
+    applied: updateResult?.applied ?? false,
     credits: creditPackage,
     hours: packageDetails.hours,
-    method: input.env.DB ? "d1-pending-schema" : "client-sync",
+    membership: updateResult?.membership ?? null,
+    method: updateResult?.stored ? "d1" : "client-sync",
     status: capture?.status ?? data.status ?? "captured"
   };
 }

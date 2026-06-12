@@ -29,10 +29,14 @@ export async function POST(request: Request) {
 
     return jsonResponse({
       ok: true,
+      applied: result.applied,
       credits: result.credits,
       hours: result.hours,
       status: result.status,
-      update: result.method
+      update: result.method,
+      user: result.membership
+        ? { ...user, extra_credit_hours: result.membership.extra_credit_hours, plan: result.membership.plan }
+        : null
     });
   } catch (error) {
     return jsonResponse(

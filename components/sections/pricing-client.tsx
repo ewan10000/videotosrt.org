@@ -177,28 +177,26 @@ export function PricingClient() {
       const credits = params.get("credits");
       if (orderId) {
         const captureKey = `videotosrt.paypal.capture.${orderId}`;
-        if (!window.localStorage.getItem(captureKey)) {
-          window.localStorage.setItem(captureKey, "pending");
-          setCheckoutNotice("Payment completed. Adding extra hours...");
-          void api
-            .captureCredits(orderId)
-            .then((data) => {
-              window.localStorage.setItem(captureKey, "done");
-              const currentUser = getLocalUser();
-              const nextUser = currentUser
-                ? { ...currentUser, extra_credit_hours: (currentUser.extra_credit_hours ?? 0) + (data.hours ?? 0) }
-                : currentUser;
-              setLocalUser(nextUser);
-              setUser(nextUser);
-              setCheckoutNotice(`${data.hours ?? credits ?? "Extra"} hours added to your account.`);
-            })
-            .catch((error) => {
-              window.localStorage.removeItem(captureKey);
-              setCheckoutNotice(error instanceof Error ? error.message : "Payment completed, but credits sync failed. Please try refreshing.");
-            });
-        } else {
-          setCheckoutNotice("Extra hours payment has already been processed.");
-        }
+        window.localStorage.setItem(captureKey, "pending");
+        setCheckoutNotice("Payment completed. Syncing extra hours...");
+        void api
+          .captureCredits(orderId)
+          .then((data) => {
+            window.localStorage.setItem(captureKey, "done");
+            const currentUser = getLocalUser();
+            const nextUser = data.user ?? (currentUser
+              ? { ...currentUser, extra_credit_hours: (currentUser.extra_credit_hours ?? 0) + (data.hours ?? 0) }
+              : currentUser);
+            setLocalUser(nextUser);
+            setUser(nextUser);
+            setCheckoutNotice(data.applied === false
+              ? "Extra hours are already synced to your account."
+              : `${data.hours ?? credits ?? "Extra"} hours added to your account.`);
+          })
+          .catch((error) => {
+            window.localStorage.removeItem(captureKey);
+            setCheckoutNotice(error instanceof Error ? error.message : "Payment completed, but credits sync failed. Please try refreshing.");
+          });
       }
     }
 
