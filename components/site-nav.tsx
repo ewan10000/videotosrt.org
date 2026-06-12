@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Brand } from "@/components/brand";
+import { HomeUploadButton } from "@/components/home-upload-button";
 import { LoginModal } from "@/components/modals/login-modal";
 import { Button } from "@/components/ui/button";
 import { api, type ApiUser } from "@/lib/api";
@@ -106,9 +107,7 @@ export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" }) 
           ) : (
             <LoginModal trigger={<Button variant="secondary">Sign in</Button>} onLoginSuccess={setUser} />
           )}
-          <Link className="inline-flex min-h-[42px] items-center justify-center rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px" href="/#upload">
-            Upload Video — Free
-          </Link>
+          <HomeUploadButton className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px" />
         </div>
       </div>
       {logoutError ? (

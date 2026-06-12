@@ -1,15 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, type ChangeEvent, type DragEvent } from "react";
+import type { DragEvent } from "react";
 import type { LucideIcon } from "lucide-react";
 import * as Collapsible from "@radix-ui/react-collapsible";
-import { ArrowDown, Check, ChevronDown, FolderUp, Scissors, Upload } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { ArrowDown, Check, ChevronDown, Scissors, Upload } from "lucide-react";
+import { HomeUploadButton, useHomeUploadPicker } from "@/components/home-upload-button";
 import { ExportModal } from "@/components/modals/export-modal";
 import { Button } from "@/components/ui/button";
 import { UploadStatus } from "@/components/upload-status";
-import { savePendingUpload } from "@/lib/upload-transfer";
 
 const features = [
   ["ED", "Inline Editor", "Edit text and timestamps directly. No external tools, no format juggling."],
@@ -41,53 +40,7 @@ const useCases = [
   ["Lisa · Short-form Creator", "Templates are straightforward. First try got me a video that actually performed."]
 ];
 
-function useHomeUploadPicker() {
-  const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const startUpload = async (file: File) => {
-    try {
-      const upload = await savePendingUpload(file);
-      window.sessionStorage.setItem("videotosrt.upload", JSON.stringify({ id: upload.id, name: file.name, size: file.size, type: file.type }));
-    } catch {
-      window.sessionStorage.setItem("videotosrt.upload", JSON.stringify({ name: file.name, size: file.size, type: file.type }));
-    }
-    router.push("/editor");
-  };
-
-  const openFilePicker = () => {
-    inputRef.current?.click();
-  };
-
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-
-    if (file) {
-      void startUpload(file);
-    }
-
-    event.target.value = "";
-  };
-
-  const handleDragOver = (event: DragEvent<HTMLElement>) => {
-    event.preventDefault();
-  };
-
-  const handleDrop = (event: DragEvent<HTMLElement>) => {
-    event.preventDefault();
-    const file = event.dataTransfer.files?.[0];
-
-    if (file) {
-      void startUpload(file);
-    }
-  };
-
-  return { handleDragOver, handleDrop, handleFileChange, inputRef, openFilePicker };
-}
-
 export function HeroSection() {
-  const { handleFileChange, inputRef, openFilePicker } = useHomeUploadPicker();
-
   return (
     <header className="border-b border-soft/15 py-[72px] pb-11">
       <div className="site-container grid items-center gap-[42px] lg:grid-cols-[minmax(0,.92fr)_minmax(430px,1.08fr)]">
@@ -100,21 +53,7 @@ export function HeroSection() {
             Upload your video. Our AI transcribes in 50+ languages. You edit inline, fix timing, and export SRT/VTT/TXT — all in your browser. Done in 60 seconds.
           </p>
           <div className="mb-[30px] flex flex-wrap gap-3">
-            <button
-              className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded bg-indigo px-4 text-sm font-bold text-white shadow-[0_4px_14px_rgba(99,102,241,.3)] transition hover:-translate-y-px"
-              type="button"
-              onClick={openFilePicker}
-            >
-              <FolderUp className="h-4 w-4" />
-              Upload Video — Free
-            </button>
-            <input
-              ref={inputRef}
-              className="sr-only"
-              type="file"
-              accept="video/*,audio/*"
-              onChange={handleFileChange}
-            />
+            <HomeUploadButton className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded bg-indigo px-4 text-sm font-bold text-white shadow-[0_4px_14px_rgba(99,102,241,.3)] transition hover:-translate-y-px" />
             <Link className="inline-flex min-h-[42px] items-center justify-center rounded border border-indigo-300/30 bg-transparent px-4 text-sm font-bold text-indigo-300 transition hover:-translate-y-px hover:border-indigo-300/50 hover:text-indigo-200" href="#editor">
               View editor
             </Link>
@@ -135,7 +74,20 @@ export function HeroSection() {
 }
 
 function UploadPanel() {
-  const { handleDragOver, handleDrop, handleFileChange, inputRef, openFilePicker } = useHomeUploadPicker();
+  const { handleFileChange, inputRef, openFilePicker, startUpload } = useHomeUploadPicker();
+
+  const handleDragOver = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+  };
+
+  const handleDrop = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+
+    if (file) {
+      void startUpload(file);
+    }
+  };
 
   return (
     <div id="upload" className="overflow-hidden rounded border border-line bg-panel shadow-panel">
