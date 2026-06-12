@@ -238,6 +238,7 @@ export function EditorClient() {
   const [subtitlePage, setSubtitlePage] = useState(0);
   const [captionPosition, setCaptionPosition] = useState({ x: 50, y: 72 });
   const [savedAtLabel, setSavedAtLabel] = useState("");
+  const [saveFeedback, setSaveFeedback] = useState("");
   const [user, setUser] = useState<ApiUser | null>(null);
   const objectUrlRef = useRef<string | null>(null);
   const currentFileRef = useRef<File | null>(null);
@@ -371,6 +372,15 @@ export function EditorClient() {
     const pageCount = Math.max(1, Math.ceil(rows.length / SUBTITLES_PER_PAGE));
     setSubtitlePage((currentPage) => Math.min(currentPage, pageCount - 1));
   }, [rows.length]);
+
+  useEffect(() => {
+    if (!saveFeedback) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setSaveFeedback(""), 1800);
+    return () => window.clearTimeout(timer);
+  }, [saveFeedback]);
 
   async function transcribeFile(file: File, mediaDuration: number) {
     setNeedsLoginForTranscription(false);
@@ -655,6 +665,7 @@ export function EditorClient() {
     window.localStorage.setItem(EDITOR_DRAFT_KEY, JSON.stringify(draft));
     const nextSavedAtLabel = new Date(savedAt).toLocaleTimeString();
     setSavedAtLabel(nextSavedAtLabel);
+    setSaveFeedback(`Saved ${nextSavedAtLabel}`);
     setStatus(`Draft saved at ${nextSavedAtLabel}`);
   }
 
@@ -754,8 +765,11 @@ export function EditorClient() {
             <ExportModal trigger={<Button variant="secondary">Export</Button>} subtitles={rows} filename={filename} user={user} />
             <Button variant="primary" className="gap-2" type="button" onClick={saveDraft}>
               <Save className="h-4 w-4" />
-              {savedAtLabel ? "Saved" : "Save"}
+              {saveFeedback ? "Saved!" : "Save"}
             </Button>
+            {saveFeedback ? (
+              <span className="sr-only" role="status" aria-live="polite">{saveFeedback}</span>
+            ) : null}
           </div>
         </header>
         <main className="grid min-h-0 grid-cols-[60%_40%] overflow-hidden">
@@ -961,6 +975,7 @@ export function EditorClient() {
           <span><span className="font-mono text-cyan">{formatDuration(duration)}</span> duration</span>
           {savedAtLabel ? <span>Saved {savedAtLabel}</span> : null}
           <span>{filename}</span>
+          <a className="ml-auto text-cyan" href="mailto:support@videotosrt.org">support@videotosrt.org</a>
         </footer>
       </div>
       <div className="grid min-h-screen place-items-center bg-bg p-6 min-[760px]:hidden">

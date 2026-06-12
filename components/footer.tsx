@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Brand } from "@/components/brand";
 import { ContactModal } from "@/components/modals/contact-modal";
 
+const supportEmail = "support@videotosrt.org";
+
 export function Footer() {
   return (
     <footer className="border-t border-soft/15 py-8">
@@ -20,6 +22,7 @@ export function Footer() {
               </button>
             }
           />
+          <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
         </div>
         <p className="mb-0 text-sm text-soft">© {new Date().getFullYear()} VideoToSRT. Made for creators who ship.</p>
       </div>

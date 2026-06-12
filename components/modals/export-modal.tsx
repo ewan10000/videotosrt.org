@@ -2,7 +2,7 @@
 
 import type * as React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Download, FileText } from "lucide-react";
+import { Download, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -140,9 +140,17 @@ function getBaseFilename(filename?: string) {
 export function ExportModal({ trigger, subtitles, filename, user }: { trigger: React.ReactNode; subtitles?: string[][]; filename?: string; user?: ApiUser | null }) {
   const [format, setFormat] = useState<ExportFormat>("srt");
   const [options, setOptions] = useState<ExportOptions>(defaultExportOptions);
-  const [showPreview, setShowPreview] = useState(false);
   const baseFilename = useMemo(() => getBaseFilename(filename), [filename]);
   const preview = useMemo(() => buildOutput(format, subtitles, options), [format, options, subtitles]);
+  const previewSettings = useMemo(
+    () => [
+      options.includeSpeakerLabels ? "Speaker labels included" : "Speaker labels removed when detected",
+      options.normalizeTimestamps ? "Timestamps normalized" : "Original timestamps kept",
+      options.keepLineBreaks ? "Line breaks kept" : "Line breaks flattened",
+      options.utf8Encoding ? "UTF-8 BOM enabled for download" : "Plain text download"
+    ],
+    [options]
+  );
   const [outputFilename, setOutputFilename] = useState(`${baseFilename}-subtitles.${format}`);
   const vipPlan = getUserVipPlan(user);
   const canExportStyled = canUseStyledExport(user);
@@ -234,22 +242,27 @@ export function ExportModal({ trigger, subtitles, filename, user }: { trigger: R
           />
         </label>
         <div className="mt-5 flex shrink-0 flex-col gap-3 sm:flex-row">
-          <Button variant="secondary" className="gap-2 sm:flex-1" type="button" onClick={() => setShowPreview((visible) => !visible)}>
-            <FileText className="h-4 w-4" />
-            {showPreview ? "Hide preview" : "Preview file"}
-          </Button>
+          <div className="flex min-h-[42px] items-center gap-2 rounded border border-line bg-panel-2 px-4 text-sm font-bold text-soft sm:flex-1">
+            <Eye className="h-4 w-4 text-cyan" />
+            Live preview updates as settings change
+          </div>
           <Button variant="primary" className="gap-2 sm:flex-1" type="button" onClick={downloadExport} disabled={selectedFormatLocked}>
             <Download className="h-4 w-4" />
             Download
           </Button>
         </div>
-        {showPreview ? (
-          <pre className="mt-4 min-h-0 flex-1 overflow-auto rounded border border-line bg-panel-2 p-4 font-mono text-xs leading-5 text-soft whitespace-pre-wrap">
+        <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-line bg-panel-2">
+          <div className="flex flex-wrap gap-2 border-b border-line p-3">
+            {previewSettings.map((setting) => (
+              <span key={setting} className="rounded border border-cyan/30 bg-cyan/10 px-2 py-1 text-[11px] font-extrabold uppercase tracking-normal text-cyan">
+                {setting}
+              </span>
+            ))}
+          </div>
+          <pre className="min-h-[160px] flex-1 overflow-auto p-4 font-mono text-xs leading-5 text-soft whitespace-pre-wrap">
             {preview}
           </pre>
-        ) : (
-          <div className="mt-4 min-h-0 flex-1 rounded border border-line bg-panel-2" />
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   );
