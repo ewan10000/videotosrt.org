@@ -2,10 +2,10 @@
 
 import type * as React from "react";
 import { useMemo, useState } from "react";
-import { Github, Mail } from "lucide-react";
+import { Chrome, Github, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { apiFetch, authLoginUrl, type ApiUser } from "@/lib/api";
-import { setLocalUser } from "@/lib/auth";
+import { apiFetch, authLoginUrl, type ApiUser, type ApiUserResponse } from "@/lib/api";
+import { normalizeUser, setLocalUser } from "@/lib/auth";
 import {
   Dialog,
   DialogContent,
@@ -18,13 +18,15 @@ import {
 type LoginStep = "options" | "email" | "code" | "success";
 
 type SendCodeResponse = {
+  data?: {
+    user?: ApiUser | null;
+  };
   sent: boolean;
   expires_in_seconds: number;
-};
-
-type VerifyCodeResponse = {
   user?: ApiUser | null;
 };
+
+type VerifyCodeResponse = ApiUserResponse;
 
 export function LoginModal({
   trigger,
@@ -68,13 +70,22 @@ export function LoginModal({
     setBusy(true);
     setError("");
     try {
-      const data = await apiFetch<SendCodeResponse>("https://api.videotosrt.org/api/auth/email/send-code", {
+      const data = await apiFetch<SendCodeResponse>("/auth/email/send-code", {
         method: "POST",
         body: { email }
       });
 
       if (!data.sent) {
         throw new Error("Could not send verification code. Please try again.");
+      }
+
+      const user = normalizeUser(data.user ? data as ApiUserResponse : data.data ? data as ApiUserResponse : null);
+      if (user) {
+        setLocalUser(user);
+        setStep("success");
+        onLoginSuccess?.(user);
+        window.setTimeout(() => handleOpenChange(false), 500);
+        return;
       }
 
       setStep("code");
@@ -96,18 +107,20 @@ export function LoginModal({
     setBusy(true);
     setError("");
     try {
-      const data = await apiFetch<VerifyCodeResponse>("https://api.videotosrt.org/api/auth/email/verify", {
+      const data = await apiFetch<VerifyCodeResponse>("/auth/email/verify", {
         method: "POST",
         body: { email, code: trimmedCode }
       });
 
-      if (!data.user) {
+      const user = normalizeUser(data);
+
+      if (!user) {
         throw new Error("Could not verify code. Please try again.");
       }
 
-      setLocalUser(data.user);
+      setLocalUser(user);
       setStep("success");
-      onLoginSuccess?.(data.user);
+      onLoginSuccess?.(user);
       window.setTimeout(() => handleOpenChange(false), 500);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Could not verify code. Please try again.");
@@ -136,7 +149,10 @@ export function LoginModal({
               <Github className="h-4 w-4" />
               Continue with GitHub
             </Button>
-            <Button variant="secondary" className="w-full" type="button" onClick={() => startLogin("google")}>Continue with Google</Button>
+            <Button variant="secondary" className="w-full gap-2" type="button" onClick={() => startLogin("google")}>
+              <Chrome className="h-4 w-4" />
+              Continue with Google
+            </Button>
           </div>
         ) : null}
         {step === "email" ? (
@@ -155,7 +171,7 @@ export function LoginModal({
             {error ? <p className="mb-0 text-sm font-semibold text-danger">{error}</p> : null}
             <div className="grid gap-2 sm:grid-cols-2">
               <Button variant="secondary" type="button" onClick={() => setStep("options")}>Back</Button>
-              <Button variant="primary" type="submit" disabled={busy}>{busy ? "Sending..." : "Send verification code"}</Button>
+              <Button variant="primary" type="submit" disabled={busy}>{busy ? "Signing in..." : "Continue with email"}</Button>
             </div>
           </form>
         ) : null}

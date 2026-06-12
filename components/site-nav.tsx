@@ -6,28 +6,42 @@ import { Brand } from "@/components/brand";
 import { LoginModal } from "@/components/modals/login-modal";
 import { Button } from "@/components/ui/button";
 import { api, type ApiUser } from "@/lib/api";
-import { getLocalUser, normalizeUser, onAuthChange, setLocalUser } from "@/lib/auth";
+import {
+  clearSessionToken,
+  consumeSessionTokenFromLocation,
+  getLocalUser,
+  getUserDisplayName,
+  normalizeUser,
+  onAuthChange,
+  setLocalUser
+} from "@/lib/auth";
+import { getExtraCreditLabel, getUserVipPlan, getVipBadgeClass, getVipLabel, mergeStoredMembership } from "@/lib/plans";
 
 export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" }) {
   const [user, setUser] = useState<ApiUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [logoutError, setLogoutError] = useState("");
+  const vipPlan = getUserVipPlan(user);
+  const extraCreditLabel = getExtraCreditLabel(user);
 
   useEffect(() => {
     let mounted = true;
     const removeAuthListener = onAuthChange((nextUser) => setUser(nextUser));
+    consumeSessionTokenFromLocation();
 
-    setUser(getLocalUser());
     api
       .me()
       .then((data) => {
         if (!mounted) {
           return;
         }
-        setUser(normalizeUser(data) ?? getLocalUser());
+        const nextUser = mergeStoredMembership(normalizeUser(data), getLocalUser());
+        setLocalUser(nextUser);
+        setUser(nextUser);
       })
       .catch(() => {
         if (mounted) {
+          setLocalUser(null);
           setUser(null);
         }
       })
@@ -53,6 +67,7 @@ export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" }) 
         setLogoutError(error instanceof Error ? error.message : "Could not sign out. Please try again.");
       }
     } finally {
+      clearSessionToken();
       setLocalUser(null);
       setUser(null);
     }
@@ -71,9 +86,19 @@ export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" }) 
         <div className="flex items-center gap-2.5">
           {user ? (
             <>
-              <span className="hidden max-w-[180px] truncate text-sm font-bold text-soft sm:inline">
-                {user.name ?? user.email ?? "Signed in"}
-              </span>
+              <div className="hidden min-w-0 items-center gap-2 sm:flex">
+                <span className="max-w-[160px] truncate text-sm font-bold text-soft">
+                  {getUserDisplayName(user)}
+                </span>
+                <span className={`shrink-0 rounded border px-2 py-1 text-[11px] font-extrabold uppercase tracking-normal ${getVipBadgeClass(vipPlan)}`}>
+                  {getVipLabel(vipPlan)}
+                </span>
+                {extraCreditLabel ? (
+                  <span className="shrink-0 rounded border border-cyan/40 bg-cyan/10 px-2 py-1 text-[11px] font-extrabold uppercase tracking-normal text-cyan">
+                    {extraCreditLabel}
+                  </span>
+                ) : null}
+              </div>
               <Button variant="secondary" type="button" onClick={handleLogout}>Sign out</Button>
             </>
           ) : loading ? (

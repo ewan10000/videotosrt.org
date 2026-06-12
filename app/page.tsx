@@ -19,9 +19,29 @@ export const metadata = createPageMetadata({
   description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up."
 });
 
+const homeJsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "VideoToSRT",
+    url: "https://videotosrt.org"
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "VideoToSRT — Online Subtitle Editor",
+    url: "https://videotosrt.org",
+    speakable: {
+      "@type": "SpeakableSpecification",
+      cssSelector: ["h1", ".section-head p"]
+    }
+  }
+];
+
 export default function HomePage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(homeJsonLd) }} />
       <SiteNav active="home" />
       <main>
         <HeroSection />

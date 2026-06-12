@@ -4,18 +4,18 @@ import { createPageMetadata } from "@/lib/metadata";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata = createPageMetadata({
-  path: "/tiktok-subtitles",
-  title: "TikTok Subtitle Generator — Styled Captions",
+  path: "/short-form-subtitles",
+  title: "Short-form Subtitle Generator — Styled Captions",
   description: "Vertical video captions with ASS styling. Auto-break lines, preview in browser, export ready-to-post."
 });
 
-export default function TiktokSubtitlesPage() {
+export default function ShortFormSubtitlesPage() {
   return (
     <>
       <SiteNav />
       <main>
         <SeoLanding
-          title="TikTok Subtitle Generator — Styled Captions"
+          title="Short-form Subtitle Generator — Styled Captions"
           description="Generate captions for vertical videos, edit the wording, and prepare styled subtitles for short-form platforms."
           bullets={["Built for vertical captions.", "ASS styling for fonts, color, and positioning.", "Export ready-to-post subtitles from your browser."]}
           cta={{ label: "Upload Video — Free", href: "/#upload" }}

@@ -19,7 +19,7 @@ export default function BurnSubtitlesPage() {
           description="Turn subtitles into an MP4 that plays anywhere. Use styled or plain captions and ship one file for every platform."
           bullets={["Preview hardcoded subtitles for MP4.", "Check captions before export.", "Use burn-in preview on paid plans."]}
           cta={{ label: "See Pricing", href: "/pricing" }}
-          links={[{ label: "Video to SRT", href: "/video-to-srt" }, { label: "TikTok Subtitles", href: "/tiktok-subtitles" }, { label: "ASS Subtitle Editor", href: "/ass-subtitle-editor" }]}
+          links={[{ label: "Video to SRT", href: "/video-to-srt" }, { label: "Short-form Subtitles", href: "/short-form-subtitles" }, { label: "ASS Subtitle Editor", href: "/ass-subtitle-editor" }]}
         />
       </main>
       <Footer />

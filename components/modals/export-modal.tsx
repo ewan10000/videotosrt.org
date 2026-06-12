@@ -13,8 +13,23 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { ApiUser } from "@/lib/api";
+import { canUseStyledExport, getUserVipPlan, getVipBadgeClass, getVipLabel } from "@/lib/plans";
 
 type ExportFormat = "srt" | "vtt" | "txt" | "ass";
+type ExportOptions = {
+  includeSpeakerLabels: boolean;
+  normalizeTimestamps: boolean;
+  keepLineBreaks: boolean;
+  utf8Encoding: boolean;
+};
+
+const defaultExportOptions: ExportOptions = {
+  includeSpeakerLabels: true,
+  normalizeTimestamps: true,
+  keepLineBreaks: true,
+  utf8Encoding: true
+};
 
 function parseTimestamp(value: string) {
   const normalized = value.trim().replace(",", ".");
@@ -47,25 +62,61 @@ function formatAssTimestamp(value: string) {
   return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}.${centiseconds.toString().padStart(2, "0")}`;
 }
 
-function buildPreview(format: ExportFormat, subtitles?: string[][]) {
-  if (!subtitles?.length) {
+function getTimestamp(value: string, normalize: boolean, separator: "," | "." = ",") {
+  return normalize ? formatTimestamp(value, separator) : value.trim();
+}
+
+function stripSpeakerLabel(text: string) {
+  return text.replace(/^(\s*(speaker\s*\d*|[a-z][\w .-]{0,32})\s*:\s*)/i, "");
+}
+
+function formatSubtitleText(text: string, options: ExportOptions, format: ExportFormat) {
+  const withoutSpeaker = options.includeSpeakerLabels ? text : stripSpeakerLabel(text);
+  const withLineBreaks = options.keepLineBreaks ? withoutSpeaker : withoutSpeaker.replace(/\s*\n+\s*/g, " ");
+
+  if (format === "ass") {
+    return withLineBreaks.replace(/\n/g, "\\N");
+  }
+
+  return withLineBreaks;
+}
+
+function buildOutput(format: ExportFormat, subtitles: string[][] | undefined, options: ExportOptions) {
+  const usableSubtitles = subtitles?.filter(([, , text = ""]) => text.trim().length > 0) ?? [];
+
+  if (!usableSubtitles.length) {
     return "Upload and transcribe a video to see export preview.";
   }
 
   if (format === "srt") {
-    return subtitles
-      .map(([start = "", end = "", text = ""], index) => `${index + 1}\n${formatTimestamp(start)} --> ${formatTimestamp(end)}\n${text}`)
+    return usableSubtitles
+      .map(
+        ([start = "", end = "", text = ""], index) =>
+          `${index + 1}\n${getTimestamp(start, options.normalizeTimestamps)} --> ${getTimestamp(end, options.normalizeTimestamps)}\n${formatSubtitleText(text, options, format)}`
+      )
       .join("\n\n");
   }
 
   if (format === "vtt") {
-    return `WEBVTT\n\n${subtitles
-      .map(([start = "", end = "", text = ""]) => `${formatTimestamp(start, ".")} --> ${formatTimestamp(end, ".")}\n${text}`)
+    return `WEBVTT\n\n${usableSubtitles
+      .map(
+        ([start = "", end = "", text = ""]) =>
+          `${getTimestamp(start, options.normalizeTimestamps, ".")} --> ${getTimestamp(end, options.normalizeTimestamps, ".")}\n${formatSubtitleText(text, options, format)}`
+      )
       .join("\n\n")}`;
   }
 
   if (format === "txt") {
-    return subtitles.map(([, , text = ""]) => text).join("\n");
+    return usableSubtitles
+      .map(([start = "", end = "", text = ""]) => {
+        const body = formatSubtitleText(text, options, format);
+        if (!options.normalizeTimestamps) {
+          return body;
+        }
+
+        return `[${getTimestamp(start, true, ".")} - ${getTimestamp(end, true, ".")}]\n${body}`;
+      })
+      .join(options.keepLineBreaks ? "\n\n" : "\n");
   }
 
   return `[Script Info]
@@ -78,7 +129,7 @@ Style: Default,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,0,0,0,0,100,
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-${subtitles.map(([start = "", end = "", text = ""]) => `Dialogue: 0,${formatAssTimestamp(start)},${formatAssTimestamp(end)},Default,,0,0,0,,${text.replace(/\n/g, "\\N")}`).join("\n")}`;
+${usableSubtitles.map(([start = "", end = "", text = ""]) => `Dialogue: 0,${options.normalizeTimestamps ? formatAssTimestamp(start) : start},${options.normalizeTimestamps ? formatAssTimestamp(end) : end},Default,,0,0,0,,${formatSubtitleText(text, options, format)}`).join("\n")}`;
 }
 
 function getBaseFilename(filename?: string) {
@@ -86,18 +137,36 @@ function getBaseFilename(filename?: string) {
   return cleanName.replace(/\.[^/.]+$/, "") || "subtitles";
 }
 
-export function ExportModal({ trigger, subtitles, filename }: { trigger: React.ReactNode; subtitles?: string[][]; filename?: string }) {
+export function ExportModal({ trigger, subtitles, filename, user }: { trigger: React.ReactNode; subtitles?: string[][]; filename?: string; user?: ApiUser | null }) {
   const [format, setFormat] = useState<ExportFormat>("srt");
+  const [options, setOptions] = useState<ExportOptions>(defaultExportOptions);
+  const [showPreview, setShowPreview] = useState(false);
   const baseFilename = useMemo(() => getBaseFilename(filename), [filename]);
-  const preview = useMemo(() => buildPreview(format, subtitles), [format, subtitles]);
+  const preview = useMemo(() => buildOutput(format, subtitles, options), [format, options, subtitles]);
   const [outputFilename, setOutputFilename] = useState(`${baseFilename}-subtitles.${format}`);
+  const vipPlan = getUserVipPlan(user);
+  const canExportStyled = canUseStyledExport(user);
+  const selectedFormatLocked = format === "ass" && !canExportStyled;
 
   useEffect(() => {
     setOutputFilename(`${baseFilename}-subtitles.${format}`);
   }, [baseFilename, format]);
 
+  function updateOption(key: keyof ExportOptions, value: boolean) {
+    setOptions((currentOptions) => ({ ...currentOptions, [key]: value }));
+  }
+
+  function createOutputBlob() {
+    const body = options.utf8Encoding ? `\uFEFF${preview}` : preview;
+    return new Blob([body], { type: options.utf8Encoding ? "text/plain;charset=utf-8" : "text/plain" });
+  }
+
   function downloadExport() {
-    const blob = new Blob([preview], { type: "text/plain;charset=utf-8" });
+    if (selectedFormatLocked) {
+      return;
+    }
+
+    const blob = createOutputBlob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
 
@@ -106,39 +175,53 @@ export function ExportModal({ trigger, subtitles, filename }: { trigger: React.R
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="w-[min(94vw,640px)]">
+      <DialogContent className="flex h-[min(88vh,720px)] w-[min(94vw,680px)] flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="text-2xl font-extrabold">Export subtitles</DialogTitle>
           <DialogDescription className="text-sm leading-6 text-muted">
-            Choose a file format and export settings. Sign in is requested only at download.
+            Choose a file format and export settings.
           </DialogDescription>
         </DialogHeader>
-        <Tabs value={format} onValueChange={(value) => setFormat(value as ExportFormat)}>
+        <Tabs value={format} onValueChange={(value) => setFormat(value as ExportFormat)} className="shrink-0">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="srt">SRT</TabsTrigger>
             <TabsTrigger value="vtt">VTT</TabsTrigger>
             <TabsTrigger value="txt">TXT</TabsTrigger>
-            <TabsTrigger value="ass">ASS</TabsTrigger>
+            <TabsTrigger value="ass" disabled={!canExportStyled}>ASS Pro</TabsTrigger>
           </TabsList>
-          {(["srt", "vtt", "txt", "ass"] as const).map((tabFormat) => (
-            <TabsContent key={tabFormat} value={tabFormat} className="mt-4">
-              <pre className="max-h-64 overflow-auto rounded border border-line bg-panel-2 p-4 font-mono text-xs leading-5 text-soft whitespace-pre-wrap">
-                {preview}
-              </pre>
-            </TabsContent>
-          ))}
         </Tabs>
-        <div className="grid gap-3 py-4 sm:grid-cols-2">
-          {["Include speaker labels", "Normalize timestamps", "Keep line breaks", "UTF-8 encoding"].map((item) => (
-            <label key={item} className="flex min-h-12 items-center gap-3 rounded border border-line bg-panel-2 px-3 text-sm font-semibold">
-              <input type="checkbox" defaultChecked className="h-4 w-4 accent-cyan" />
-              {item}
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded border border-line bg-panel-2 px-3 py-2 text-sm font-semibold">
+          <span className="text-soft">Current membership</span>
+          <span className={`rounded border px-2 py-1 text-[11px] font-extrabold uppercase tracking-normal ${getVipBadgeClass(vipPlan)}`}>
+            {getVipLabel(vipPlan)}
+          </span>
+        </div>
+        {!canExportStyled ? (
+          <p className="mb-0 shrink-0 rounded border border-cyan/30 bg-cyan/10 px-3 py-2 text-sm font-semibold text-cyan">
+            ASS styled export is unlocked for Pro and Studio VIP users. <a className="underline underline-offset-4" href="/pricing">Upgrade on pricing</a>.
+          </p>
+        ) : null}
+        <div className="grid shrink-0 gap-3 py-4 sm:grid-cols-2">
+          {[
+            ["includeSpeakerLabels", "Include speaker labels"],
+            ["normalizeTimestamps", "Normalize timestamps"],
+            ["keepLineBreaks", "Keep line breaks"],
+            ["utf8Encoding", "UTF-8 encoding"]
+          ].map(([key, label]) => (
+            <label key={key} className="flex min-h-12 items-center gap-3 rounded border border-line bg-panel-2 px-3 text-sm font-semibold">
+              <input
+                type="checkbox"
+                checked={options[key as keyof ExportOptions]}
+                className="h-4 w-4 accent-cyan"
+                onChange={(event) => updateOption(key as keyof ExportOptions, event.target.checked)}
+              />
+              {label}
             </label>
           ))}
         </div>
@@ -150,16 +233,23 @@ export function ExportModal({ trigger, subtitles, filename }: { trigger: React.R
             onChange={(event) => setOutputFilename(event.target.value)}
           />
         </label>
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-          <Button variant="secondary" className="gap-2 sm:flex-1">
+        <div className="mt-5 flex shrink-0 flex-col gap-3 sm:flex-row">
+          <Button variant="secondary" className="gap-2 sm:flex-1" type="button" onClick={() => setShowPreview((visible) => !visible)}>
             <FileText className="h-4 w-4" />
-            Preview file
+            {showPreview ? "Hide preview" : "Preview file"}
           </Button>
-          <Button variant="primary" className="gap-2 sm:flex-1" type="button" onClick={downloadExport}>
+          <Button variant="primary" className="gap-2 sm:flex-1" type="button" onClick={downloadExport} disabled={selectedFormatLocked}>
             <Download className="h-4 w-4" />
             Download
           </Button>
         </div>
+        {showPreview ? (
+          <pre className="mt-4 min-h-0 flex-1 overflow-auto rounded border border-line bg-panel-2 p-4 font-mono text-xs leading-5 text-soft whitespace-pre-wrap">
+            {preview}
+          </pre>
+        ) : (
+          <div className="mt-4 min-h-0 flex-1 rounded border border-line bg-panel-2" />
+        )}
       </DialogContent>
     </Dialog>
   );

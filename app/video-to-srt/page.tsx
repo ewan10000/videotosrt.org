@@ -19,7 +19,7 @@ export default function VideoToSrtPage() {
           description="Convert any video to SRT in seconds. Upload, transcribe, edit, and export clean subtitle files from your browser."
           bullets={["AI transcription in 50+ languages.", "Inline editing for text and timing.", "Export SRT, VTT, or TXT without installing software."]}
           cta={{ label: "Upload Video — Free", href: "/#upload" }}
-          links={[{ label: "SRT Editor", href: "/srt-editor" }, { label: "YouTube Subtitles", href: "/youtube-subtitles" }, { label: "Burn Subtitles", href: "/burn-subtitles" }]}
+          links={[{ label: "SRT Editor", href: "/srt-editor" }, { label: "Public URL Subtitles", href: "/public-url-subtitles" }, { label: "Burn Subtitles", href: "/burn-subtitles" }]}
         />
       </main>
       <Footer />

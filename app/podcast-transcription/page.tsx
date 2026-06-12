@@ -19,7 +19,7 @@ export default function PodcastTranscriptionPage() {
           description="Turn podcast audio into editable subtitles and transcripts for clips, show notes, and distribution workflows."
           bullets={["Upload audio or paste a media link.", "Clean transcript lines inline.", "Export SRT, VTT, or TXT for every episode."]}
           cta={{ label: "Upload Audio — Free", href: "/#upload" }}
-          links={[{ label: "YouTube Subtitles", href: "/youtube-subtitles" }, { label: "SRT Editor", href: "/srt-editor" }, { label: "Course Captions", href: "/course-captions" }]}
+          links={[{ label: "Public URL Subtitles", href: "/public-url-subtitles" }, { label: "SRT Editor", href: "/srt-editor" }, { label: "Course Captions", href: "/course-captions" }]}
         />
       </main>
       <Footer />

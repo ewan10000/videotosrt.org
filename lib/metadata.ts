@@ -2,28 +2,32 @@ import type { Metadata } from "next";
 
 const siteUrl = "https://videotosrt.org";
 const siteName = "VideoToSRT";
-const image = {
-  url: "/og-image.png",
-  width: 1200,
-  height: 630,
-  alt: siteName
-};
 
 export function createPageMetadata({
   path,
   title,
-  description
+  description,
+  robots
 }: {
   path: string;
   title: string;
   description: string;
+  robots?: Metadata["robots"];
 }): Metadata {
   const url = path === "/" ? siteUrl : `${siteUrl}${path}`;
+  const imageUrl = path === "/" ? "/og-image.png" : `/og-image.png?page=${encodeURIComponent(path.slice(1) || "home")}`;
+  const image = {
+    url: imageUrl,
+    width: 1200,
+    height: 630,
+    alt: title
+  };
 
   return {
     title: path === "/" ? { absolute: title } : title,
     description,
     alternates: { canonical: path },
+    robots: robots ?? { index: true, follow: true },
     openGraph: {
       title,
       description,
@@ -37,7 +41,7 @@ export function createPageMetadata({
       card: "summary_large_image",
       title,
       description,
-      images: [image.url]
+      images: [imageUrl]
     }
   };
 }

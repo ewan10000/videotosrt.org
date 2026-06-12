@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { ExportModal } from "@/components/modals/export-modal";
 import { Button } from "@/components/ui/button";
 import { UploadStatus } from "@/components/upload-status";
+import { savePendingUpload } from "@/lib/upload-transfer";
 
 const features = [
   ["ED", "Inline Editor", "Edit text and timestamps directly. No external tools, no format juggling."],
@@ -16,7 +17,7 @@ const features = [
   ["MP4", "Burn-in Preview", "Preview hardcoded subtitles before MP4 export. Full burn-in export is coming soon."],
   ["50+", "50+ Languages", "Auto-detect or manually set. Whisper-powered, edit-friendly accuracy."],
   ["20", "Batch Process", "Drop 20 files at once. Let it run, come back when it's done."],
-  ["URL", "URL Import", "YouTube, TikTok, Vimeo — paste and go. No download-upload loop."]
+  ["URL", "URL Import", "Paste a public video URL to import directly. Supports major platforms. No download-upload loop. You must have permission to process the content."]
 ];
 
 const faqs = [
@@ -29,22 +30,28 @@ const faqs = [
   ["Can I edit an existing SRT file?", "Yes. Upload your SRT alongside the video, or paste it directly into the editor. Fix timing without touching code."],
   ["What's the difference between Free and Pro?", "Free gives you 30 minutes a month and basic formats. Pro adds burn-in preview, style templates, and 10 hours — enough for a weekly creator."],
   ["Does the pay-as-you-go credit expire?", "Never. Buy once, use whenever. No monthly pressure."],
-  ["Can my team share templates and projects?", "Studio plan supports 3 team members with shared brand templates and cloud history. Need more seats? Contact us."]
+  ["Can my team share templates and projects?", "Studio plan supports 3 team members with shared brand templates and cloud history. Need more seats? Contact us."],
+  ["Do I need permission to process videos?", "Yes. VideoToSRT is a subtitle editing tool. You are solely responsible for ensuring you have the necessary rights to upload, process, and export any content. We comply with DMCA and will respond to valid takedown notices."]
 ];
 
 const useCases = [
-  ["YouTuber", "I publish 3 videos a week. VideoToSRT cut my subtitle workflow from 2 hours to 10 minutes. I just upload, fix a few lines, and export."],
-  ["Podcaster", "I need clean SRTs for every episode. Used to bounce between three tools. Now I paste the link and it's done before my coffee gets cold."],
-  ["Educator", "My course has students in 6 countries. I upload once, export VTT for captions, SRT for downloads. One tool, no friction."],
-  ["TikTok Creator", "Vertical captions with styled ASS — finally something that doesn't look like it was made in 2008. And it's in my browser."]
+  ["John · Content Creator", "Used to juggle between apps to get a clip done. Now it's one straight line—saves me a lot of hassle."],
+  ["Sarah · Educator", "Showing videos with subtitles to my class. Attention span's noticeably different."],
+  ["Mike · Podcast Producer", "Audio comes out cleaner than my previous tool. One less round of noise reduction in post."],
+  ["Lisa · Short-form Creator", "Templates are straightforward. First try got me a video that actually performed."]
 ];
 
 function useHomeUploadPicker() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const startUpload = (file: File) => {
-    window.sessionStorage.setItem("videotosrt.upload", JSON.stringify({ name: file.name, size: file.size }));
+  const startUpload = async (file: File) => {
+    try {
+      const upload = await savePendingUpload(file);
+      window.sessionStorage.setItem("videotosrt.upload", JSON.stringify({ id: upload.id, name: file.name, size: file.size, type: file.type }));
+    } catch {
+      window.sessionStorage.setItem("videotosrt.upload", JSON.stringify({ name: file.name, size: file.size, type: file.type }));
+    }
     router.push("/editor");
   };
 
@@ -56,7 +63,7 @@ function useHomeUploadPicker() {
     const file = event.target.files?.[0];
 
     if (file) {
-      startUpload(file);
+      void startUpload(file);
     }
 
     event.target.value = "";
@@ -71,7 +78,7 @@ function useHomeUploadPicker() {
     const file = event.dataTransfer.files?.[0];
 
     if (file) {
-      startUpload(file);
+      void startUpload(file);
     }
   };
 
@@ -136,9 +143,9 @@ function UploadPanel() {
         <div className="traffic" aria-hidden="true"><span /><span /><span /></div>
         <div className="text-[13px] font-bold text-soft">New subtitle project</div>
       </div>
-      <div className="p-[22px]">
+      <div className="p-[28px]">
         <div
-          className="grid min-h-[230px] cursor-pointer place-items-center rounded border border-dashed border-cyan/60 bg-cyan/[.045] p-6 text-center transition hover:border-cyan hover:bg-cyan/[.07]"
+          className="grid min-h-[380px] cursor-pointer place-items-center rounded border border-dashed border-cyan/60 bg-cyan/[.045] p-6 text-center transition hover:border-cyan hover:bg-cyan/[.07]"
           role="button"
           tabIndex={0}
           onClick={openFilePicker}
@@ -175,7 +182,7 @@ function UploadPanel() {
 
 export function WorkflowSection() {
   const steps: Array<{ icon: LucideIcon; title: string; copy: string }> = [
-    { icon: Upload, title: "Upload", copy: "Drag in your video or paste a YouTube link. AI auto-detects language and transcribes while you grab coffee." },
+    { icon: Upload, title: "Upload", copy: "Drag in your video or paste a public URL. AI auto-detects language and transcribes while you grab coffee. You are responsible for ensuring you have the right to process any content." },
     { icon: Scissors, title: "Edit", copy: "Click any line to fix text. Click timestamps to nudge timing. The video preview syncs as you work." },
     { icon: ArrowDown, title: "Export", copy: "Download SRT, VTT, or TXT. Burn-in coming soon. Your file, your rights, zero hassle." }
   ];
@@ -308,8 +315,8 @@ export function PricingTeaserSection() {
         <div className="grid gap-4 lg:grid-cols-3">
           {[
             ["Free", "$0", "30 min/mo", ["No sign-up to edit", "SRT, VTT, TXT export", "Inline editor"], "Start Free"],
-            ["Pro", "$9", "10 hrs/mo", ["Burn-in preview", "20 style templates", "Batch 20 files"], "Start Pro"],
-            ["Studio", "$29", "50 hrs/mo", ["Team (3 seats)", "API access", "Brand templates"], "Start Studio"]
+            ["Pro", "$9.90", "10 hrs/mo", ["Burn-in preview", "20 style templates", "Batch 20 files"], "Start Pro"],
+            ["Studio", "$29.90", "50 hrs/mo", ["Team (3 seats)", "API access", "Brand templates"], "Start Studio"]
           ].map(([plan, price, meta, items, cta]) => (
             <article key={plan as string} className={`panel-card p-[22px] ${(plan as string) === "Pro" ? "border-cyan bg-cyan/[.045]" : ""}`}>
               <div className="mb-2 flex items-center justify-between">
@@ -342,7 +349,8 @@ export function UseCasesSection() {
     <section className="section-pad">
       <div className="site-container">
         <div className="section-head">
-          <h2>Built for Creators Who Ship</h2>
+          <h2>Early User Feedback</h2>
+          <p>Feedback from friends and industry contacts who tested the product before launch. All based on actual use.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {useCases.map(([role, quote]) => (

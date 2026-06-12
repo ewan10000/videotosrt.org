@@ -1,12 +1,22 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "videotosrt-org",
-  "main": ".open-next/worker.js",
+  "main": "worker.ts",
   "compatibility_date": "2026-05-31",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+  "routes": [
+    {
+      "pattern": "videotosrt.org/*",
+      "zone_name": "videotosrt.org"
+    }
+  ],
+  "vars": {
+    "PAYPAL_PRO_YEARLY_PLAN_ID": "P-31033479LJ166283DNIV2SCQ",
+    "PAYPAL_STUDIO_YEARLY_PLAN_ID": "P-7GF77226NC881150XNIV2SCY"
   },
   "observability": {
     "enabled": true
