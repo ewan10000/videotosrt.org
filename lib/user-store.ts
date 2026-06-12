@@ -36,14 +36,17 @@ export async function upsertUserLogin(env: UserStoreEnv, user: LocalAuthUser, pr
 
   await env.DB
     .prepare(
-      `INSERT INTO users (id, email, provider, plan, created_at, last_login_at)
-       VALUES (?, ?, ?, 'free', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-       ON CONFLICT(email) DO UPDATE SET
-         id = excluded.id,
+      `INSERT INTO users (id, email, name, avatar, provider, provider_id, plan, created_at, updated_at, last_login_at)
+       VALUES (?, ?, ?, NULL, ?, ?, 'free', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       ON CONFLICT(id) DO UPDATE SET
+         email = excluded.email,
+         name = excluded.name,
          provider = excluded.provider,
+         provider_id = excluded.provider_id,
+         updated_at = CURRENT_TIMESTAMP,
          last_login_at = CURRENT_TIMESTAMP`
     )
-    .bind(user.id, user.email, provider)
+    .bind(user.id, user.email, user.name, provider, user.email)
     .run();
 
   return { stored: true as const };
@@ -55,14 +58,30 @@ export async function getUserStats(env: UserStoreEnv) {
   }
 
   const total = await env.DB
+    .prepare("SELECT COUNT(DISTINCT email) AS count FROM users")
+    .first<{ count: number }>();
+  const records = await env.DB
     .prepare("SELECT COUNT(*) AS count FROM users")
     .first<{ count: number }>();
   const users = await env.DB
-    .prepare("SELECT id, email, provider, plan, created_at, last_login_at FROM users ORDER BY last_login_at DESC LIMIT 500")
+    .prepare(
+      `SELECT
+         email AS id,
+         email,
+         GROUP_CONCAT(DISTINCT provider) AS provider,
+         MAX(plan) AS plan,
+         MIN(created_at) AS created_at,
+         MAX(COALESCE(last_login_at, updated_at)) AS last_login_at
+       FROM users
+       GROUP BY email
+       ORDER BY last_login_at DESC
+       LIMIT 500`
+    )
     .all<StoredUser>();
 
   return {
     count: total?.count ?? 0,
+    records_count: records?.count ?? 0,
     users: users.results ?? []
   };
 }

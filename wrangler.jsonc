@@ -8,6 +8,13 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "videotosrt-db",
+      "database_id": "3a5b095b-3914-443f-b256-365a4d912063"
+    }
+  ],
   "routes": [
     {
       "pattern": "videotosrt.org/*",
