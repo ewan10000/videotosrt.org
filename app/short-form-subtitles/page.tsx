@@ -1,6 +1,7 @@
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
-import { createPageMetadata } from "@/lib/metadata";
+import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata = createPageMetadata({
@@ -8,10 +9,17 @@ export const metadata = createPageMetadata({
   title: "Short-form Subtitle Generator — Styled Captions",
   description: "Vertical video captions with ASS styling. Auto-break lines, preview in browser, export ready-to-post."
 });
+const pageJsonLd = createPageJsonLd({
+  path: "/short-form-subtitles",
+  name: "Short-form Subtitle Generator — Styled Captions",
+  description: "Vertical video captions with ASS styling. Auto-break lines, preview in browser, export ready-to-post."
+});
+
 
 export default function ShortFormSubtitlesPage() {
   return (
     <>
+      <JsonLd data={pageJsonLd} />
       <SiteNav />
       <main>
         <SeoLanding

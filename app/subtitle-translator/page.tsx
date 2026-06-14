@@ -1,6 +1,7 @@
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
-import { createPageMetadata } from "@/lib/metadata";
+import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata = createPageMetadata({
@@ -8,10 +9,17 @@ export const metadata = createPageMetadata({
   title: "Translate Subtitles Online — SRT Translation",
   description: "Upload SRT, translate to 50+ languages. Edit inline, preserve timing, export localized files."
 });
+const pageJsonLd = createPageJsonLd({
+  path: "/subtitle-translator",
+  name: "Translate Subtitles Online — SRT Translation",
+  description: "Upload SRT, translate to 50+ languages. Edit inline, preserve timing, export localized files."
+});
+
 
 export default function SubtitleTranslatorPage() {
   return (
     <>
+      <JsonLd data={pageJsonLd} />
       <SiteNav />
       <main>
         <SeoLanding

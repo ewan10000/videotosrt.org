@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Footer } from "@/components/footer";
-import { createPageMetadata } from "@/lib/metadata";
+import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata = createPageMetadata({
@@ -8,12 +9,19 @@ export const metadata = createPageMetadata({
   title: "DMCA Takedown Policy",
   description: "DMCA takedown policy for VideoToSRT, including infringement notices, counter-notifications, and repeat infringer rules."
 });
+const pageJsonLd = createPageJsonLd({
+  path: "/dmca",
+  name: "DMCA Takedown Policy",
+  description: "DMCA takedown policy for VideoToSRT, including infringement notices, counter-notifications, and repeat infringer rules."
+});
+
 
 export default function DmcaPage() {
   const lastUpdated = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
   return (
     <>
+      <JsonLd data={pageJsonLd} />
       <SiteNav />
       <main className="site-container py-16">
         <article className="mx-auto max-w-3xl">

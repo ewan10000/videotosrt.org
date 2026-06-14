@@ -1,6 +1,7 @@
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
-import { createPageMetadata } from "@/lib/metadata";
+import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata = createPageMetadata({
@@ -8,10 +9,17 @@ export const metadata = createPageMetadata({
   title: "Public URL Subtitle Editor — Auto-Generate & Edit",
   description: "Paste a public video URL, get editable subtitles, fix captions, and export SRT."
 });
+const pageJsonLd = createPageJsonLd({
+  path: "/public-url-subtitles",
+  name: "Public URL Subtitle Editor — Auto-Generate & Edit",
+  description: "Paste a public video URL, get editable subtitles, fix captions, and export SRT."
+});
+
 
 export default function PublicUrlSubtitlesPage() {
   return (
     <>
+      <JsonLd data={pageJsonLd} />
       <SiteNav />
       <main>
         <SeoLanding

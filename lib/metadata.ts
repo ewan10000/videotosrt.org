@@ -45,3 +45,48 @@ export function createPageMetadata({
     }
   };
 }
+
+
+export function createPageJsonLd({
+  path,
+  name,
+  description,
+  extraNodes = []
+}: {
+  path: string;
+  name: string;
+  description: string;
+  extraNodes?: Array<Record<string, unknown>>;
+}) {
+  const url = path === "/" ? siteUrl : `${siteUrl}${path}`;
+
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${siteUrl}/#organization`,
+        name: siteName,
+        url: siteUrl,
+        logo: `${siteUrl}/logo.svg`
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${siteUrl}/#website`,
+        name: siteName,
+        url: siteUrl,
+        publisher: { "@id": `${siteUrl}/#organization` }
+      },
+      {
+        "@type": "WebPage",
+        "@id": `${url}#webpage`,
+        name,
+        description,
+        url,
+        isPartOf: { "@id": `${siteUrl}/#website` },
+        about: { "@id": `${siteUrl}/#organization` }
+      },
+      ...extraNodes
+    ]
+  };
+}

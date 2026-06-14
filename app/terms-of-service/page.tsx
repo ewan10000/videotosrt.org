@@ -1,5 +1,6 @@
 import { Footer } from "@/components/footer";
-import { createPageMetadata } from "@/lib/metadata";
+import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata = createPageMetadata({
@@ -7,12 +8,19 @@ export const metadata = createPageMetadata({
   title: "Terms of Service",
   description: "Terms of Service for VideoToSRT subtitle generation, editing, exports, plans, and account usage."
 });
+const pageJsonLd = createPageJsonLd({
+  path: "/terms-of-service",
+  name: "Terms of Service",
+  description: "Terms of Service for VideoToSRT subtitle generation, editing, exports, plans, and account usage."
+});
+
 
 export default function TermsOfServicePage() {
   const lastUpdated = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
   return (
     <>
+      <JsonLd data={pageJsonLd} />
       <SiteNav />
       <main className="site-container py-16">
         <article className="mx-auto max-w-3xl">

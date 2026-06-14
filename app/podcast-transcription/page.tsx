@@ -1,6 +1,7 @@
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
-import { createPageMetadata } from "@/lib/metadata";
+import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata = createPageMetadata({
@@ -8,10 +9,17 @@ export const metadata = createPageMetadata({
   title: "Podcast Transcription to SRT — Online",
   description: "Audio-optimized transcription with speaker detection. Clean SRTs for show notes and distribution."
 });
+const pageJsonLd = createPageJsonLd({
+  path: "/podcast-transcription",
+  name: "Podcast Transcription to SRT — Online",
+  description: "Audio-optimized transcription with speaker detection. Clean SRTs for show notes and distribution."
+});
+
 
 export default function PodcastTranscriptionPage() {
   return (
     <>
+      <JsonLd data={pageJsonLd} />
       <SiteNav />
       <main>
         <SeoLanding

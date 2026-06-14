@@ -1,6 +1,7 @@
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
-import { createPageMetadata } from "@/lib/metadata";
+import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata = createPageMetadata({
@@ -8,10 +9,17 @@ export const metadata = createPageMetadata({
   title: "Video to SRT Converter — Free Online",
   description: "Convert any video to SRT in seconds. AI-powered, editable inline, export clean subtitles. No download required."
 });
+const pageJsonLd = createPageJsonLd({
+  path: "/video-to-srt",
+  name: "Video to SRT Converter — Free Online",
+  description: "Convert any video to SRT in seconds. AI-powered, editable inline, export clean subtitles. No download required."
+});
+
 
 export default function VideoToSrtPage() {
   return (
     <>
+      <JsonLd data={pageJsonLd} />
       <SiteNav />
       <main>
         <SeoLanding

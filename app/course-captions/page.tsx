@@ -1,6 +1,7 @@
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
-import { createPageMetadata } from "@/lib/metadata";
+import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata = createPageMetadata({
@@ -8,10 +9,17 @@ export const metadata = createPageMetadata({
   title: "Online Course Caption Generator — Educators",
   description: "Batch process lectures, export multi-language captions. VTT for players, SRT for downloads."
 });
+const pageJsonLd = createPageJsonLd({
+  path: "/course-captions",
+  name: "Online Course Caption Generator — Educators",
+  description: "Batch process lectures, export multi-language captions. VTT for players, SRT for downloads."
+});
+
 
 export default function CourseCaptionsPage() {
   return (
     <>
+      <JsonLd data={pageJsonLd} />
       <SiteNav />
       <main>
         <SeoLanding

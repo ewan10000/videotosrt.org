@@ -1,5 +1,6 @@
 import { Footer } from "@/components/footer";
-import { createPageMetadata } from "@/lib/metadata";
+import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata = createPageMetadata({
@@ -7,12 +8,19 @@ export const metadata = createPageMetadata({
   title: "Privacy Policy",
   description: "Privacy Policy for VideoToSRT, including uploaded media, account data, exports, and support contact."
 });
+const pageJsonLd = createPageJsonLd({
+  path: "/privacy-policy",
+  name: "Privacy Policy",
+  description: "Privacy Policy for VideoToSRT, including uploaded media, account data, exports, and support contact."
+});
+
 
 export default function PrivacyPolicyPage() {
   const lastUpdated = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
   return (
     <>
+      <JsonLd data={pageJsonLd} />
       <SiteNav />
       <main className="site-container py-16">
         <article className="mx-auto max-w-3xl">

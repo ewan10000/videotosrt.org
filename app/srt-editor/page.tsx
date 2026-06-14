@@ -1,6 +1,7 @@
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
-import { createPageMetadata } from "@/lib/metadata";
+import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata = createPageMetadata({
@@ -8,10 +9,17 @@ export const metadata = createPageMetadata({
   title: "SRT Editor Online — Edit Subtitles in Browser",
   description: "Fix timing and text without installing software. Upload your SRT, sync with video, export perfect files."
 });
+const pageJsonLd = createPageJsonLd({
+  path: "/srt-editor",
+  name: "SRT Editor Online — Edit Subtitles in Browser",
+  description: "Fix timing and text without installing software. Upload your SRT, sync with video, export perfect files."
+});
+
 
 export default function SrtEditorPage() {
   return (
     <>
+      <JsonLd data={pageJsonLd} />
       <SiteNav />
       <main>
         <SeoLanding

@@ -1,6 +1,7 @@
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
-import { createPageMetadata } from "@/lib/metadata";
+import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
 
 export const metadata = createPageMetadata({
@@ -8,10 +9,17 @@ export const metadata = createPageMetadata({
   title: "Burn Subtitles into Video Online — Hardcode MP4",
   description: "Preview hardcoded subtitles for MP4 export. Styled or plain, one export workflow, built for paid plans."
 });
+const pageJsonLd = createPageJsonLd({
+  path: "/burn-subtitles",
+  name: "Burn Subtitles into Video Online — Hardcode MP4",
+  description: "Preview hardcoded subtitles for MP4 export. Styled or plain, one export workflow, built for paid plans."
+});
+
 
 export default function BurnSubtitlesPage() {
   return (
     <>
+      <JsonLd data={pageJsonLd} />
       <SiteNav />
       <main>
         <SeoLanding
