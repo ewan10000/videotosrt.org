@@ -773,6 +773,7 @@ export function EditorClient() {
           </div>
         </header>
         <main className="grid min-h-0 grid-cols-[60%_40%] overflow-hidden">
+          <h1 className="sr-only">VideoToSRT Subtitle Editor</h1>
           <section className="grid min-h-0 min-w-0 grid-rows-[1fr_auto] border-r border-line bg-[#101A2E] p-5" aria-label="Video editor">
             <div ref={videoFrameRef} className="relative grid min-h-[320px] place-items-center overflow-hidden rounded border border-line bg-bg">
               {mediaUrl ? (
@@ -844,7 +845,7 @@ export function EditorClient() {
           </section>
           <aside className="mb-5 ml-0 mr-5 mt-5 grid min-h-0 min-w-0 grid-rows-[56px_1fr_52px] self-stretch overflow-hidden rounded border border-line bg-panel" aria-label="Subtitle table">
             <div className="flex items-center justify-between border-b border-line px-5">
-              <h1 className="mb-0 text-xl font-extrabold">Subtitles</h1>
+              <h2 className="mb-0 text-xl font-extrabold">Subtitles</h2>
               <Button variant="secondary" size="sm" className="gap-2" type="button" onClick={addRow}>
                 <Plus className="h-4 w-4" />
                 Row
@@ -981,7 +982,7 @@ export function EditorClient() {
       <div className="grid min-h-screen place-items-center bg-bg p-6 min-[760px]:hidden">
         <div className="max-w-md rounded border border-line bg-panel p-6 text-center shadow-panel">
           <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded bg-indigo font-extrabold">VS</div>
-          <h1 className="mb-3 text-2xl font-extrabold">VideoToSRT Subtitle Editor</h1>
+          <h2 className="mb-3 text-2xl font-extrabold">VideoToSRT Subtitle Editor</h2>
           <p className="mb-5 leading-6 text-muted">The MVP subtitle editor is built for desktop workflows with a minimum width of 760px.</p>
           <Button variant="primary" onClick={() => history.back()}>Go back</Button>
         </div>
