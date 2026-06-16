@@ -90,9 +90,9 @@ export function AuthCompleteClient() {
         setLocalUser(user);
         cleanSessionTokenFromLocation();
         window.location.replace(returnTo);
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          setMessage("Sign in completed, but the session could not be confirmed. Please try again.");
+          setMessage(error instanceof Error ? error.message : "Sign in completed, but the session could not be confirmed. Please try again.");
         }
       }
     }

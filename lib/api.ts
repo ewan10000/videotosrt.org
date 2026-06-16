@@ -113,6 +113,7 @@ export function authLoginUrl(provider: "google" | "github" | "email", returnTo?:
   const url = new URL(`${API_BASE_URL}/auth/login`, origin);
   const completeUrl = new URL("/auth/complete", origin);
 
+  completeUrl.searchParams.set("authTs", String(Date.now()));
   url.searchParams.set("provider", provider);
   if (returnTo) {
     completeUrl.searchParams.set("returnTo", returnTo);
