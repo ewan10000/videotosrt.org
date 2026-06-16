@@ -12,6 +12,7 @@ const LOCAL_API_ROUTES = new Set([
   "/api/auth/email/verify",
   "/api/auth/logout",
   "/api/auth/me",
+  "/api/auth/oauth/bridge",
   "/api/checkout/paypal",
   "/api/checkout/paypal/credits",
   "/api/checkout/paypal/credits/capture",
