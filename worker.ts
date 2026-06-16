@@ -373,6 +373,7 @@ export default {
       url.pathname === "/api/auth/logout" ||
       url.pathname === "/api/auth/me" ||
       url.pathname === "/api/auth/oauth/bridge" ||
+      url.pathname === "/api/auth/session/complete" ||
       url.pathname === "/api/checkout/paypal" ||
       url.pathname === "/api/checkout/paypal/credits" ||
       url.pathname === "/api/checkout/paypal/credits/capture" ||
