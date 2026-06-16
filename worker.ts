@@ -78,6 +78,40 @@ function filterProxyResponseHeaders(headers: Headers) {
   return nextHeaders;
 }
 
+function getSetCookieHeaders(headers: Headers) {
+  const withGetSetCookie = headers as Headers & { getSetCookie?: () => string[] };
+  const cookies = withGetSetCookie.getSetCookie?.();
+  if (cookies?.length) {
+    return cookies;
+  }
+
+  const cookie = headers.get("set-cookie");
+  if (!cookie) {
+    return [];
+  }
+
+  return cookie.split(/,(?=\s*[^;,=\s]+=[^;,]+)/);
+}
+
+function rewriteCookieForSite(cookie: string) {
+  const withoutDomain = cookie.replace(/;\s*Domain=[^;]*/i, "");
+
+  if (/;\s*SameSite=/i.test(withoutDomain)) {
+    return withoutDomain;
+  }
+
+  return `${withoutDomain}; SameSite=Lax`;
+}
+
+function rewriteAuthRedirect(provider: "github" | "google", location: string, requestUrl: URL) {
+  const redirectUrl = new URL(location);
+  const callbackUrl = new URL(`/api/auth/callback/${provider}`, requestUrl.origin);
+
+  redirectUrl.searchParams.set("redirect_uri", callbackUrl.toString());
+
+  return redirectUrl.toString();
+}
+
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers);
   headers.set("content-type", "application/json; charset=utf-8");
@@ -354,9 +388,66 @@ async function proxyApi(request: Request) {
   });
 }
 
+async function proxyAuthLogin(request: Request) {
+  const response = await proxyApi(request);
+  const requestUrl = new URL(request.url);
+  const provider = requestUrl.searchParams.get("provider");
+  const location = response.headers.get("location");
+
+  if ((provider === "github" || provider === "google") && location) {
+    const headers = new Headers(response.headers);
+    headers.set("location", rewriteAuthRedirect(provider, location, requestUrl));
+
+    return new Response(response.body, {
+      headers,
+      status: response.status,
+      statusText: response.statusText
+    });
+  }
+
+  return response;
+}
+
+async function proxyAuthCallback(request: Request, provider: "github" | "google") {
+  const requestUrl = new URL(request.url);
+  const upstreamUrl = new URL(`${UPSTREAM_API_BASE}/auth/callback/${provider}`);
+  upstreamUrl.search = requestUrl.search;
+
+  const upstreamResponse = await fetch(upstreamUrl, {
+    headers: filterProxyRequestHeaders(request.headers),
+    method: "GET",
+    redirect: "manual"
+  });
+  const headers = filterProxyResponseHeaders(upstreamResponse.headers);
+  const cookies = getSetCookieHeaders(upstreamResponse.headers);
+
+  headers.delete("set-cookie");
+  for (const cookie of cookies) {
+    headers.append("set-cookie", rewriteCookieForSite(cookie));
+  }
+
+  return new Response(upstreamResponse.body, {
+    headers,
+    status: upstreamResponse.status,
+    statusText: upstreamResponse.statusText
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: unknown) {
     const url = new URL(request.url);
+
+    if (url.pathname === "/api/auth/login") {
+      return proxyAuthLogin(request);
+    }
+
+    if (url.pathname === "/api/auth/callback/github") {
+      return proxyAuthCallback(request, "github");
+    }
+
+    if (url.pathname === "/api/auth/callback/google") {
+      return proxyAuthCallback(request, "google");
+    }
 
     if (url.pathname === "/api/checkout") {
       return createPaypalCheckout(request, env);
