@@ -5,6 +5,8 @@ import { getStoredUserMembership, upsertUserLogin, type UserStoreEnv } from "@/l
 import type { ApiUser, ApiUserResponse } from "@/lib/api";
 
 const UPSTREAM_API_BASE = "https://api.videotosrt.org/api";
+const UPSTREAM_SESSION_COOKIE = "vts_session";
+const UPSTREAM_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
 type CompletePayload = {
   token?: string;
@@ -77,13 +79,16 @@ export async function POST(request: Request) {
   const user = membership
     ? { ...upstreamUser, email: localUser.email, extra_credit_hours: membership.extra_credit_hours, plan: membership.plan }
     : { ...upstreamUser, email: localUser.email };
+  const headers = new Headers();
+
+  headers.append("Set-Cookie", localAuthCookieHeader(localUser));
+  headers.append(
+    "Set-Cookie",
+    `${UPSTREAM_SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${UPSTREAM_SESSION_MAX_AGE_SECONDS}; SameSite=None; Secure`
+  );
 
   return jsonResponse(
     { data: { user }, user },
-    {
-      headers: {
-        "Set-Cookie": localAuthCookieHeader(localUser)
-      }
-    }
+    { headers }
   );
 }

@@ -62,6 +62,15 @@ export function getSessionToken() {
   return window.localStorage.getItem(AUTH_SESSION_TOKEN_KEY) ?? "";
 }
 
+export function persistSessionToken(token: string) {
+  if (typeof window === "undefined" || !token) {
+    return;
+  }
+
+  window.localStorage.setItem(AUTH_SESSION_TOKEN_KEY, token);
+  document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${SESSION_MAX_AGE_SECONDS}; Secure; SameSite=None`;
+}
+
 export function clearSessionToken() {
   if (typeof window === "undefined") {
     return;
@@ -134,8 +143,7 @@ export function consumeSessionTokenFromLocation() {
   }
 
   if (token) {
-    window.localStorage.setItem(AUTH_SESSION_TOKEN_KEY, token);
-    document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${SESSION_MAX_AGE_SECONDS}; Secure; SameSite=None`;
+    persistSessionToken(token);
   }
 
   if (user) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch, type ApiUserResponse } from "@/lib/api";
-import { normalizeUser, setLocalUser } from "@/lib/auth";
+import { normalizeUser, persistSessionToken, setLocalUser } from "@/lib/auth";
 
 function safeReturnTo(value: string | null) {
   if (!value) {
@@ -88,6 +88,7 @@ export function AuthCompleteClient() {
         }
 
         setLocalUser(user);
+        persistSessionToken(token);
         cleanSessionTokenFromLocation();
         window.location.replace(returnTo);
       } catch (error) {
