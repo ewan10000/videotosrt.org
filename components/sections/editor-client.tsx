@@ -614,6 +614,18 @@ export function EditorClient() {
     }
   }
 
+  function commitTimeEdit(index: number, field: 0 | 1) {
+    const row = rows[index];
+    const video = videoRef.current;
+
+    setActive(index);
+    setSubtitlePage(Math.floor(index / SUBTITLES_PER_PAGE));
+
+    if (row && video) {
+      video.currentTime = parseTimestampToSeconds(row[field]);
+    }
+  }
+
   function moveCaptionToPointer(clientX: number, clientY: number) {
     const frame = videoFrameRef.current;
 
@@ -879,13 +891,29 @@ export function EditorClient() {
                               className="h-6 rounded border border-line bg-bg px-2 text-cyan outline-none focus:border-cyan"
                               value={start}
                               aria-label={`Start time row ${index + 1}`}
+                              onClick={(event) => event.stopPropagation()}
+                              onMouseDown={(event) => event.stopPropagation()}
                               onChange={(event) => updateRow(index, 0, event.target.value)}
+                              onBlur={() => commitTimeEdit(index, 0)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.currentTarget.blur();
+                                }
+                              }}
                             />
                             <input
                               className="h-6 rounded border border-line bg-bg px-2 text-cyan outline-none focus:border-cyan"
                               value={end}
                               aria-label={`End time row ${index + 1}`}
+                              onClick={(event) => event.stopPropagation()}
+                              onMouseDown={(event) => event.stopPropagation()}
                               onChange={(event) => updateRow(index, 1, event.target.value)}
+                              onBlur={() => commitTimeEdit(index, 1)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.currentTarget.blur();
+                                }
+                              }}
                             />
                           </div>
                         </td>
