@@ -64,9 +64,16 @@ export async function POST(request: Request) {
     return jsonResponse({ message: "The signed-in account did not include an email address." }, { status: 400 });
   }
 
-  const env = (await getCloudflareContext({ async: true })).env as UserStoreEnv;
-  await upsertUserLogin(env, localUser, "oauth");
-  const membership = await getStoredUserMembership(env, localUser);
+  let membership: Awaited<ReturnType<typeof getStoredUserMembership>> = null;
+
+  try {
+    const env = (await getCloudflareContext({ async: true })).env as UserStoreEnv;
+    await upsertUserLogin(env, localUser, "oauth");
+    membership = await getStoredUserMembership(env, localUser);
+  } catch {
+    // Login should still complete if local analytics/membership sync has a transient D1 issue.
+  }
+
   const user = membership
     ? { ...upstreamUser, email: localUser.email, extra_credit_hours: membership.extra_credit_hours, plan: membership.plan }
     : { ...upstreamUser, email: localUser.email };
