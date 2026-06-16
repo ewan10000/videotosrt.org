@@ -111,11 +111,13 @@ function buildUrl(path: string) {
 export function authLoginUrl(provider: "google" | "github" | "email", returnTo?: string) {
   const origin = typeof window === "undefined" ? "https://videotosrt.org" : window.location.origin;
   const url = new URL(`${API_BASE_URL}/auth/login`, origin);
+  const completeUrl = new URL("/auth/complete", origin);
 
   url.searchParams.set("provider", provider);
   if (returnTo) {
-    url.searchParams.set("returnTo", returnTo);
+    completeUrl.searchParams.set("returnTo", returnTo);
   }
+  url.searchParams.set("returnTo", completeUrl.toString());
 
   return url.toString();
 }
