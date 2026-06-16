@@ -4,6 +4,8 @@ const routes = [
   "",
   "/pricing",
   "/editor",
+  "/faq",
+  "/contact",
   "/privacy-policy",
   "/terms-of-service",
   "/dmca",

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Brand } from "@/components/brand";
-import { ContactModal } from "@/components/modals/contact-modal";
 
 const supportEmail = "support@videotosrt.org";
 
@@ -15,13 +14,7 @@ export function Footer() {
           <Link href="/privacy-policy">Privacy</Link>
           <Link href="/terms-of-service">Terms</Link>
           <Link href="/dmca">DMCA</Link>
-          <ContactModal
-            trigger={
-              <button className="cursor-pointer bg-transparent p-0 text-sm font-semibold text-soft" type="button">
-                Contact
-              </button>
-            }
-          />
+          <Link href="/contact">Contact</Link>
           <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
         </div>
         <p className="mb-0 text-sm text-soft">© {new Date().getFullYear()} VideoToSRT. Made for creators who ship.</p>

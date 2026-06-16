@@ -18,7 +18,7 @@ import {
 } from "@/lib/auth";
 import { getExtraCreditLabel, getUserVipPlan, getVipBadgeClass, getVipLabel, mergeStoredMembership } from "@/lib/plans";
 
-export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" }) {
+export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" | "faq" | "contact" }) {
   const [user, setUser] = useState<ApiUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [logoutError, setLogoutError] = useState("");
@@ -82,7 +82,7 @@ export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" }) 
           <Link className="nav-link" href="/#features">Features</Link>
           <Link className="nav-link" href="/editor">Editor</Link>
           <Link className={active === "pricing" ? "text-text nav-link" : "nav-link"} href="/pricing">Pricing</Link>
-          <Link className="nav-link" href="/#faq">FAQ</Link>
+          <Link className={active === "faq" ? "text-text nav-link" : "nav-link"} href="/faq">FAQ</Link>
         </div>
         <div className="flex items-center gap-2.5">
           {user ? (
