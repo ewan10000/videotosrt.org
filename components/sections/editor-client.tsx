@@ -236,6 +236,7 @@ export function EditorClient() {
   const [needsLoginForTranscription, setNeedsLoginForTranscription] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [subtitlePage, setSubtitlePage] = useState(0);
+  const [orderEdits, setOrderEdits] = useState<Record<number, string>>({});
   const [captionPosition, setCaptionPosition] = useState({ x: 50, y: 72 });
   const [savedAtLabel, setSavedAtLabel] = useState("");
   const [saveFeedback, setSaveFeedback] = useState("");
@@ -693,6 +694,49 @@ export function EditorClient() {
     }));
   }
 
+  function updateOrderEdit(index: number, value: string) {
+    setOrderEdits((currentEdits) => ({ ...currentEdits, [index]: value.replace(/[^\d]/g, "") }));
+  }
+
+  function clearOrderEdit(index: number) {
+    setOrderEdits((currentEdits) => {
+      const nextEdits = { ...currentEdits };
+      delete nextEdits[index];
+      return nextEdits;
+    });
+  }
+
+  function commitOrderEdit(index: number, value: string) {
+    const requestedOrder = Number.parseInt(value, 10);
+
+    if (!Number.isFinite(requestedOrder) || !rows[index]) {
+      clearOrderEdit(index);
+      return;
+    }
+
+    const targetIndex = Math.min(rows.length - 1, Math.max(0, requestedOrder - 1));
+
+    setRows((currentRows) => {
+      if (!currentRows[index]) {
+        return currentRows;
+      }
+
+      const nextIndex = Math.min(currentRows.length - 1, Math.max(0, requestedOrder - 1));
+
+      if (nextIndex === index) {
+        return currentRows;
+      }
+
+      const nextRows = [...currentRows];
+      const [movedRow] = nextRows.splice(index, 1);
+      nextRows.splice(nextIndex, 0, movedRow);
+      return nextRows;
+    });
+    setOrderEdits({});
+    setActive(targetIndex);
+    setSubtitlePage(Math.floor(targetIndex / SUBTITLES_PER_PAGE));
+  }
+
   function addRow() {
     const nextActive = rows.length;
 
@@ -704,6 +748,7 @@ export function EditorClient() {
 
       return [...currentRows, nextRow];
     });
+    setOrderEdits({});
     setActive(nextActive);
     setSubtitlePage(Math.floor(nextActive / SUBTITLES_PER_PAGE));
   }
@@ -718,6 +763,7 @@ export function EditorClient() {
       });
       return nextRows;
     });
+    setOrderEdits({});
   }
 
   const activeRow = rows[active] ?? rows[0];
@@ -884,7 +930,30 @@ export function EditorClient() {
                         className={`cursor-pointer border-b border-line/70 ${active === index ? "bg-cyan/10" : "hover:bg-panel-2"}`}
                         onClick={() => seekToRow(index)}
                       >
-                        <td className="px-3 py-1.5 text-soft">{index + 1}</td>
+                        <td className="px-3 py-1.5 text-soft">
+                          <input
+                            className="h-7 w-10 rounded border border-line bg-bg px-1 text-center font-mono text-xs text-soft outline-none focus:border-cyan focus:text-cyan"
+                            inputMode="numeric"
+                            min={1}
+                            type="text"
+                            value={orderEdits[index] ?? String(index + 1)}
+                            aria-label={`Subtitle order row ${index + 1}`}
+                            onClick={(event) => event.stopPropagation()}
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onChange={(event) => updateOrderEdit(index, event.target.value)}
+                            onBlur={(event) => commitOrderEdit(index, event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.currentTarget.blur();
+                              }
+
+                              if (event.key === "Escape") {
+                                clearOrderEdit(index);
+                                event.currentTarget.blur();
+                              }
+                            }}
+                          />
+                        </td>
                         <td className="px-3 py-1.5 font-mono text-xs text-cyan">
                           <div className="grid gap-1">
                             <input
