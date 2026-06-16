@@ -992,6 +992,8 @@ export function EditorClient() {
                             value={text}
                             aria-label={`Subtitle text row ${index + 1}`}
                             placeholder="Subtitle text"
+                            onClick={(event) => event.stopPropagation()}
+                            onMouseDown={(event) => event.stopPropagation()}
                             onChange={(event) => updateRow(index, 2, event.target.value)}
                           />
                         </td>
