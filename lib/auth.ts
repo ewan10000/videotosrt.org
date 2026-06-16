@@ -7,6 +7,8 @@ const AUTH_SESSION_TOKEN_KEY = "videotosrt.auth.session_token";
 const AUTH_CHANGE_EVENT = "videotosrt:auth-change";
 const SESSION_COOKIE = "vts_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+const TOKEN_PARAM_NAMES = ["token", "session_token", "sessionToken", "access_token", "auth_token", "jwt"];
+const USER_PARAM_NAMES = ["user", "auth_user"];
 
 export type AuthUserResponse = ApiUserResponse;
 
@@ -69,30 +71,84 @@ export function clearSessionToken() {
   document.cookie = `${SESSION_COOKIE}=; Path=/; Max-Age=0; Secure; SameSite=None`;
 }
 
+function getFirstParam(params: URLSearchParams, names: string[]) {
+  for (const name of names) {
+    const value = params.get(name);
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function deleteParams(params: URLSearchParams, names: string[]) {
+  for (const name of names) {
+    params.delete(name);
+  }
+}
+
+function decodeBase64Url(value: string) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  return window.atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="));
+}
+
+function decodeUserParam(value: string): ApiUser | null {
+  const candidates = [value];
+
+  try {
+    candidates.push(decodeBase64Url(value));
+  } catch {
+    // Some callbacks send plain JSON, others send base64url JSON.
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const user = JSON.parse(candidate) as ApiUser;
+      if (user && typeof user === "object") {
+        return user;
+      }
+    } catch {
+      // Try the next encoding.
+    }
+  }
+
+  return null;
+}
+
 export function consumeSessionTokenFromLocation() {
   if (typeof window === "undefined") {
     return false;
   }
 
-  const rawHash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
-  if (!rawHash) {
+  const url = new URL(window.location.href);
+  const rawHash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
+  const hashParams = new URLSearchParams(rawHash);
+  const searchParams = new URLSearchParams(url.search);
+  const token = getFirstParam(hashParams, TOKEN_PARAM_NAMES) || getFirstParam(searchParams, TOKEN_PARAM_NAMES);
+  const rawUser = getFirstParam(hashParams, USER_PARAM_NAMES) || getFirstParam(searchParams, USER_PARAM_NAMES);
+  const user = rawUser ? decodeUserParam(rawUser) : null;
+
+  if (!token && !user) {
     return false;
   }
 
-  const params = new URLSearchParams(rawHash);
-  const token = params.get("token");
-  if (!token) {
-    return false;
+  if (token) {
+    window.localStorage.setItem(AUTH_SESSION_TOKEN_KEY, token);
+    document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${SESSION_MAX_AGE_SECONDS}; Secure; SameSite=None`;
   }
 
-  window.localStorage.setItem(AUTH_SESSION_TOKEN_KEY, token);
-  document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${SESSION_MAX_AGE_SECONDS}; Secure; SameSite=None`;
+  if (user) {
+    setLocalUser(user);
+  }
 
-  params.delete("token");
-  const cleanedUrl = new URL(window.location.href);
-  const nextHash = params.toString();
-  cleanedUrl.hash = nextHash ? `#${nextHash}` : "";
-  window.history.replaceState(window.history.state, "", cleanedUrl.toString());
+  deleteParams(hashParams, TOKEN_PARAM_NAMES);
+  deleteParams(hashParams, USER_PARAM_NAMES);
+  deleteParams(searchParams, TOKEN_PARAM_NAMES);
+  deleteParams(searchParams, USER_PARAM_NAMES);
+  url.hash = hashParams.toString() ? `#${hashParams.toString()}` : "";
+  url.search = searchParams.toString() ? `?${searchParams.toString()}` : "";
+  window.history.replaceState(window.history.state, "", url.toString());
 
   return true;
 }
