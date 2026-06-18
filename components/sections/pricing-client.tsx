@@ -17,7 +17,7 @@ const plans = [
     monthly: "Free",
     yearly: "Free",
     suffix: "",
-    features: ["30 minutes per month", "SRT, VTT, and TXT export", "Inline subtitle editor", "Export with email login"]
+    features: ["60 minutes per month", "SRT, VTT, and TXT export", "Inline subtitle editor", "Export with email login"]
   },
   {
     name: "Pro",

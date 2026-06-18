@@ -27,7 +27,7 @@ const faqs = [
   ["What happens to my video after upload?", "Processed and deleted automatically. We don't store your original video or your subtitles longer than necessary. Anonymous projects expire in 7 days."],
   ["Is there a file size limit?", "2GB per file for uploads. URL imports have no size limit — we handle the heavy lifting."],
   ["Can I edit an existing SRT file?", "Yes. Upload your SRT alongside the video, or paste it directly into the editor. Fix timing without touching code."],
-  ["What's the difference between Free and Pro?", "Free gives you 30 minutes a month and basic formats. Pro adds burn-in preview, style templates, and 10 hours — enough for a weekly creator."],
+  ["What's the difference between Free and Pro?", "Free gives you 60 minutes a month and basic formats. Pro adds burn-in preview, style templates, and 10 hours — enough for a weekly creator."],
   ["Does the pay-as-you-go credit expire?", "Never. Buy once, use whenever. No monthly pressure."],
   ["Can my team share templates and projects?", "Studio plan supports 3 team members with shared brand templates and cloud history. Need more seats? Contact us."],
   ["Do I need permission to process videos?", "Yes. VideoToSRT is a subtitle editing tool. You are solely responsible for ensuring you have the necessary rights to upload, process, and export any content. We comply with DMCA and will respond to valid takedown notices."]
@@ -266,7 +266,7 @@ export function PricingTeaserSection() {
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           {[
-            ["Free", "$0", "30 min/mo", ["No sign-up to edit", "SRT, VTT, TXT export", "Inline editor"], "Start Free"],
+            ["Free", "$0", "60 min/mo", ["No sign-up to edit", "SRT, VTT, TXT export", "Inline editor"], "Start Free"],
             ["Pro", "$9.90", "10 hrs/mo", ["Burn-in preview", "20 style templates", "Batch 20 files"], "Start Pro"],
             ["Studio", "$29.90", "50 hrs/mo", ["Team (3 seats)", "API access", "Brand templates"], "Start Studio"]
           ].map(([plan, price, meta, items, cta]) => (
