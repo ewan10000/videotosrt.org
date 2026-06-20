@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 const siteUrl = "https://videotosrt.org";
 const siteName = "VideoToSRT";
 
+export { siteName, siteUrl };
+
 export function createPageMetadata({
   path,
   title,
@@ -88,5 +90,86 @@ export function createPageJsonLd({
       },
       ...extraNodes
     ]
+  };
+}
+
+export function createSoftwareApplicationJsonLd({
+  name = siteName,
+  description,
+  url
+}: {
+  name?: string;
+  description: string;
+  url?: string;
+}) {
+  return {
+    "@type": "SoftwareApplication",
+    name,
+    description,
+    applicationCategory: "VideoApplication",
+    operatingSystem: "Web",
+    url: url ?? siteUrl,
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }
+  };
+}
+
+export function createFaqJsonLd(faq: Array<{ question: string; answer: string }>) {
+  return {
+    "@type": "FAQPage",
+    mainEntity: faq.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer
+      }
+    }))
+  };
+}
+
+export function createBreadcrumbJsonLd({
+  path,
+  name
+}: {
+  path: string;
+  name: string;
+}) {
+  const url = path === "/" ? siteUrl : `${siteUrl}${path}`;
+
+  return {
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: `${siteUrl}/`
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name,
+        item: url
+      }
+    ]
+  };
+}
+
+export function createHowToJsonLd({
+  name,
+  steps
+}: {
+  name: string;
+  steps: Array<{ title: string; body: string }>;
+}) {
+  return {
+    "@type": "HowTo",
+    name,
+    step: steps.map((step, index) => ({
+      "@type": "HowToStep",
+      position: index + 1,
+      name: step.title,
+      text: step.body
+    }))
   };
 }

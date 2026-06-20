@@ -1,20 +1,12 @@
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
-import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
 import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
+import { createLandingJsonLd, createLandingMetadata, getLandingPage } from "@/lib/seo-landing-pages";
 
-export const metadata = createPageMetadata({
-  path: "/ass-subtitle-editor",
-  title: "ASS Subtitle Editor Online — Styled Subtitles",
-  description: "Full ASS style editing: fonts, colors, positioning, animation. Preview and export studio-grade subtitles."
-});
-const pageJsonLd = createPageJsonLd({
-  path: "/ass-subtitle-editor",
-  name: "ASS Subtitle Editor Online — Styled Subtitles",
-  description: "Full ASS style editing: fonts, colors, positioning, animation. Preview and export studio-grade subtitles."
-});
-
+const page = getLandingPage("ass-subtitle-editor");
+export const metadata = createLandingMetadata(page);
+const pageJsonLd = createLandingJsonLd(page);
 
 export default function AssSubtitleEditorPage() {
   return (
@@ -22,13 +14,7 @@ export default function AssSubtitleEditorPage() {
       <JsonLd data={pageJsonLd} />
       <SiteNav />
       <main>
-        <SeoLanding
-          title="ASS Subtitle Editor Online — Styled Subtitles"
-          description="Create styled subtitles with fonts, colors, positioning, and preview controls from a browser-based editor."
-          bullets={["Style ASS/SSA subtitles without desktop software.", "Preview positioning and readability.", "Export studio-grade subtitle files."]}
-          cta={{ label: "Open Editor", href: "/editor" }}
-          links={[{ label: "Burn Subtitles", href: "/burn-subtitles" }, { label: "Short-form Subtitles", href: "/short-form-subtitles" }, { label: "SRT Editor", href: "/srt-editor" }]}
-        />
+        <SeoLanding {...page} />
       </main>
       <Footer />
     </>

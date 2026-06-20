@@ -1,20 +1,12 @@
 import { Footer } from "@/components/footer";
 import { SeoLanding } from "@/components/sections/seo-landing";
-import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
 import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
+import { createLandingJsonLd, createLandingMetadata, getLandingPage } from "@/lib/seo-landing-pages";
 
-export const metadata = createPageMetadata({
-  path: "/video-to-srt",
-  title: "Video to SRT Converter — Free Online",
-  description: "Convert any video to SRT in seconds. AI-powered, editable inline, export clean subtitles. No download required."
-});
-const pageJsonLd = createPageJsonLd({
-  path: "/video-to-srt",
-  name: "Video to SRT Converter — Free Online",
-  description: "Convert any video to SRT in seconds. AI-powered, editable inline, export clean subtitles. No download required."
-});
-
+const page = getLandingPage("video-to-srt");
+export const metadata = createLandingMetadata(page);
+const pageJsonLd = createLandingJsonLd(page);
 
 export default function VideoToSrtPage() {
   return (
@@ -22,13 +14,7 @@ export default function VideoToSrtPage() {
       <JsonLd data={pageJsonLd} />
       <SiteNav />
       <main>
-        <SeoLanding
-          title="Video to SRT Converter — Free Online"
-          description="Convert any video to SRT in seconds. Upload, transcribe, edit, and export clean subtitle files from your browser."
-          bullets={["AI transcription in 50+ languages.", "Inline editing for text and timing.", "Export SRT, VTT, or TXT without installing software."]}
-          cta={{ label: "Upload Video — Free", href: "/#upload" }}
-          links={[{ label: "SRT Editor", href: "/srt-editor" }, { label: "Public URL Subtitles", href: "/public-url-subtitles" }, { label: "Burn Subtitles", href: "/burn-subtitles" }]}
-        />
+        <SeoLanding {...page} />
       </main>
       <Footer />
     </>
