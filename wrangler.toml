@@ -11,6 +11,10 @@ binding = "DB"
 database_name = "videotosrt-db"
 database_id = "3a5b095b-3914-443f-b256-365a4d912063"
 
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "r2tong0607"
+
 [[queues.producers]]
 binding = "AI_QUEUE"
 queue = "videotosrt-ai-queue"
@@ -25,3 +29,6 @@ SITE_NAME = "VideoToSRT"
 APP_ORIGIN = "https://videotosrt.org"
 AI_PROVIDER = "groq-whisper"
 PAYMENT_PROVIDER = "creem"
+R2_ACCOUNT_ID = "b2633e8fad738ca6375e741cf013656d"
+R2_BUCKET_NAME = "r2tong0607"
+R2_ENDPOINT = "https://b2633e8fad738ca6375e741cf013656d.r2.cloudflarestorage.com"

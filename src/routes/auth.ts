@@ -4,6 +4,7 @@ import { appOrigin, createId, nowIso } from "../lib/env";
 import { fail, ok } from "../lib/response";
 import {
   createSessionCookie,
+  createSessionToken,
   createSignedToken,
   createStateToken,
   requireUser,
@@ -22,6 +23,14 @@ type OAuthProfile = {
   avatar: string | null;
 };
 
+type UserProfile = OAuthProfile | {
+  provider: "email" | "shipany";
+  providerId: string;
+  email: string;
+  name: string | null;
+  avatar: string | null;
+};
+
 function safeReturnTo(env: HonoAppEnv["Bindings"], returnTo: string | null) {
   const fallback = appOrigin(env);
   if (!returnTo) return fallback;
@@ -34,13 +43,7 @@ function safeReturnTo(env: HonoAppEnv["Bindings"], returnTo: string | null) {
   }
 }
 
-async function upsertUser(env: HonoAppEnv["Bindings"], profile: OAuthProfile | {
-  provider: "email";
-  providerId: string;
-  email: string;
-  name: string | null;
-  avatar: string | null;
-}) {
+async function upsertUser(env: HonoAppEnv["Bindings"], profile: UserProfile) {
   const existing = await env.DB.prepare("SELECT * FROM users WHERE provider = ? AND provider_id = ?")
     .bind(profile.provider, profile.providerId)
     .first<User>();
@@ -66,6 +69,28 @@ async function upsertUser(env: HonoAppEnv["Bindings"], profile: OAuthProfile | {
     .run();
 
   return env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(id).first<User>() as Promise<User>;
+}
+
+async function hmacHex(value: string, secret: string) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(value));
+  return [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function constantTimeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 async function fetchGoogleProfile(env: HonoAppEnv["Bindings"], code: string): Promise<OAuthProfile> {
@@ -136,6 +161,49 @@ async function fetchGithubProfile(env: HonoAppEnv["Bindings"], code: string): Pr
 }
 
 export const authRoutes = new Hono<HonoAppEnv>();
+
+authRoutes.post("/auth/shipany/bridge", async (c) => {
+  const secret = c.env.SHIPANY_BRIDGE_SECRET;
+  if (!secret) return fail(c, 500, "BRIDGE_NOT_CONFIGURED", "ShipAny bridge is not configured");
+
+  const body = await c.req.json<{
+    id?: string;
+    email?: string;
+    name?: string | null;
+    avatar?: string | null;
+    ts?: number;
+    sig?: string;
+  }>().catch(() => null);
+
+  const email = body?.email?.trim().toLowerCase();
+  const ts = body?.ts;
+  const sig = body?.sig;
+  if (!email || !ts || !sig) {
+    return fail(c, 400, "INVALID_BRIDGE_PAYLOAD", "email, ts, and sig are required");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - ts) > 300) {
+    return fail(c, 401, "BRIDGE_EXPIRED", "Bridge payload expired");
+  }
+
+  const id = body.id?.trim() || "";
+  const expectedSig = await hmacHex(`${id}.${email}.${ts}`, secret);
+  if (!constantTimeEqual(expectedSig, sig.toLowerCase())) {
+    return fail(c, 401, "INVALID_BRIDGE_SIGNATURE", "Invalid bridge signature");
+  }
+
+  const user = await upsertUser(c.env, {
+    provider: "shipany",
+    providerId: id || email,
+    email,
+    name: body.name ?? null,
+    avatar: body.avatar ?? null,
+  });
+  const token = await createSessionToken(c, user.id);
+
+  return ok(c, { token, user });
+});
 
 authRoutes.get("/auth/login", async (c) => {
   const provider = c.req.query("provider") as Provider | undefined;

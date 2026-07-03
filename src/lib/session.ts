@@ -65,12 +65,16 @@ export async function verifySignedToken<T>(token: string | null, secret: string)
   }
 }
 
-export async function createSessionCookie(c: Context, userId: string) {
+export async function createSessionToken(c: Context, userId: string) {
   const payload: SessionPayload = {
     userId,
     exp: Math.floor(Date.now() / 1000) + 604800,
   };
-  setCookie(c, SESSION_COOKIE, await createSignedToken(payload, c.env.SESSION_SECRET));
+  return createSignedToken(payload, c.env.SESSION_SECRET);
+}
+
+export async function createSessionCookie(c: Context, userId: string) {
+  setCookie(c, SESSION_COOKIE, await createSessionToken(c, userId));
 }
 
 export async function createStateToken(env: Bindings, payload: Omit<StatePayload, "exp">) {

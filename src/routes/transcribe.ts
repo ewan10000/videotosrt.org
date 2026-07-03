@@ -59,7 +59,7 @@ transcribeRoutes.post("/transcribe", async (c) => {
   };
   await c.env.AI_QUEUE.send(message);
 
-  return ok(c, { id, status: "queued", minutes_charged: minutes }, 202);
+  return ok(c, { id, job_id: id, status: "queued", minutes_charged: minutes }, 202);
 });
 
 transcribeRoutes.get("/jobs/:id", async (c) => {

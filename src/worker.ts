@@ -7,6 +7,7 @@ import { authRoutes } from "./routes/auth";
 import { checkoutRoutes } from "./routes/checkout";
 import { healthRoutes } from "./routes/health";
 import { transcribeRoutes } from "./routes/transcribe";
+import { uploadRoutes } from "./routes/upload";
 import { usageRoutes } from "./routes/usage";
 import { webhookRoutes } from "./routes/webhooks";
 import type { Bindings, HonoAppEnv, TranscriptionQueueMessage } from "./types";
@@ -18,7 +19,7 @@ app.use(
   cors({
     origin: (origin, c) => origin || appOrigin(c.env),
     credentials: true,
-    allowHeaders: ["Content-Type", "creem-signature"],
+    allowHeaders: ["Content-Type", "Authorization", "creem-signature"],
     allowMethods: ["GET", "POST", "OPTIONS"],
   }),
 );
@@ -28,6 +29,7 @@ app.use("/api/*", loadUser);
 app.route("/api", healthRoutes);
 app.route("/api", authRoutes);
 app.route("/api", usageRoutes);
+app.route("/api", uploadRoutes);
 app.route("/api", transcribeRoutes);
 app.route("/api", checkoutRoutes);
 app.route("/api", webhookRoutes);
@@ -62,12 +64,13 @@ async function handleTranscription(message: TranscriptionQueueMessage, env: Bind
       .run();
   } catch (error) {
     const messageText = error instanceof Error ? error.message : "Transcription failed";
+    console.error("[Transcription Error] job:", message.jobId, "error:", messageText, "stack:", error instanceof Error ? error.stack : "");
     await env.DB.prepare(
       `UPDATE transcription_jobs
-       SET status = 'failed', updated_at = ?
+       SET status = 'failed', srt_content = ?, updated_at = ?
        WHERE id = ? AND user_id = ?`,
     )
-      .bind(nowIso(), message.jobId, message.userId)
+      .bind(messageText, nowIso(), message.jobId, message.userId)
       .run();
 
     throw new Error(messageText);
@@ -82,7 +85,8 @@ export default {
       try {
         await handleTranscription(message.body, env);
         message.ack();
-      } catch {
+      } catch (err) {
+        console.error("[Queue Error] job:", message.id, "error:", err);
         message.retry();
       }
     }

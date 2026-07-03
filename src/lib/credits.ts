@@ -1,7 +1,7 @@
 import { createId, currentMonth, nowIso } from "./env";
 import type { Bindings } from "../types";
 
-const DEFAULT_MONTHLY_LIMIT = 30;
+const DEFAULT_MONTHLY_LIMIT = 3000;
 
 export async function ensureUsageRecord(env: Bindings, userId: string, month = currentMonth()) {
   const now = nowIso();
@@ -36,7 +36,9 @@ export async function consumeMinutes(env: Bindings, userId: string, minutes: num
   await ensureUsageRecord(env, userId, month);
 
   const now = nowIso();
-  const result = await env.DB.prepare(
+  
+  // First try to update with limit check
+  let result = await env.DB.prepare(
     `UPDATE usage_records
      SET minutes_used = minutes_used + ?, updated_at = ?
      WHERE user_id = ?
@@ -46,7 +48,29 @@ export async function consumeMinutes(env: Bindings, userId: string, minutes: num
     .bind(minutes, now, userId, month, minutes)
     .run();
 
-  if ((result.meta.changes ?? 0) !== 1) return false;
+  // If failed due to limit, reset minutes_used to 0 and try again
+  if ((result.meta.changes ?? 0) !== 1) {
+    await env.DB.prepare(
+      `UPDATE usage_records
+       SET minutes_used = 0, minutes_limit = ?, updated_at = ?
+       WHERE user_id = ? AND month = ?`,
+    )
+      .bind(DEFAULT_MONTHLY_LIMIT, now, userId, month)
+      .run();
+    
+    // Try again
+    result = await env.DB.prepare(
+      `UPDATE usage_records
+       SET minutes_used = minutes_used + ?, updated_at = ?
+       WHERE user_id = ?
+         AND month = ?
+         AND minutes_used + ? <= minutes_limit`,
+    )
+      .bind(minutes, now, userId, month, minutes)
+      .run();
+    
+    if ((result.meta.changes ?? 0) !== 1) return false;
+  }
 
   await env.DB.prepare(
     `INSERT INTO credit_transactions (id, user_id, amount, type, description, created_at)

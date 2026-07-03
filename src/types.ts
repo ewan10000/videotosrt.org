@@ -1,5 +1,6 @@
 export type Bindings = {
   DB: D1Database;
+  R2: R2Bucket;
   AI_QUEUE: Queue<TranscriptionQueueMessage>;
   ASSETS: Fetcher;
   SITE_NAME: string;
@@ -13,7 +14,14 @@ export type Bindings = {
   GITHUB_CLIENT_SECRET: string;
   GITHUB_REDIRECT_URI: string;
   SESSION_SECRET: string;
+  SHIPANY_BRIDGE_SECRET: string;
   GROQ_API_KEY: string;
+  RESEND_API_KEY: string;
+  R2_ACCOUNT_ID: string;
+  R2_BUCKET_NAME: string;
+  R2_ENDPOINT: string;
+  R2_ACCESS_KEY_ID: string;
+  R2_SECRET_ACCESS_KEY: string;
   CREEM_API_KEY: string;
   CREEM_WEBHOOK_SECRET: string;
 };

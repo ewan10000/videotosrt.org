@@ -3,6 +3,8 @@ import type { Bindings } from "../types";
 const REQUIRED_SECRETS = [
   "SESSION_SECRET",
   "GROQ_API_KEY",
+  "R2_ACCESS_KEY_ID",
+  "R2_SECRET_ACCESS_KEY",
   "CREEM_API_KEY",
   "CREEM_WEBHOOK_SECRET",
 ] as const;
