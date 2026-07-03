@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { transcribeWithGroq } from "./lib/ai";
 import { appOrigin, nowIso } from "./lib/env";
 import { loadUser } from "./lib/session";
+import { adminRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
 import { checkoutRoutes } from "./routes/checkout";
 import { healthRoutes } from "./routes/health";
@@ -28,6 +29,7 @@ app.use("/api/*", loadUser);
 
 app.route("/api", healthRoutes);
 app.route("/api", authRoutes);
+app.route("/api", adminRoutes);
 app.route("/api", usageRoutes);
 app.route("/api", uploadRoutes);
 app.route("/api", transcribeRoutes);
