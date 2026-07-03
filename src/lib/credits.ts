@@ -102,3 +102,36 @@ export async function addCredits(env: Bindings, userId: string, minutes: number,
     .bind(createId("txn"), userId, minutes, description, now)
     .run();
 }
+
+export async function addCreditsIdempotent(
+  env: Bindings,
+  userId: string,
+  minutes: number,
+  description: string,
+  transactionId: string,
+) {
+  const month = currentMonth();
+  await ensureUsageRecord(env, userId, month);
+
+  const now = nowIso();
+  const insert = await env.DB.prepare(
+    `INSERT OR IGNORE INTO credit_transactions (id, user_id, amount, type, description, created_at)
+     VALUES (?, ?, ?, 'credit', ?, ?)`,
+  )
+    .bind(transactionId, userId, minutes, description, now)
+    .run();
+
+  if ((insert.meta.changes ?? 0) !== 1) {
+    return { granted: false, duplicate: true };
+  }
+
+  await env.DB.prepare(
+    `UPDATE usage_records
+     SET minutes_limit = minutes_limit + ?, updated_at = ?
+     WHERE user_id = ? AND month = ?`,
+  )
+    .bind(minutes, now, userId, month)
+    .run();
+
+  return { granted: true, duplicate: false };
+}

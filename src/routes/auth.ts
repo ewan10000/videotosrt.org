@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { clearCookie, getCookie, SESSION_COOKIE, STATE_COOKIE, setCookie } from "../lib/cookies";
+import { addCreditsIdempotent } from "../lib/credits";
 import { appOrigin, createId, nowIso } from "../lib/env";
 import { fail, ok } from "../lib/response";
 import {
@@ -82,6 +83,11 @@ async function hmacHex(value: string, secret: string) {
   );
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(value));
   return [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function constantTimeEqual(a: string, b: string) {
@@ -203,6 +209,78 @@ authRoutes.post("/auth/shipany/bridge", async (c) => {
   const token = await createSessionToken(c, user.id);
 
   return ok(c, { token, user });
+});
+
+authRoutes.post("/auth/shipany/grant-credits", async (c) => {
+  const secret = c.env.SHIPANY_BRIDGE_SECRET;
+  if (!secret) return fail(c, 500, "BRIDGE_NOT_CONFIGURED", "ShipAny bridge is not configured");
+
+  const body = await c.req.json<{
+    id?: string;
+    email?: string;
+    name?: string | null;
+    avatar?: string | null;
+    minutes?: number;
+    amount?: number;
+    reference?: string;
+    orderNo?: string;
+    subscriptionNo?: string;
+    paymentType?: string;
+    provider?: string;
+    ts?: number;
+    sig?: string;
+  }>().catch(() => null);
+
+  const email = body?.email?.trim().toLowerCase();
+  const id = body?.id?.trim() || "";
+  const minutes = Number.isFinite(body?.minutes) ? Math.trunc(body?.minutes ?? 0) : Math.trunc(body?.amount ?? 0);
+  const reference = body?.reference?.trim() || "";
+  const orderNo = body?.orderNo?.trim() || "";
+  const subscriptionNo = body?.subscriptionNo?.trim() || "";
+  const paymentType = body?.paymentType?.trim() || "";
+  const provider = body?.provider?.trim() || "";
+  const ts = body?.ts;
+  const sig = body?.sig;
+
+  if (!email || !ts || !sig || !reference || !Number.isSafeInteger(minutes) || minutes <= 0) {
+    return fail(c, 400, "INVALID_CREDIT_GRANT_PAYLOAD", "email, ts, sig, reference, and positive minutes are required");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - ts) > 300) {
+    return fail(c, 401, "BRIDGE_EXPIRED", "Bridge payload expired");
+  }
+
+  const signedValue = [id, email, String(minutes), reference, orderNo, subscriptionNo, paymentType, provider, String(ts)].join(".");
+  const expectedSig = await hmacHex(signedValue, secret);
+  if (!constantTimeEqual(expectedSig, sig.toLowerCase())) {
+    return fail(c, 401, "INVALID_BRIDGE_SIGNATURE", "Invalid bridge signature");
+  }
+
+  const user = await upsertUser(c.env, {
+    provider: "shipany",
+    providerId: id || email,
+    email,
+    name: body.name ?? null,
+    avatar: body.avatar ?? null,
+  });
+
+  const transactionId = `shipany_${(await sha256Hex(reference)).slice(0, 48)}`;
+  const description = [
+    "ShipAny credit sync",
+    orderNo ? `order=${orderNo}` : "",
+    subscriptionNo ? `subscription=${subscriptionNo}` : "",
+    paymentType ? `type=${paymentType}` : "",
+  ].filter(Boolean).join(" ");
+  const result = await addCreditsIdempotent(c.env, user.id, minutes, description, transactionId);
+
+  return ok(c, {
+    user_id: user.id,
+    minutes,
+    reference,
+    granted: result.granted,
+    duplicate: result.duplicate,
+  });
 });
 
 authRoutes.get("/auth/login", async (c) => {
