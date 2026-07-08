@@ -100,6 +100,15 @@ export type ApiUserResponse =
     }
   | null;
 
+export type EmailAuthResponse = {
+  data?: {
+    user?: ApiUser | null;
+  } | null;
+  expires_in_seconds?: number;
+  sent?: boolean;
+  user?: ApiUser | null;
+};
+
 function buildUrl(path: string) {
   if (path.startsWith("http")) {
     return path;
@@ -187,6 +196,8 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
 
 export const api = {
   me: () => apiFetch<ApiUserResponse>("/auth/me"),
+  sendEmailCode: (email: string) =>
+    apiFetch<EmailAuthResponse>("/auth/email/send-code", { method: "POST", body: { email } }),
   logout: () => apiFetch<{ ok?: boolean }>("/auth/logout", { method: "POST" }),
   upload: (file: File) => {
     const body = new FormData();
