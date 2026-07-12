@@ -32,13 +32,20 @@ type UserProfile = OAuthProfile | {
   avatar: string | null;
 };
 
+const TRUSTED_RETURN_TO_ORIGINS = [
+  "https://videotosrt-shipany.ewan0862.workers.dev",
+] as const;
+
+function trustedReturnToOrigins(env: HonoAppEnv["Bindings"]) {
+  return new Set([new URL(appOrigin(env)).origin, ...TRUSTED_RETURN_TO_ORIGINS]);
+}
+
 function safeReturnTo(env: HonoAppEnv["Bindings"], returnTo: string | null) {
   const fallback = appOrigin(env);
   if (!returnTo) return fallback;
   try {
     const url = new URL(returnTo, fallback);
-    const app = new URL(fallback);
-    return url.origin === app.origin ? url.toString() : fallback;
+    return trustedReturnToOrigins(env).has(url.origin) ? url.toString() : fallback;
   } catch {
     return fallback;
   }
