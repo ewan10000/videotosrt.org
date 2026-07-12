@@ -361,7 +361,9 @@ authRoutes.get("/auth/callback/:provider", async (c) => {
   if (!["google", "github"].includes(provider)) return fail(c, 404, "NOT_FOUND", "Auth callback not found");
 
   const state = c.req.query("state") ?? null;
-  if (!state || state !== getCookie(c, STATE_COOKIE)) {
+  const stateCookie = getCookie(c, STATE_COOKIE);
+  // OAuth callbacks may land on a different host than the login endpoint, so the state cookie can be absent.
+  if (!state || (stateCookie && state !== stateCookie)) {
     return fail(c, 400, "INVALID_STATE", "OAuth state mismatch");
   }
 
