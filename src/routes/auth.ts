@@ -35,9 +35,45 @@ type UserProfile = OAuthProfile | {
 const TRUSTED_RETURN_TO_ORIGINS = [
   "https://videotosrt-shipany.ewan0862.workers.dev",
 ] as const;
+const SHIPANY_ORIGIN = TRUSTED_RETURN_TO_ORIGINS[0];
+const SHIPANY_AUTH_COMPLETE_PATH = "/api/auth/videotosrt/complete";
+const SHIPANY_HANDOFF_TTL_SECONDS = 60;
+
+type ShipAnyCompletionTarget = {
+  completionUrl: string;
+  returnPath: string;
+};
 
 function trustedReturnToOrigins(env: HonoAppEnv["Bindings"]) {
   return new Set([new URL(appOrigin(env)).origin, ...TRUSTED_RETURN_TO_ORIGINS]);
+}
+
+function safeShipAnyReturnPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return null;
+  try {
+    const url = new URL(value, SHIPANY_ORIGIN);
+    if (url.origin !== SHIPANY_ORIGIN || url.pathname.startsWith("/api/auth/")) return null;
+    return `${url.pathname}${url.search}${url.hash}` || "/";
+  } catch {
+    return null;
+  }
+}
+
+function parseShipAnyCompletionTarget(returnTo: string) {
+  try {
+    const url = new URL(returnTo);
+    if (url.origin !== SHIPANY_ORIGIN || url.pathname !== SHIPANY_AUTH_COMPLETE_PATH) return null;
+    if (url.username || url.password) return null;
+
+    const returnPath = safeShipAnyReturnPath(url.searchParams.get("returnTo"));
+    if (!returnPath) return null;
+
+    const completionUrl = new URL(SHIPANY_AUTH_COMPLETE_PATH, SHIPANY_ORIGIN);
+    completionUrl.searchParams.set("returnTo", returnPath);
+    return { completionUrl: completionUrl.toString(), returnPath } satisfies ShipAnyCompletionTarget;
+  } catch {
+    return null;
+  }
 }
 
 function safeReturnTo(env: HonoAppEnv["Bindings"], returnTo: string | null) {
@@ -45,10 +81,38 @@ function safeReturnTo(env: HonoAppEnv["Bindings"], returnTo: string | null) {
   if (!returnTo) return fallback;
   try {
     const url = new URL(returnTo, fallback);
+    if (url.origin === SHIPANY_ORIGIN) {
+      return parseShipAnyCompletionTarget(url.toString())?.completionUrl ?? fallback;
+    }
     return trustedReturnToOrigins(env).has(url.origin) ? url.toString() : fallback;
   } catch {
     return fallback;
   }
+}
+
+async function createShipAnyHandoffToken(env: HonoAppEnv["Bindings"], profile: OAuthProfile, returnPath: string) {
+  return createSignedToken(
+    {
+      iss: "videotosrt-backend",
+      aud: SHIPANY_ORIGIN,
+      provider: "google",
+      providerId: profile.providerId,
+      email: profile.email,
+      name: profile.name,
+      avatar: profile.avatar,
+      returnTo: returnPath,
+      nonce: crypto.randomUUID(),
+      exp: Math.floor(Date.now() / 1000) + SHIPANY_HANDOFF_TTL_SECONDS,
+    },
+    env.SHIPANY_BRIDGE_SECRET,
+  );
+}
+
+function redirectToShipAnyCompletion(target: ShipAnyCompletionTarget, token: string) {
+  const redirectUrl = new URL(SHIPANY_AUTH_COMPLETE_PATH, SHIPANY_ORIGIN);
+  redirectUrl.searchParams.set("returnTo", target.returnPath);
+  redirectUrl.searchParams.set("token", token);
+  return redirectUrl.toString();
 }
 
 async function upsertUser(env: HonoAppEnv["Bindings"], profile: UserProfile) {
@@ -377,10 +441,33 @@ authRoutes.get("/auth/callback/:provider", async (c) => {
   const verifiedState = await verifyStateToken(c.env, state, provider);
   if (!verifiedState) return fail(c, 400, "INVALID_STATE", "OAuth state is invalid or expired");
 
+  const shipAnyTarget = parseShipAnyCompletionTarget(verifiedState.returnTo);
+  let isShipAnyReturnTo = false;
+  try {
+    isShipAnyReturnTo = new URL(verifiedState.returnTo).origin === SHIPANY_ORIGIN;
+  } catch {
+    isShipAnyReturnTo = false;
+  }
+  if (isShipAnyReturnTo && !shipAnyTarget) {
+    return fail(c, 400, "INVALID_RETURN_TO", "ShipAny OAuth returnTo is not allowed");
+  }
+  if (shipAnyTarget && provider !== "google") {
+    return fail(c, 400, "INVALID_PROVIDER", "ShipAny OAuth handoff only supports google");
+  }
+
   const code = c.req.query("code");
   if (!code) return fail(c, 400, "CODE_REQUIRED", "OAuth code is required");
 
   const profile = provider === "google" ? await fetchGoogleProfile(c.env, code) : await fetchGithubProfile(c.env, code);
+  if (shipAnyTarget) {
+    if (!c.env.SHIPANY_BRIDGE_SECRET) {
+      return fail(c, 500, "BRIDGE_NOT_CONFIGURED", "ShipAny bridge is not configured");
+    }
+    clearCookie(c, STATE_COOKIE);
+    const token = await createShipAnyHandoffToken(c.env, profile, shipAnyTarget.returnPath);
+    return c.redirect(redirectToShipAnyCompletion(shipAnyTarget, token));
+  }
+
   const user = await upsertUser(c.env, profile);
   clearCookie(c, STATE_COOKIE);
   await createSessionCookie(c, user.id);
