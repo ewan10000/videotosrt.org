@@ -3,7 +3,7 @@ import { ensureUsageRecord } from "../lib/credits";
 import { nowIso } from "../lib/env";
 import { normalizePlan } from "../lib/plans";
 import { fail, ok } from "../lib/response";
-import type { HonoAppEnv } from "../types";
+import type { Bindings, HonoAppEnv } from "../types";
 
 type CreemCheckoutSession = {
   id: string;
@@ -71,21 +71,8 @@ async function verifyCreemSignature(rawBody: string, signatureHeader: string | n
   return signatures.some((signature) => timingSafeEqual(signature, expected));
 }
 
-async function ensureCreemEventsTable(env: HonoAppEnv["Bindings"]) {
-  await env.DB.prepare(
-    `CREATE TABLE IF NOT EXISTS creem_events (
-      id TEXT PRIMARY KEY,
-      type TEXT NOT NULL,
-      processed_at TEXT,
-      created_at TEXT NOT NULL
-    )`,
-  ).run();
-}
-
-async function shouldProcessCreemEvent(env: HonoAppEnv["Bindings"], event: CreemEvent) {
+async function shouldProcessCreemEvent(env: Bindings, event: CreemEvent) {
   try {
-    await ensureCreemEventsTable(env);
-
     const existing = await env.DB.prepare("SELECT processed_at FROM creem_events WHERE id = ?")
       .bind(event.id)
       .first<{ processed_at: string | null }>();
@@ -106,7 +93,7 @@ async function shouldProcessCreemEvent(env: HonoAppEnv["Bindings"], event: Creem
   return true;
 }
 
-async function markCreemEventProcessed(env: HonoAppEnv["Bindings"], eventId: string) {
+async function markCreemEventProcessed(env: Bindings, eventId: string) {
   try {
     await env.DB.prepare("UPDATE creem_events SET processed_at = ? WHERE id = ?").bind(nowIso(), eventId).run();
   } catch {
@@ -114,7 +101,7 @@ async function markCreemEventProcessed(env: HonoAppEnv["Bindings"], eventId: str
   }
 }
 
-async function handleCheckoutCompleted(env: HonoAppEnv["Bindings"], session: CreemCheckoutSession, event: CreemEvent) {
+async function handleCheckoutCompleted(env: Bindings, session: CreemCheckoutSession, event: CreemEvent) {
   const metadata = session.metadata ?? event.metadata ?? null;
   const userId = metadata?.user_id || session.request_id;
   const plan = metadata?.plan;

@@ -5,6 +5,7 @@ import { refundJobMinutes } from "./lib/credits";
 import { appOrigin, nowIso } from "./lib/env";
 import { shouldCallTranscriptionProvider } from "./lib/queue";
 import { deleteExpiredUploads } from "./lib/retention";
+import { bootstrapSchema } from "./lib/schema";
 import { loadUser } from "./lib/session";
 import { adminRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
@@ -132,9 +133,14 @@ async function handleTranscription(message: TranscriptionQueueMessage, env: Bind
 }
 
 export default {
-  fetch: app.fetch,
+  async fetch(request, env, ctx) {
+    await bootstrapSchema(env);
+    return app.fetch(request, env, ctx);
+  },
 
   async queue(batch, env) {
+    await bootstrapSchema(env);
+
     for (const message of batch.messages) {
       const callProvider = shouldCallTranscriptionProvider(message.attempts);
       try {
@@ -148,6 +154,7 @@ export default {
   },
 
   async scheduled(_event, env) {
+    await bootstrapSchema(env);
     const result = await deleteExpiredUploads(env.R2);
     console.log("[R2 Retention]", JSON.stringify(result));
   },

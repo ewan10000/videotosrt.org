@@ -5,6 +5,7 @@ const retention = await import("../dist/lib/retention.js");
 const duration = await import("../dist/lib/duration.js");
 const refund = await import("../dist/lib/refund.js");
 const queue = await import("../dist/lib/queue.js");
+const schema = await import("../dist/lib/schema.js");
 
 assert.equal(plans.getPlanQuota("free").monthlyMinutes, 60);
 assert.equal(plans.getPlanQuota("pro").monthlyMinutes, 600);
@@ -35,6 +36,118 @@ assert.equal(queue.MAX_PROVIDER_ATTEMPTS, 3);
 assert.equal(queue.shouldCallTranscriptionProvider(1), true);
 assert.equal(queue.shouldCallTranscriptionProvider(3), true);
 assert.equal(queue.shouldCallTranscriptionProvider(4), false);
+
+assert.deepEqual(
+  schema.missingUserColumnAlterStatements([
+    { name: "id" },
+    { name: "email" },
+    { name: "plan" },
+    { name: "extra_credit_hours" },
+    { name: "last_login_at" },
+  ]),
+  [],
+);
+assert.deepEqual(schema.missingUserColumnAlterStatements([{ name: "id" }, { name: "email" }]), [
+  "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'",
+  "ALTER TABLE users ADD COLUMN extra_credit_hours REAL NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN last_login_at TEXT",
+]);
+assert.deepEqual(schema.missingUserColumnAlterStatements([{ name: "plan" }, { name: "last_login_at" }]), [
+  "ALTER TABLE users ADD COLUMN extra_credit_hours REAL NOT NULL DEFAULT 0",
+]);
+
+const bootstrapStatements = [];
+let failNextBootstrap = true;
+let failNextExtraCreditAlter = true;
+let fakeUserColumns = [{ name: "id" }, { name: "email" }, { name: "plan" }];
+const fakeEnv = {
+  DB: {
+    prepare(sql) {
+      return {
+        run: async () => {
+          bootstrapStatements.push(sql);
+          if (failNextBootstrap) {
+            failNextBootstrap = false;
+            throw new Error("temporary D1 failure");
+          }
+          if (sql === "ALTER TABLE users ADD COLUMN extra_credit_hours REAL NOT NULL DEFAULT 0" && failNextExtraCreditAlter) {
+            failNextExtraCreditAlter = false;
+            fakeUserColumns = [...fakeUserColumns, { name: "extra_credit_hours" }];
+            throw new Error("duplicate column name: extra_credit_hours");
+          }
+          return {};
+        },
+        all: async () => {
+          bootstrapStatements.push(sql);
+          return { results: fakeUserColumns };
+        },
+      };
+    },
+  },
+};
+await assert.rejects(() => schema.bootstrapSchema(fakeEnv), /temporary D1 failure/);
+await schema.bootstrapSchema(fakeEnv);
+assert.deepEqual(bootstrapStatements, [
+  `CREATE TABLE IF NOT EXISTS creem_events (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      processed_at TEXT,
+      created_at TEXT NOT NULL
+    )`,
+  `CREATE TABLE IF NOT EXISTS creem_events (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      processed_at TEXT,
+      created_at TEXT NOT NULL
+    )`,
+  "PRAGMA table_info(users)",
+  "ALTER TABLE users ADD COLUMN extra_credit_hours REAL NOT NULL DEFAULT 0",
+  "PRAGMA table_info(users)",
+  "ALTER TABLE users ADD COLUMN last_login_at TEXT",
+]);
+await schema.bootstrapSchema({
+  DB: {
+    prepare() {
+      throw new Error("cached bootstrap should not touch D1 again");
+    },
+  },
+});
+
+const uncachedSchema = await import("../dist/lib/schema.js?alter-rethrow");
+const failedRaceStatements = [];
+await assert.rejects(
+  () => uncachedSchema.bootstrapSchema({
+    DB: {
+      prepare(sql) {
+        return {
+          run: async () => {
+            failedRaceStatements.push(sql);
+            if (sql === "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'") {
+              throw new Error("D1 alter failed");
+            }
+            return {};
+          },
+          all: async () => {
+            failedRaceStatements.push(sql);
+            return { results: [{ name: "id" }, { name: "email" }] };
+          },
+        };
+      },
+    },
+  }),
+  /D1 alter failed/,
+);
+assert.deepEqual(failedRaceStatements, [
+  `CREATE TABLE IF NOT EXISTS creem_events (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      processed_at TEXT,
+      created_at TEXT NOT NULL
+    )`,
+  "PRAGMA table_info(users)",
+  "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'",
+  "PRAGMA table_info(users)",
+]);
 
 const now = new Date("2026-07-16T00:00:00.000Z");
 const cutoff = retention.retentionCutoff(now);
