@@ -22,28 +22,4 @@ npm ci
 npm run typecheck
 npm test
 npm run deploy
-
-if ! schema="$(npx wrangler d1 execute videotosrt-db --remote --command 'PRAGMA table_info(users);' --json 2>&1)"; then
-  printf '%s\n' "$schema"
-  exit 1
-fi
-has_column() {
-  SCHEMA="$schema" COLUMN="$1" node -e '
-    const data = JSON.parse(process.env.SCHEMA);
-    const rows = data.flatMap((entry) => entry.results || []);
-    process.exit(rows.some((row) => row.name === process.env.COLUMN) ? 0 : 1);
-  '
-}
-
-if ! has_column plan; then
-  npx wrangler d1 execute videotosrt-db --remote --command "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free';"
-fi
-if ! has_column extra_credit_hours; then
-  npx wrangler d1 execute videotosrt-db --remote --command "ALTER TABLE users ADD COLUMN extra_credit_hours REAL NOT NULL DEFAULT 0;"
-fi
-if ! has_column last_login_at; then
-  npx wrangler d1 execute videotosrt-db --remote --command "ALTER TABLE users ADD COLUMN last_login_at TEXT;"
-fi
-
-npx wrangler d1 execute videotosrt-db --remote --file=./migrations/0002_plan_and_webhook_events.sql
 popd >/dev/null
