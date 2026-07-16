@@ -21,8 +21,12 @@ pushd "$backend_dir" >/dev/null
 npm ci
 npm run typecheck
 npm test
+npm run deploy
 
-schema="$(npx wrangler d1 execute videotosrt-db --remote --command 'PRAGMA table_info(users);' --json)"
+if ! schema="$(npx wrangler d1 execute videotosrt-db --remote --command 'PRAGMA table_info(users);' --json 2>&1)"; then
+  printf '%s\n' "$schema"
+  exit 1
+fi
 has_column() {
   SCHEMA="$schema" COLUMN="$1" node -e '
     const data = JSON.parse(process.env.SCHEMA);
@@ -42,5 +46,4 @@ if ! has_column last_login_at; then
 fi
 
 npx wrangler d1 execute videotosrt-db --remote --file=./migrations/0002_plan_and_webhook_events.sql
-npm run deploy
 popd >/dev/null
