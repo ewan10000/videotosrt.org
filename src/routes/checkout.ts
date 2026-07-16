@@ -4,12 +4,19 @@ import { fail, ok } from "../lib/response";
 import { requireUser } from "../lib/session";
 import type { HonoAppEnv } from "../types";
 
-type Plan = "pro" | "business";
+type Plan = "pro" | "studio";
+type RequestedPlan = Plan | "business";
 
 const PLANS: Record<Plan, { productId: string; minutes: number }> = {
-  pro: { productId: "pro_01JS8ZQ3Z3Z3Z3Z3Z3Z3Z3Z3Z", minutes: 120 },
-  business: { productId: "business_01JS8ZQ3Z3Z3Z3Z3Z3Z3Z3Z3Z", minutes: 600 },
+  pro: { productId: "pro_01JS8ZQ3Z3Z3Z3Z3Z3Z3Z3Z3Z", minutes: 600 },
+  studio: { productId: "business_01JS8ZQ3Z3Z3Z3Z3Z3Z3Z3Z3Z", minutes: 3000 },
 };
+
+function normalizeCheckoutPlan(plan: string | undefined): Plan | null {
+  if (plan === "pro" || plan === "studio") return plan;
+  if (plan === "business") return "studio";
+  return null;
+}
 
 async function createCreemCheckoutSession(
   env: HonoAppEnv["Bindings"],
@@ -61,10 +68,10 @@ checkoutRoutes.post("/checkout", async (c) => {
     return fail(c, 400, "PAYMENT_PROVIDER_UNAVAILABLE", "Creem payments are not enabled");
   }
 
-  const body: { plan?: string; success_url?: string; cancel_url?: string } = await c.req.json().catch(() => ({}));
-  const plan = body.plan as Plan | undefined;
-  if (!plan || !(plan in PLANS)) {
-    return fail(c, 400, "INVALID_PLAN", "plan must be pro or business");
+  const body: { plan?: RequestedPlan; success_url?: string; cancel_url?: string } = await c.req.json().catch(() => ({}));
+  const plan = normalizeCheckoutPlan(body.plan);
+  if (!plan) {
+    return fail(c, 400, "INVALID_PLAN", "plan must be pro or studio");
   }
 
   const origin = appOrigin(c.env);

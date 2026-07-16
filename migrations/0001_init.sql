@@ -5,6 +5,9 @@ CREATE TABLE IF NOT EXISTS users (
   avatar TEXT,
   provider TEXT NOT NULL,
   provider_id TEXT NOT NULL,
+  plan TEXT NOT NULL DEFAULT 'free',
+  extra_credit_hours REAL NOT NULL DEFAULT 0,
+  last_login_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

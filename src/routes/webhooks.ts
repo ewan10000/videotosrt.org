@@ -1,6 +1,7 @@
 import { Hono } from "hono";
-import { addCredits } from "../lib/credits";
+import { ensureUsageRecord } from "../lib/credits";
 import { nowIso } from "../lib/env";
+import { normalizePlan } from "../lib/plans";
 import { fail, ok } from "../lib/response";
 import type { HonoAppEnv } from "../types";
 
@@ -24,8 +25,9 @@ type CreemEvent = {
 };
 
 const PLAN_MINUTES: Record<string, number> = {
-  pro: 120,
-  business: 600,
+  pro: 600,
+  studio: 3000,
+  business: 3000,
 };
 
 const encoder = new TextEncoder();
@@ -69,8 +71,21 @@ async function verifyCreemSignature(rawBody: string, signatureHeader: string | n
   return signatures.some((signature) => timingSafeEqual(signature, expected));
 }
 
+async function ensureCreemEventsTable(env: HonoAppEnv["Bindings"]) {
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS creem_events (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      processed_at TEXT,
+      created_at TEXT NOT NULL
+    )`,
+  ).run();
+}
+
 async function shouldProcessCreemEvent(env: HonoAppEnv["Bindings"], event: CreemEvent) {
   try {
+    await ensureCreemEventsTable(env);
+
     const existing = await env.DB.prepare("SELECT processed_at FROM creem_events WHERE id = ?")
       .bind(event.id)
       .first<{ processed_at: string | null }>();
@@ -103,6 +118,7 @@ async function handleCheckoutCompleted(env: HonoAppEnv["Bindings"], session: Cre
   const metadata = session.metadata ?? event.metadata ?? null;
   const userId = metadata?.user_id || session.request_id;
   const plan = metadata?.plan;
+  const normalizedPlan = normalizePlan(plan === "business" ? "studio" : plan);
   const metadataMinutes = Number(metadata?.minutes);
   const minutes = Number.isFinite(metadataMinutes) && metadataMinutes > 0 ? metadataMinutes : plan ? PLAN_MINUTES[plan] : 0;
 
@@ -110,7 +126,10 @@ async function handleCheckoutCompleted(env: HonoAppEnv["Bindings"], session: Cre
     throw new Error("Creem checkout session is missing user or plan metadata");
   }
 
-  await addCredits(env, userId, minutes, `Creem checkout ${session.id}`);
+  await env.DB.prepare("UPDATE users SET plan = ?, updated_at = ? WHERE id = ?")
+    .bind(normalizedPlan, nowIso(), userId)
+    .run();
+  await ensureUsageRecord(env, userId, undefined, normalizedPlan);
 }
 
 export const webhookRoutes = new Hono<HonoAppEnv>();

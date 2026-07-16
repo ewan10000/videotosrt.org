@@ -1,0 +1,113 @@
+import assert from "node:assert/strict";
+
+const plans = await import("../dist/lib/plans.js");
+const retention = await import("../dist/lib/retention.js");
+const duration = await import("../dist/lib/duration.js");
+const refund = await import("../dist/lib/refund.js");
+const queue = await import("../dist/lib/queue.js");
+
+assert.equal(plans.getPlanQuota("free").monthlyMinutes, 60);
+assert.equal(plans.getPlanQuota("pro").monthlyMinutes, 600);
+assert.equal(plans.getPlanQuota("studio").monthlyMinutes, 3000);
+assert.equal(plans.getMaxFileDurationSeconds("pro"), 180 * 60);
+assert.equal(plans.isWithinFileDurationLimit(181 * 60, "pro"), false);
+assert.equal(plans.normalizePlan("business"), "studio");
+assert.equal(plans.normalizePlan("team"), "studio");
+assert.equal(plans.normalizePlan("monthly"), "free");
+assert.equal(plans.normalizePlan("yearly"), "free");
+
+assert.equal(duration.parseDurationSeconds(0), null);
+assert.equal(duration.parseDurationSeconds(-1), null);
+assert.equal(duration.parseDurationSeconds(Number.NaN), null);
+assert.equal(duration.parseDurationSeconds(Number.POSITIVE_INFINITY), null);
+assert.equal(duration.parseDurationSeconds(undefined), null);
+assert.equal(duration.parseDurationSeconds(0.2), 1);
+assert.equal(duration.parseDurationSeconds(61.1), 62);
+
+assert.equal(refund.usageMonthFromCreatedAt("2026-06-30T23:59:59.000Z"), "2026-06");
+assert.equal(refund.usageMonthFromCreatedAt("2026-07-01T00:00:00.000+08:00"), "2026-06");
+assert.equal(refund.usageMonthFromCreatedAt("2026-12-not-a-real-date"), "2026-12");
+assert.equal(refund.usageMonthFromCreatedAt("not-a-date", new Date("2026-08-01T00:00:00.000Z")), "2026-08");
+assert.equal(refund.refundTransactionId("job_1"), "refund_job_1");
+assert.equal(refund.refundTransactionId("job_1"), refund.refundTransactionId("job_1"));
+assert.notEqual(refund.refundTransactionId("job_1"), refund.refundTransactionId("job_2"));
+assert.equal(queue.MAX_PROVIDER_ATTEMPTS, 3);
+assert.equal(queue.shouldCallTranscriptionProvider(1), true);
+assert.equal(queue.shouldCallTranscriptionProvider(3), true);
+assert.equal(queue.shouldCallTranscriptionProvider(4), false);
+
+const now = new Date("2026-07-16T00:00:00.000Z");
+const cutoff = retention.retentionCutoff(now);
+assert.equal(cutoff.toISOString(), "2026-07-09T00:00:00.000Z");
+
+assert.equal(
+  retention.isExpiredUploadObject(
+    { key: "uploads/user/media.mp4", customMetadata: { uploaded_at: "2026-07-08T23:59:59.000Z" } },
+    cutoff,
+  ),
+  true,
+);
+assert.equal(
+  retention.isExpiredUploadObject(
+    { key: "uploads/user/media.mp4", uploaded: new Date("2026-07-08T23:59:59.000Z") },
+    cutoff,
+  ),
+  true,
+);
+assert.equal(
+  retention.isExpiredUploadObject(
+    { key: "uploads/user/media.mp4", uploaded: new Date("2026-07-09T00:00:00.000Z") },
+    cutoff,
+  ),
+  false,
+);
+assert.equal(
+  retention.isExpiredUploadObject(
+    { key: "avatars/user.png", customMetadata: { uploaded_at: "2026-07-01T00:00:00.000Z" } },
+    cutoff,
+  ),
+  false,
+);
+assert.equal(
+  retention.isExpiredUploadObject(
+    { key: "uploads/user/media.mp4", customMetadata: { uploaded_at: "not-a-date" } },
+    cutoff,
+  ),
+  false,
+);
+
+const listCalls = [];
+const deletedKeys = [];
+await retention.deleteExpiredUploads({
+  async list(options) {
+    listCalls.push(options);
+    if (!options.cursor) {
+      return {
+        truncated: true,
+        cursor: "next",
+        objects: [
+          { key: "uploads/a.mp4", customMetadata: { uploaded_at: "2026-07-08T00:00:00.000Z" }, uploaded: new Date("2026-07-15T00:00:00.000Z") },
+          { key: "uploads/cutoff.mp4", customMetadata: { uploaded_at: "2026-07-09T00:00:00.000Z" } },
+        ],
+      };
+    }
+    return {
+      truncated: false,
+      objects: [
+        { key: "uploads/b.mp4", uploaded: new Date("2026-07-08T00:00:00.000Z") },
+        { key: "other/c.mp4", customMetadata: { uploaded_at: "2026-07-01T00:00:00.000Z" } },
+      ],
+    };
+  },
+  async delete(keys) {
+    deletedKeys.push(...keys);
+  },
+}, now);
+
+assert.deepEqual(listCalls, [
+  { prefix: "uploads/", cursor: undefined, include: ["customMetadata"] },
+  { prefix: "uploads/", cursor: "next", include: ["customMetadata"] },
+]);
+assert.deepEqual(deletedKeys, ["uploads/a.mp4", "uploads/b.mp4"]);
+
+console.log("backend helper tests passed");

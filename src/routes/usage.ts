@@ -10,5 +10,5 @@ usageRoutes.get("/usage", async (c) => {
   const user = requireUser(c);
   if (!user) return fail(c, 401, "UNAUTHORIZED", "Authentication required");
 
-  return ok(c, await getUsage(c.env, user.id));
+  return ok(c, await getUsage(c.env, user.id, undefined, user.plan));
 });

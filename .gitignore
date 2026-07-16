@@ -1,1 +1,4 @@
-node_modules/\ndist/\n.wrangler/\n*.log\n
+node_modules/
+dist/
+.wrangler/
+*.log

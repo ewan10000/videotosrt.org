@@ -9,15 +9,14 @@ import {
   createSignedToken,
   createStateToken,
   requireUser,
-  verifySignedToken,
   verifyStateToken,
 } from "../lib/session";
 import type { HonoAppEnv, User } from "../types";
 
-type Provider = "google" | "github" | "email";
+type Provider = "google";
 
 type OAuthProfile = {
-  provider: "google" | "github";
+  provider: "google";
   providerId: string;
   email: string;
   name: string | null;
@@ -134,8 +133,8 @@ async function upsertUser(env: HonoAppEnv["Bindings"], profile: UserProfile) {
 
   const id = createId("user");
   await env.DB.prepare(
-    `INSERT INTO users (id, email, name, avatar, provider, provider_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO users (id, email, name, avatar, provider, provider_id, plan, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'free', ?, ?)`,
   )
     .bind(id, profile.email, profile.name, profile.avatar, profile.provider, profile.providerId, now, now)
     .run();
@@ -197,43 +196,6 @@ async function fetchGoogleProfile(env: HonoAppEnv["Bindings"], code: string): Pr
     email: user.email,
     name: user.name ?? null,
     avatar: user.picture ?? null,
-  };
-}
-
-async function fetchGithubProfile(env: HonoAppEnv["Bindings"], code: string): Promise<OAuthProfile> {
-  const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
-    method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: env.GITHUB_CLIENT_ID,
-      client_secret: env.GITHUB_CLIENT_SECRET,
-      redirect_uri: env.GITHUB_REDIRECT_URI,
-      code,
-    }),
-  });
-  const token = await tokenResponse.json<{ access_token?: string; error?: string }>();
-  if (!tokenResponse.ok || !token.access_token) throw new Error(token.error || "GitHub token exchange failed");
-
-  const [profileResponse, emailsResponse] = await Promise.all([
-    fetch("https://api.github.com/user", {
-      headers: { Authorization: `Bearer ${token.access_token}`, "User-Agent": "VideoToSRT" },
-    }),
-    fetch("https://api.github.com/user/emails", {
-      headers: { Authorization: `Bearer ${token.access_token}`, "User-Agent": "VideoToSRT" },
-    }),
-  ]);
-
-  const profile = await profileResponse.json<{ id: number; name?: string; login: string; avatar_url?: string }>();
-  const emails = await emailsResponse.json<Array<{ email: string; primary: boolean; verified: boolean }>>();
-  const email = emails.find((item) => item.primary && item.verified)?.email ?? emails.find((item) => item.verified)?.email;
-  if (!profileResponse.ok || !emailsResponse.ok || !email) throw new Error("GitHub profile request failed");
-
-  return {
-    provider: "github",
-    providerId: String(profile.id),
-    email,
-    name: profile.name ?? profile.login,
-    avatar: profile.avatar_url ?? null,
   };
 }
 
@@ -356,50 +318,24 @@ authRoutes.post("/auth/shipany/grant-credits", async (c) => {
 
 authRoutes.get("/auth/login", async (c) => {
   const provider = c.req.query("provider") as Provider | undefined;
-  if (!provider || !["google", "github", "email"].includes(provider)) {
-    return fail(c, 400, "INVALID_PROVIDER", "provider must be google, github, or email");
+  if (provider !== "google") {
+    return fail(c, 400, "INVALID_PROVIDER", "provider must be google");
   }
 
   const returnTo = safeReturnTo(c.env, c.req.query("returnTo") ?? null);
 
-  if (provider === "email") {
-    const email = c.req.query("email");
-    if (!email) return fail(c, 400, "EMAIL_REQUIRED", "email query parameter is required for email login");
-    const token = await createSignedToken(
-      { provider: "email", email, returnTo, exp: Math.floor(Date.now() / 1000) + 900 },
-      c.env.SESSION_SECRET,
-    );
-    return ok(c, {
-      message: "Email delivery is not configured; use magic_link to complete login.",
-      magic_link: `${appOrigin(c.env)}/api/auth/callback/email?token=${encodeURIComponent(token)}`,
-    });
-  }
-
   const state = await createStateToken(c.env, { provider, returnTo });
   setCookie(c, STATE_COOKIE, state, 600);
 
-  const authUrl =
-    provider === "google"
-      ? new URL("https://accounts.google.com/o/oauth2/v2/auth")
-      : new URL("https://github.com/login/oauth/authorize");
-
-  if (provider === "google") {
-    authUrl.search = new URLSearchParams({
-      client_id: c.env.GOOGLE_CLIENT_ID,
-      redirect_uri: c.env.GOOGLE_REDIRECT_URI,
-      response_type: "code",
-      scope: "openid email profile",
-      state,
-      prompt: "select_account",
-    }).toString();
-  } else {
-    authUrl.search = new URLSearchParams({
-      client_id: c.env.GITHUB_CLIENT_ID,
-      redirect_uri: c.env.GITHUB_REDIRECT_URI,
-      scope: "read:user user:email",
-      state,
-    }).toString();
-  }
+  const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  authUrl.search = new URLSearchParams({
+    client_id: c.env.GOOGLE_CLIENT_ID,
+    redirect_uri: c.env.GOOGLE_REDIRECT_URI,
+    response_type: "code",
+    scope: "openid email profile",
+    state,
+    prompt: "select_account",
+  }).toString();
 
   return c.redirect(authUrl.toString());
 });
@@ -407,29 +343,7 @@ authRoutes.get("/auth/login", async (c) => {
 authRoutes.get("/auth/callback/:provider", async (c) => {
   const provider = c.req.param("provider") as Provider;
 
-  if (provider === "email") {
-    const token = await verifySignedToken<{
-      provider: "email";
-      email: string;
-      returnTo: string;
-      exp: number;
-    }>(c.req.query("token") ?? null, c.env.SESSION_SECRET);
-    if (!token || token.provider !== "email" || token.exp < Math.floor(Date.now() / 1000)) {
-      return fail(c, 400, "INVALID_TOKEN", "Invalid or expired email login token");
-    }
-
-    const user = await upsertUser(c.env, {
-      provider: "email",
-      providerId: token.email.toLowerCase(),
-      email: token.email.toLowerCase(),
-      name: null,
-      avatar: null,
-    });
-    await createSessionCookie(c, user.id);
-    return c.redirect(safeReturnTo(c.env, token.returnTo));
-  }
-
-  if (!["google", "github"].includes(provider)) return fail(c, 404, "NOT_FOUND", "Auth callback not found");
+  if (provider !== "google") return fail(c, 404, "NOT_FOUND", "Auth callback not found");
 
   const state = c.req.query("state") ?? null;
   const stateCookie = getCookie(c, STATE_COOKIE);
@@ -451,14 +365,10 @@ authRoutes.get("/auth/callback/:provider", async (c) => {
   if (isShipAnyReturnTo && !shipAnyTarget) {
     return fail(c, 400, "INVALID_RETURN_TO", "ShipAny OAuth returnTo is not allowed");
   }
-  if (shipAnyTarget && provider !== "google") {
-    return fail(c, 400, "INVALID_PROVIDER", "ShipAny OAuth handoff only supports google");
-  }
-
   const code = c.req.query("code");
   if (!code) return fail(c, 400, "CODE_REQUIRED", "OAuth code is required");
 
-  const profile = provider === "google" ? await fetchGoogleProfile(c.env, code) : await fetchGithubProfile(c.env, code);
+  const profile = await fetchGoogleProfile(c.env, code);
   if (shipAnyTarget) {
     if (!c.env.SHIPANY_BRIDGE_SECRET) {
       return fail(c, 500, "BRIDGE_NOT_CONFIGURED", "ShipAny bridge is not configured");

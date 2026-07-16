@@ -8,7 +8,7 @@ type SessionPayload = {
 };
 
 type StatePayload = {
-  provider: "google" | "github" | "email";
+  provider: "google";
   returnTo: string;
   exp: number;
 };

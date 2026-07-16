@@ -44,6 +44,11 @@ export type User = {
   provider_id: string;
   created_at: string;
   updated_at: string;
+  plan?: string | null;
+  subscription_plan?: string | null;
+  subscription_tier?: string | null;
+  tier?: string | null;
+  vip_level?: string | null;
 };
 
 export type TranscriptionJob = {
@@ -64,4 +69,5 @@ export type TranscriptionQueueMessage = {
   audioUrl: string;
   filename: string;
   durationSeconds: number;
+  createdAt?: string;
 };

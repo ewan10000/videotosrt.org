@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { createId } from "../lib/env";
+import { createId, nowIso } from "../lib/env";
 import { fail, ok } from "../lib/response";
 import { requireUser } from "../lib/session";
 import type { HonoAppEnv } from "../types";
@@ -194,6 +194,7 @@ uploadRoutes.post("/upload", async (c) => {
 
   const filename = file.name || "upload";
   const key = `uploads/${user.id}/${createId("media")}${extensionFor(filename)}`;
+  const uploadedAt = nowIso();
 
   await c.env.R2.put(key, file.stream(), {
     httpMetadata: {
@@ -202,6 +203,7 @@ uploadRoutes.post("/upload", async (c) => {
     customMetadata: {
       user_id: user.id,
       filename,
+      uploaded_at: uploadedAt,
     },
   });
 

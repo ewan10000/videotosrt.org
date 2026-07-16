@@ -7,15 +7,16 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
+    "test": "npm run build && node tests/helpers.test.mjs",
     "db:migrate:local": "wrangler d1 execute videotosrt-db --local --file=./migrations/0001_init.sql",
     "db:migrate:remote": "wrangler d1 execute videotosrt-db --remote --file=./migrations/0001_init.sql"
   },
   "dependencies": {
-    "hono": "^4.7.0"
+    "hono": "^4.12.30"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250501.0",
+    "@cloudflare/workers-types": "^5.20260716.1",
     "typescript": "^5.7.0",
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.111.0"
   }
 }
