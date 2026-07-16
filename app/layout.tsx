@@ -1,19 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import type * as React from "react";
-import { Inter, JetBrains_Mono } from "next/font/google";
-import { CookieBanner } from "@/components/cookie-banner";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   variable: "--font-inter"
-});
-
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-jetbrains"
 });
 
 export const metadata: Metadata = {
@@ -23,7 +16,7 @@ export const metadata: Metadata = {
     template: "%s | VideoToSRT"
   },
   description:
-    "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up.",
+    "Upload, transcribe, edit, and export subtitles in your browser. AI transcription, inline editor, and SRT, VTT, or TXT export.",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -34,7 +27,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "VideoToSRT — Online Subtitle Editor",
-    description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up.",
+    description: "Upload, transcribe, edit, and export subtitles in your browser. AI transcription, inline editor, and SRT, VTT, or TXT export.",
     url: "https://videotosrt.org",
     siteName: "VideoToSRT",
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "VideoToSRT" }],
@@ -58,9 +51,8 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} ${jetbrains.variable} min-h-screen font-sans antialiased`}>
+      <body className={`${inter.variable} min-h-screen font-sans antialiased`}>
         {children}
-        <CookieBanner />
       </body>
     </html>
   );

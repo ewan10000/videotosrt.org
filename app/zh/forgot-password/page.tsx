@@ -1,12 +1,13 @@
-import { AuthEmailRequestForm } from "@/components/auth-email-request-form";
 import { Footer } from "@/components/footer";
+import { LoginModal } from "@/components/modals/login-modal";
 import { SiteNav } from "@/components/site-nav";
+import { Button } from "@/components/ui/button";
 import { createPageMetadata } from "@/lib/metadata";
 
 export const metadata = createPageMetadata({
   path: "/zh/forgot-password",
   title: "找回账号",
-  description: "通过 VideoToSRT 现有邮箱登录流程找回账号访问权限。",
+  description: "使用 Google 登录 VideoToSRT。",
   robots: { index: false, follow: false }
 });
 
@@ -15,18 +16,11 @@ export default function ChineseForgotPasswordPage() {
     <>
       <SiteNav />
       <main className="site-container grid min-h-[calc(100vh-220px)] place-items-center py-16">
-        <AuthEmailRequestForm
-          backHref="/"
-          backLabel="返回首页"
-          description="VideoToSRT 当前使用邮箱登录码/无密码登录流程，没有单独的密码重置接口。提交邮箱后，我们会通过现有邮箱登录流程帮你恢复访问。"
-          emailLabel="邮箱地址"
-          emailPlaceholder="you@example.com"
-          mode="recovery"
-          submitLabel="发送登录请求"
-          successTitle="请求已提交"
-          successBody="请继续使用这个邮箱登录。如果当前部署已配置邮件发送，请查看收件箱中的登录码或链接；否则此浏览器已按现有邮箱登录流程完成会话准备。"
-          title="找回账号"
-        />
+        <div className="panel-card w-[min(420px,100%)] p-6 text-center">
+          <h1 className="mb-3 text-3xl font-extrabold">找回账号</h1>
+          <p className="mb-5 text-muted">VideoToSRT 当前面向用户的登录入口为 Google。请使用 Google 继续。</p>
+          <LoginModal trigger={<Button variant="primary" className="w-full">使用 Google 继续</Button>} title="登录 VideoToSRT" description="使用 Google 继续访问 VideoToSRT 账号功能。" />
+        </div>
       </main>
       <Footer />
     </>

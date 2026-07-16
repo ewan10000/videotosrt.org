@@ -3,13 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 const API_PROXY_PREFIX = "/api";
 const UPSTREAM_API_BASE = "https://api.videotosrt.org/api";
 const securityHeaders = {
-  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://plausible.io https://www.googletagmanager.com https://www.google-analytics.com https://www.paypal.com https://www.sandbox.paypal.com https://www.paypalobjects.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://www.google-analytics.com https://www.paypalobjects.com; font-src 'self' data:; connect-src 'self' https://api.videotosrt.org https://videotosrt-backend.ewan0862.workers.dev https://plausible.io https://www.google-analytics.com https://region1.google-analytics.com https://api-m.sandbox.paypal.com https://api-m.paypal.com; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://www.paypal.com https://www.sandbox.paypal.com",
+  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.paypal.com https://www.sandbox.paypal.com https://www.paypalobjects.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://www.paypalobjects.com; font-src 'self' data:; connect-src 'self' https://api.videotosrt.org https://videotosrt-backend.ewan0862.workers.dev https://api-m.sandbox.paypal.com https://api-m.paypal.com; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://www.paypal.com https://www.sandbox.paypal.com",
   "X-Frame-Options": "DENY"
 };
 const LOCAL_API_ROUTES = new Set([
   "/api/admin/users",
-  "/api/auth/email/send-code",
-  "/api/auth/email/verify",
   "/api/auth/logout",
   "/api/auth/me",
   "/api/auth/oauth/bridge",

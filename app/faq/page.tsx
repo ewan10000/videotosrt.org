@@ -5,16 +5,16 @@ import { SiteNav } from "@/components/site-nav";
 import { createPageJsonLd, createPageMetadata } from "@/lib/metadata";
 
 const faqs = [
-  ["Do I need to create an account?", "No. Upload and edit immediately. We only ask for your email when you hit Export so we can send you the file."],
-  ["What formats can I export?", "SRT, VTT, and TXT are available today. ASS/SSA styled export and MP4 burn-in export are coming soon for paid plans."],
+  ["Do I need to create an account?", "Local upload, preview, and manual editing can start before sign-in. AI transcription, account export, checkout, and paid usage require Google sign-in."],
+  ["What formats can I export?", "SRT, VTT, and TXT are available today."],
   ["How accurate is transcription?", "Powered by Whisper. Accuracy is strongest with clear audio, and every line remains editable inline."],
   ["Can I use exported subtitles commercially?", "Yes. Everything you export is yours. We do not watermark, claim rights, or review your content."],
-  ["What happens to my video after upload?", "Uploaded media is processed for transcription and subtitle editing. We do not keep original media longer than needed to provide the service."],
-  ["Is there a file size limit?", "Automatic transcription currently supports files up to 25 MB in the browser editor. Larger file support is planned."],
+  ["What happens to my video after upload?", "Uploaded media under uploads/ is automatically deleted from R2 after 7 days. Local editor drafts remain in your browser until you clear them."],
+  ["Is there a file size limit?", "User-facing limits are duration based: Free 60 minutes per file, Pro 180, Studio 360. Automatic transcription also has a 25 MB technical payload guard today."],
   ["Can I edit an existing SRT file?", "Yes. You can use the editor workflow to adjust subtitle text and timing, then export clean subtitle files."],
-  ["What is the difference between Free and Pro?", "Free is for light use. Pro adds more transcription time and creator-focused export workflow features."],
+  ["What is the difference between Free and Pro?", "Free includes 60 minutes per month and 60 minutes per file. Pro includes 600 minutes per month and 180 minutes per file."],
   ["Do pay-as-you-go credits expire?", "No. Extra transcription credits are intended to be used whenever you need them."],
-  ["Can my team share templates and projects?", "Studio is designed for team workflows, shared standards, and higher-volume subtitle work."],
+  ["What does Studio add?", "Studio increases transcription quota to 3000 minutes per month and 360 minutes per file."],
   ["Do I need permission to process videos?", "Yes. You are responsible for ensuring you have the necessary rights to upload, process, and export any content."]
 ];
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { DragEvent } from "react";
+import { useId, type DragEvent } from "react";
 import type { LucideIcon } from "lucide-react";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { ArrowDown, Check, ChevronDown, Scissors, Upload } from "lucide-react";
@@ -12,32 +12,32 @@ import { UploadStatus } from "@/components/upload-status";
 
 const features = [
   ["ED", "Inline Editor", "Edit text and timestamps directly. No external tools, no format juggling."],
-  ["ST", "Style Export", "ASS/SSA with fonts, colors, positioning. Studio-grade output from a browser."],
-  ["MP4", "Burn-in Preview", "Preview hardcoded subtitles before MP4 export. Full burn-in export is coming soon."],
+  ["SRT", "Subtitle Export", "Download SRT, VTT, or TXT after cleanup."],
+  ["60", "Free Minutes", "Free accounts include 60 transcription minutes per month and up to 60 minutes per file."],
   ["50+", "50+ Languages", "Auto-detect or manually set. Whisper-powered, edit-friendly accuracy."],
-  ["20", "Batch Process", "Drop 20 files at once. Let it run, come back when it's done."],
-  ["URL", "URL Import", "Paste a public video URL to import directly. Supports major platforms. No download-upload loop. You must have permission to process the content."]
+  ["180", "Per-file Duration", "Plan limits are duration based: Free 60, Pro 180, and Studio 360 minutes per file."],
+  ["7d", "Upload Retention", "Uploaded media is automatically deleted from storage after 7 days."]
 ];
 
 const faqs = [
-  ["Do I need to create an account?", "No. Upload and edit immediately. We only ask for your email when you hit Export — so we can send you the file."],
-  ["What formats can I export?", "SRT, VTT, and TXT are available today. ASS/SSA styled export and MP4 burn-in export are coming soon for paid plans."],
-  ["How accurate is transcription?", "Powered by Whisper. 95%+ for clear audio. Every line is editable inline, so perfect accuracy is one click away."],
+  ["Do I need to create an account?", "You can start local upload, preview, and manual editing without an account. AI transcription, account export, checkout, and paid usage require Google sign-in."],
+  ["What formats can I export?", "SRT, VTT, and TXT are available today."],
+  ["How accurate is transcription?", "Accuracy depends on audio quality, speakers, background noise, and vocabulary. Every line is editable inline before export."],
   ["Can I use exported subtitles commercially?", "Yes. Everything you export is yours. We don't watermark, we don't claim rights, we don't look at your content."],
-  ["What happens to my video after upload?", "Processed and deleted automatically. We don't store your original video or your subtitles longer than necessary. Anonymous projects expire in 7 days."],
-  ["Is there a file size limit?", "2GB per file for uploads. URL imports have no size limit — we handle the heavy lifting."],
+  ["What happens to my video after upload?", "Uploaded media under uploads/ is automatically deleted from R2 after 7 days. Local editor drafts remain in your browser until you clear them."],
+  ["Is there a file size limit?", "Plan limits are duration based: Free 60 minutes per file, Pro 180, Studio 360. Automatic transcription also has a 25 MB technical payload guard today."],
   ["Can I edit an existing SRT file?", "Yes. Upload your SRT alongside the video, or paste it directly into the editor. Fix timing without touching code."],
-  ["What's the difference between Free and Pro?", "Free gives you 60 minutes a month and basic formats. Pro adds burn-in preview, style templates, and 10 hours — enough for a weekly creator."],
+  ["What's the difference between Free and Pro?", "Free includes 60 transcription minutes per month and 60 minutes per file. Pro includes 600 minutes per month and 180 minutes per file."],
   ["Does the pay-as-you-go credit expire?", "Never. Buy once, use whenever. No monthly pressure."],
-  ["Can my team share templates and projects?", "Studio plan supports 3 team members with shared brand templates and cloud history. Need more seats? Contact us."],
+  ["What does Studio add?", "Studio increases transcription quota to 3000 minutes per month and 360 minutes per file."],
   ["Do I need permission to process videos?", "Yes. VideoToSRT is a subtitle editing tool. You are solely responsible for ensuring you have the necessary rights to upload, process, and export any content. We comply with DMCA and will respond to valid takedown notices."]
 ];
 
 const useCases = [
-  ["John · Content Creator", "Used to juggle between apps to get a clip done. Now it's one straight line—saves me a lot of hassle."],
-  ["Sarah · Educator", "Showing videos with subtitles to my class. Attention span's noticeably different."],
-  ["Mike · Podcast Producer", "Audio comes out cleaner than my previous tool. One less round of noise reduction in post."],
-  ["Lisa · Short-form Creator", "Templates are straightforward. First try got me a video that actually performed."]
+  ["Short-form clips", "Create SRT, VTT, or TXT for clips after AI transcription and inline cleanup."],
+  ["Course captions", "Prepare readable subtitles for lessons, tutorials, and internal training videos."],
+  ["Podcast video", "Turn recorded conversations into editable subtitle drafts for review before publishing."],
+  ["Existing SRT cleanup", "Load subtitle files alongside media and adjust wording or timing in one editor."]
 ];
 
 export function HeroSection() {
@@ -45,12 +45,12 @@ export function HeroSection() {
     <header className="border-b border-soft/15 py-[72px] pb-11">
       <div className="site-container grid items-center gap-[42px] lg:grid-cols-[minmax(0,.92fr)_minmax(430px,1.08fr)]">
         <div>
-          <span className="eyebrow"><span className="dot" /> Forge Perfect Subtitles. No Software. No Sign-Up.</span>
+          <span className="eyebrow"><span className="dot" /> Browser subtitle editing with Google sign-in for account features</span>
           <h1 className="mb-[18px] mt-5 max-w-[780px] text-[clamp(42px,6vw,72px)] font-extrabold leading-[.98]">
-            Turn Any Video Into Accurate Subtitles in 60 Seconds
+            Turn Video Into Editable Subtitles
           </h1>
           <p className="mb-7 mt-[22px] max-w-[660px] text-lg leading-[1.7] text-muted">
-            Upload your video. Our AI transcribes in 50+ languages. You edit inline, fix timing, and export SRT/VTT/TXT — all in your browser. Done in 60 seconds.
+            Upload your media, generate an AI transcript, edit text and timing inline, and export SRT, VTT, or TXT. Free includes 60 minutes per month and 60 minutes per file; Google sign-in is required for AI transcription, account export, checkout, and paid usage.
           </p>
           <div className="mb-[30px] flex flex-wrap gap-3">
             <HomeUploadButton className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded bg-indigo px-4 text-sm font-bold text-white shadow-[0_4px_14px_rgba(99,102,241,.3)] transition hover:-translate-y-px" />
@@ -59,9 +59,9 @@ export function HeroSection() {
             </Link>
           </div>
           <div className="grid max-w-[620px] grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Product metrics">
-            {["No sign-up to edit", "Export with email", "No watermark"].map((metric, index) => (
+            {["Local edit can start before sign-in", "Google sign-in for account features", "No watermark"].map((metric, index) => (
               <div key={metric} className="rounded border border-line bg-white/[.025] p-[15px]">
-                <strong className="mb-1 block text-[22px]">{index === 0 ? "0" : index === 1 ? "Email" : "0"}</strong>
+                <strong className="mb-1 block text-[22px]">{index === 0 ? "Local" : index === 1 ? "Google" : "0"}</strong>
                 <span className="text-[13px] font-semibold text-soft">{metric}</span>
               </div>
             ))}
@@ -75,6 +75,7 @@ export function HeroSection() {
 
 function UploadPanel() {
   const { handleFileChange, inputRef, openFilePicker, startUpload } = useHomeUploadPicker();
+  const inputId = useId();
 
   const handleDragOver = (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
@@ -96,11 +97,19 @@ function UploadPanel() {
         <div className="text-[13px] font-bold text-soft">New subtitle project</div>
       </div>
       <div className="p-[28px]">
-        <div
-          className="grid min-h-[380px] cursor-pointer place-items-center rounded border border-dashed border-cyan/60 bg-cyan/[.045] p-6 text-center transition hover:border-cyan hover:bg-cyan/[.07]"
-          role="button"
+        <input
+          id={inputId}
+          ref={inputRef}
+          className="peer sr-only"
+          tabIndex={-1}
+          type="file"
+          accept="video/*,audio/*"
+          onChange={handleFileChange}
+        />
+        <label
+          className="grid min-h-[380px] cursor-pointer place-items-center rounded border border-dashed border-cyan/60 bg-cyan/[.045] p-6 text-center transition hover:border-cyan hover:bg-cyan/[.07] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-cyan"
+          htmlFor={inputId}
           tabIndex={0}
-          onClick={openFilePicker}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           onKeyDown={(event) => {
@@ -116,17 +125,10 @@ function UploadPanel() {
             </div>
             <h2 className="mb-[9px] text-2xl font-extrabold leading-[1.2]">Drop your video here</h2>
             <p className="mx-auto mb-5 max-w-[410px] leading-[1.6] text-muted">
-              Drag in your video or paste a link. AI handles the rest.
+              Drag in a video or audio file. AI transcription starts after the file passes browser metadata checks.
             </p>
-            <input
-              ref={inputRef}
-              className="sr-only"
-              type="file"
-              accept="video/*,audio/*"
-              onChange={handleFileChange}
-            />
           </div>
-        </div>
+        </label>
       </div>
     </div>
   );
@@ -134,9 +136,9 @@ function UploadPanel() {
 
 export function WorkflowSection() {
   const steps: Array<{ icon: LucideIcon; title: string; copy: string }> = [
-    { icon: Upload, title: "Upload", copy: "Drag in your video or paste a public URL. AI auto-detects language and transcribes while you grab coffee. You are responsible for ensuring you have the right to process any content." },
+    { icon: Upload, title: "Upload", copy: "Drag in a video or audio file. You are responsible for ensuring you have the right to process any content." },
     { icon: Scissors, title: "Edit", copy: "Click any line to fix text. Click timestamps to nudge timing. The video preview syncs as you work." },
-    { icon: ArrowDown, title: "Export", copy: "Download SRT, VTT, or TXT. Burn-in coming soon. Your file, your rights, zero hassle." }
+    { icon: ArrowDown, title: "Export", copy: "Download SRT, VTT, or TXT after cleanup. Your file, your rights." }
   ];
   return (
     <section id="workflow" className="section-pad">
@@ -266,9 +268,9 @@ export function PricingTeaserSection() {
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           {[
-            ["Free", "$0", "60 min/mo", ["No sign-up to edit", "SRT, VTT, TXT export", "Inline editor"], "Start Free"],
-            ["Pro", "$9.90", "10 hrs/mo", ["Burn-in preview", "20 style templates", "Batch 20 files"], "Start Pro"],
-            ["Studio", "$29.90", "50 hrs/mo", ["Team (3 seats)", "API access", "Brand templates"], "Start Studio"]
+            ["Free", "$0", "60 min/mo", ["60 min/file", "SRT, VTT, TXT export", "Inline editor"], "Start Free"],
+            ["Pro", "$9.90", "600 min/mo", ["180 min/file", "SRT, VTT, TXT export", "Inline editor"], "Start Pro"],
+            ["Studio", "$29.90", "3000 min/mo", ["360 min/file", "SRT, VTT, TXT export", "Inline editor"], "Start Studio"]
           ].map(([plan, price, meta, items, cta]) => (
             <article key={plan as string} className={`panel-card p-[22px] ${(plan as string) === "Pro" ? "border-cyan bg-cyan/[.045]" : ""}`}>
               <div className="mb-2 flex items-center justify-between">
@@ -301,14 +303,14 @@ export function UseCasesSection() {
     <section className="section-pad">
       <div className="site-container">
         <div className="section-head">
-          <h2>Early User Feedback</h2>
-          <p>Feedback from friends and industry contacts who tested the product before launch. All based on actual use.</p>
+          <h2>Common Workflows</h2>
+          <p>Subtitle tasks the editor is designed to support.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {useCases.map(([role, quote]) => (
-            <article key={role} className="panel-card p-[22px]">
-              <h3 className="mb-[9px] text-lg font-extrabold">{role}</h3>
-              <p className="mb-0 leading-[1.65] text-muted">"{quote}"</p>
+          {useCases.map(([workflow, copy]) => (
+            <article key={workflow} className="panel-card p-[22px]">
+              <h3 className="mb-[9px] text-lg font-extrabold">{workflow}</h3>
+              <p className="mb-0 leading-[1.65] text-muted">{copy}</p>
             </article>
           ))}
         </div>
@@ -323,11 +325,11 @@ export function FinalCtaSection() {
       <div className="site-container text-center">
         <h2 className="mb-4 text-[clamp(30px,4vw,44px)] font-extrabold leading-[1.08]">Stop Wrestling with Subtitles</h2>
         <p className="mx-auto mb-7 max-w-[760px] text-lg leading-[1.7] text-muted">
-          Your video is ready. Your audience is waiting. Upload now and get clean subtitles in 60 seconds — no software, no credit card, no excuses.
+          Upload media, generate a transcript when it fits current limits, edit every line, and export SRT, VTT, or TXT.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px" href="/#upload">
-            Start Free — Upload Video
+            Start Free - Upload Video
           </Link>
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold text-text transition hover:-translate-y-px" href="/pricing">
             See Pricing
@@ -363,7 +365,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
         <h3 className="mb-0 text-lg font-extrabold">{question}</h3>
         <ChevronDown className="h-5 w-5 shrink-0 text-cyan transition-transform duration-200 group-data-[state=open]:rotate-180" />
       </Collapsible.Trigger>
-      <Collapsible.Content forceMount className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+      <Collapsible.Content className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
         <p className="mb-0 px-[22px] pb-[22px] leading-[1.65] text-muted">{answer}</p>
       </Collapsible.Content>
     </Collapsible.Root>

@@ -5,11 +5,10 @@ export type VipPlan = "free" | "pro" | "studio";
 const PLAN_ALIASES: Record<string, VipPlan> = {
   free: "free",
   basic: "free",
-  monthly: "pro",
   pro: "pro",
-  yearly: "studio",
   studio: "studio",
-  team: "studio"
+  team: "studio",
+  business: "studio"
 };
 
 export function normalizeVipPlan(value?: unknown): VipPlan {
@@ -58,10 +57,6 @@ export function getVipBadgeClass(plan: VipPlan) {
   return "border-line bg-white/[.03] text-soft";
 }
 
-export function canUseStyledExport(user: ApiUser | null | undefined) {
-  return getUserVipPlan(user) !== "free";
-}
-
 export function getExtraCreditLabel(user: ApiUser | null | undefined) {
   const hours = user?.extra_credit_hours;
   if (!hours || hours <= 0) {
@@ -86,18 +81,12 @@ export function mergeStoredMembership(remoteUser: ApiUser | null, storedUser: Ap
     return remoteUser;
   }
 
-  if (hasRemoteMembership(remoteUser)) {
-    return remoteUser;
-  }
-
-  const storedPlan = getUserVipPlan(storedUser);
-  if (storedPlan === "free" && !storedUser.extra_credit_hours) {
+  if (hasRemoteMembership(remoteUser) || !storedUser.extra_credit_hours) {
     return remoteUser;
   }
 
   return {
     ...remoteUser,
-    extra_credit_hours: storedUser.extra_credit_hours,
-    plan: storedUser.plan
+    extra_credit_hours: storedUser.extra_credit_hours
   };
 }

@@ -78,6 +78,17 @@ function filterProxyResponseHeaders(headers: Headers) {
   return nextHeaders;
 }
 
+function withStaticAssetCaching(request: Request, response: Response) {
+  const url = new URL(request.url);
+  if (url.pathname.startsWith("/_next/static/")) {
+    const nextResponse = new Response(response.body, response);
+    nextResponse.headers.set("Cache-Control", "public, max-age=31536000, immutable");
+    return nextResponse;
+  }
+
+  return response;
+}
+
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers);
   headers.set("content-type", "application/json; charset=utf-8");
@@ -368,8 +379,6 @@ export default {
 
     if (
       url.pathname === "/api/admin/users" ||
-      url.pathname === "/api/auth/email/send-code" ||
-      url.pathname === "/api/auth/email/verify" ||
       url.pathname === "/api/auth/logout" ||
       url.pathname === "/api/auth/me" ||
       url.pathname === "/api/auth/oauth/bridge" ||
@@ -380,13 +389,13 @@ export default {
       url.pathname === "/api/checkout/paypal/sync" ||
       url.pathname === "/api/webhooks/paypal"
     ) {
-      return openNextWorker.fetch(request, env, ctx);
+      return withStaticAssetCaching(request, await openNextWorker.fetch(request, env, ctx));
     }
 
     if (url.pathname.startsWith(`${API_PROXY_PREFIX}/`)) {
       return proxyApi(request);
     }
 
-    return openNextWorker.fetch(request, env, ctx);
+    return withStaticAssetCaching(request, await openNextWorker.fetch(request, env, ctx));
   }
 };

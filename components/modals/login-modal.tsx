@@ -1,10 +1,9 @@
 "use client";
 
 import type * as React from "react";
-import { useState } from "react";
-import { Chrome, Github } from "lucide-react";
+import { Chrome } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { authLoginUrl, type ApiUser } from "@/lib/api";
+import { authLoginUrl } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -18,24 +17,21 @@ export function LoginModal({
   trigger,
   open,
   onOpenChange,
-  onLoginSuccess
+  title = "Sign in",
+  description = "Continue with Google to use account features. Your current work stays in place."
 }: {
+  description?: string;
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  onLoginSuccess?: (user: ApiUser) => void;
+  title?: string;
 }) {
-  const [error, setError] = useState("");
-
   function handleOpenChange(nextOpen: boolean) {
     onOpenChange?.(nextOpen);
-    if (!nextOpen) {
-      setError("");
-    }
   }
 
-  function startLogin(provider: "google" | "github") {
-    window.location.href = authLoginUrl(provider, window.location.href);
+  function startLogin() {
+    window.location.href = authLoginUrl("google", window.location.href);
   }
 
   return (
@@ -43,22 +39,17 @@ export function LoginModal({
       {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-2xl font-extrabold">Save your export</DialogTitle>
+          <DialogTitle className="text-2xl font-extrabold">{title}</DialogTitle>
           <DialogDescription className="text-sm leading-6 text-muted">
-            Create an account only when you are ready to download subtitles. Your current edit stays in place.
+            {description}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
-          <Button variant="secondary" className="w-full gap-2" type="button" onClick={() => startLogin("github")}>
-            <Github className="h-4 w-4" />
-            Continue with GitHub
-          </Button>
-          <Button variant="secondary" className="w-full gap-2" type="button" onClick={() => startLogin("google")}>
+          <Button variant="secondary" className="w-full gap-2" type="button" onClick={startLogin}>
             <Chrome className="h-4 w-4" />
             Continue with Google
           </Button>
         </div>
-        {error ? <p className="mb-0 text-sm font-semibold text-danger">{error}</p> : null}
         <p className="mb-0 text-xs leading-5 text-soft">
           By continuing you agree to the VideoToSRT Terms and Privacy Policy.
         </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { LoginModal } from "@/components/modals/login-modal";
@@ -13,32 +13,32 @@ const plans = [
   {
     name: "Free",
     plan: "free" as const,
-    meta: "For trying it out. One video, no commitment.",
+    meta: "For trying the editor and light transcription.",
     monthly: "Free",
     yearly: "Free",
     suffix: "",
-    features: ["60 minutes per month", "SRT, VTT, and TXT export", "Inline subtitle editor", "Export with email login"]
+    features: ["60 minutes per month", "60 minutes per file", "SRT, VTT, and TXT export", "Inline subtitle editor"]
   },
   {
     name: "Pro",
     plan: "pro" as const,
-    meta: "For creators who ship weekly. Burn-in, styles, batch — everything you need to move fast.",
+    meta: "For creators who need more transcription time.",
     monthly: "$9.90",
     yearly: "$99",
     monthlySuffix: "/mo",
     yearlySuffix: "/yr",
     featured: true,
-    features: ["10 hours per month", "Burn-in export preview", "Style templates", "Batch processing"]
+    features: ["600 minutes per month", "180 minutes per file", "SRT, VTT, and TXT export", "Inline subtitle editor"]
   },
   {
     name: "Studio",
     plan: "studio" as const,
-    meta: "For teams with standards. Shared templates, API, brand control.",
+    meta: "For higher-volume subtitle cleanup.",
     monthly: "$29.90",
     yearly: "$299",
     monthlySuffix: "/mo",
     yearlySuffix: "/yr",
-    features: ["50 hours per month", "Team seats", "API access", "Brand templates"]
+    features: ["3000 minutes per month", "360 minutes per file", "SRT, VTT, and TXT export", "Inline subtitle editor"]
   }
 ];
 
@@ -49,6 +49,7 @@ const creditPackages = [
 ];
 
 const PENDING_PAYPAL_SUBSCRIPTION_KEY = "videotosrt.paypal.pending_subscription";
+const PENDING_CHECKOUT_INTENT_KEY = "videotosrt.checkout.intent";
 
 type PendingPaypalSubscription = {
   billing: "monthly" | "yearly";
@@ -56,6 +57,10 @@ type PendingPaypalSubscription = {
   plan: "pro" | "studio";
   subscriptionId?: string;
 };
+
+type PendingCheckoutIntent =
+  | { billing: "monthly" | "yearly"; createdAt: number; kind: "plan"; plan: "pro" | "studio" }
+  | { createdAt: number; credits: "2h" | "5h" | "20h"; kind: "credits" };
 
 function readPendingPaypalSubscription() {
   try {
@@ -67,15 +72,20 @@ function readPendingPaypalSubscription() {
   }
 }
 
-function activateLocalPlan(plan: "pro" | "studio", currentUser: ApiUser | null) {
-  const nextUser = {
-    ...(currentUser ?? {}),
-    plan,
-    subscription_status: "ACTIVE"
-  };
-
-  setLocalUser(nextUser);
-  return nextUser;
+function readPendingCheckoutIntent() {
+  try {
+    const value = window.localStorage.getItem(PENDING_CHECKOUT_INTENT_KEY);
+    if (!value) return null;
+    const parsed = JSON.parse(value) as PendingCheckoutIntent;
+    if (!parsed.createdAt || Date.now() - parsed.createdAt > 30 * 60 * 1000) {
+      window.localStorage.removeItem(PENDING_CHECKOUT_INTENT_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    window.localStorage.removeItem(PENDING_CHECKOUT_INTENT_KEY);
+    return null;
+  }
 }
 
 export function PricingClient() {
@@ -88,6 +98,7 @@ export function PricingClient() {
   const [pendingCredits, setPendingCredits] = useState<"2h" | "5h" | "20h" | null>(null);
   const [checkoutError, setCheckoutError] = useState("");
   const [checkoutNotice, setCheckoutNotice] = useState("");
+  const resumedCheckoutIntentRef = useRef(false);
   const vipPlan = getUserVipPlan(user);
 
   useEffect(() => {
@@ -102,6 +113,17 @@ export function PricingClient() {
           const nextUser = mergeStoredMembership(normalizeUser(data), getLocalUser());
           setLocalUser(nextUser);
           setUser(nextUser);
+          const intent = nextUser ? readPendingCheckoutIntent() : null;
+          if (intent?.kind === "plan" && !resumedCheckoutIntentRef.current) {
+            resumedCheckoutIntentRef.current = true;
+            window.localStorage.removeItem(PENDING_CHECKOUT_INTENT_KEY);
+            void runCheckout(intent.plan, intent.billing);
+          }
+          if (intent?.kind === "credits" && !resumedCheckoutIntentRef.current) {
+            resumedCheckoutIntentRef.current = true;
+            window.localStorage.removeItem(PENDING_CHECKOUT_INTENT_KEY);
+            void runCreditsCheckout(intent.credits);
+          }
         }
       })
       .catch(() => {
@@ -117,7 +139,7 @@ export function PricingClient() {
     const params = new URLSearchParams(window.location.search);
     const checkoutState = params.get("checkout");
     if (checkoutState === "success") {
-      setCheckoutNotice("Payment completed. Syncing your VIP permissions...");
+      setCheckoutNotice("Payment completed. Verifying your VIP permissions...");
       const pendingSubscription = readPendingPaypalSubscription();
       const subscriptionId =
         params.get("subscription_id") ??
@@ -127,38 +149,27 @@ export function PricingClient() {
       const rawBilling = params.get("billing");
       const plan = rawPlan === "pro" || rawPlan === "studio" ? rawPlan : pendingSubscription?.plan;
       const returnedBilling = rawBilling === "yearly" || rawBilling === "monthly" ? rawBilling : pendingSubscription?.billing;
-      if (plan) {
-        const nextUser = activateLocalPlan(plan, getLocalUser());
-        setUser(nextUser);
-        setCheckoutNotice("Payment completed. VIP permissions are active now.");
-      }
       if (subscriptionId) {
         void api
           .syncPaypalSubscription({ billing: returnedBilling, plan, subscriptionId })
           .then((data) => {
-            const syncedPlan = data.plan === "pro" || data.plan === "studio" ? data.plan : plan ?? "pro";
-            const nextUser = data.user ?? activateLocalPlan(syncedPlan, getLocalUser());
             window.localStorage.removeItem(PENDING_PAYPAL_SUBSCRIPTION_KEY);
-            setLocalUser(nextUser);
-            setUser(nextUser);
-            setCheckoutNotice("Payment completed. VIP permissions are active now.");
+            if (data.user) {
+              setLocalUser(data.user);
+              setUser(data.user);
+            }
+            setCheckoutNotice("Payment verified. VIP permissions are active now.");
           })
           .catch((error) => {
-            if (plan) {
-              setCheckoutNotice("Payment completed. VIP is active locally while PayPal verification finishes.");
-              return;
-            }
-            setCheckoutNotice(error instanceof Error ? error.message : "Payment completed, but VIP sync failed. Please refresh in a moment.");
+            void refreshUser();
+            setCheckoutNotice(error instanceof Error ? error.message : "Payment completed, but VIP verification failed. Please refresh in a moment.");
           });
+      } else {
+        setCheckoutNotice("Payment returned without a subscription ID. We are refreshing your account, but VIP permissions are not active until PayPal verification completes.");
       }
 
       const timers = [2500, 7000].map((delay) => window.setTimeout(() => {
-        void refreshUser().then(() => {
-          if (plan) {
-            const nextUser = activateLocalPlan(plan, getLocalUser());
-            setUser(nextUser);
-          }
-        });
+        void refreshUser();
       }, delay));
 
       return () => {
@@ -257,6 +268,12 @@ export function PricingClient() {
   function startCheckout(plan: "pro" | "studio", selectedBilling = billing) {
     if (!user) {
       setPendingPlan(plan);
+      window.localStorage.setItem(PENDING_CHECKOUT_INTENT_KEY, JSON.stringify({
+        billing: selectedBilling,
+        createdAt: Date.now(),
+        kind: "plan",
+        plan
+      } satisfies PendingCheckoutIntent));
       setLoginOpen(true);
       return;
     }
@@ -267,6 +284,11 @@ export function PricingClient() {
   function startCreditsCheckout(credits: "2h" | "5h" | "20h") {
     if (!user) {
       setPendingCredits(credits);
+      window.localStorage.setItem(PENDING_CHECKOUT_INTENT_KEY, JSON.stringify({
+        createdAt: Date.now(),
+        credits,
+        kind: "credits"
+      } satisfies PendingCheckoutIntent));
       setLoginOpen(true);
       return;
     }
@@ -274,30 +296,21 @@ export function PricingClient() {
     runCreditsCheckout(credits);
   }
 
-  function handleLoginSuccess(nextUser: ApiUser) {
-    setUser(nextUser);
-    const plan = pendingPlan;
-    const credits = pendingCredits;
-    setPendingPlan(null);
-    setPendingCredits(null);
-    if (plan) {
-      runCheckout(plan, billing);
-    }
-    if (credits) {
-      runCreditsCheckout(credits);
-    }
-  }
-
   return (
     <>
-      <LoginModal open={loginOpen} onOpenChange={setLoginOpen} onLoginSuccess={handleLoginSuccess} />
+      <LoginModal
+        open={loginOpen}
+        onOpenChange={setLoginOpen}
+        title={pendingCredits ? "Continue to extra hours" : "Continue to checkout"}
+        description="Sign in with Google so checkout can attach the purchase to your VideoToSRT account."
+      />
       <header className="border-b border-soft/15 py-[72px]">
         <div className="site-container grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <span className="eyebrow"><span className="dot" /> Simple subtitle pricing</span>
             <h1 className="mb-4 mt-5 max-w-[760px] text-[clamp(42px,6vw,68px)] font-extrabold leading-[1]">Simple Pricing. No Surprises.</h1>
             <p className="mb-0 max-w-[720px] text-lg leading-[1.7] text-muted">
-              Start free. Upgrade when you need more. Downgrade anytime. No tricks.
+              Start free. Upgrade when you need more transcription minutes. A 25 MB technical upload guard applies while transcription runs through the current browser and Worker pipeline.
             </p>
           </div>
           <div className="rounded border border-line bg-panel p-2">
@@ -327,10 +340,10 @@ export function PricingClient() {
         <div className="site-container">
           <div className="section-head">
             <h2>Choose a plan.</h2>
-            <p>Every plan includes the focused VideoToSRT editor and export controls for clean caption handoff.</p>
+            <p>Plans differ by transcription minutes. Every plan includes the inline editor and SRT, VTT, and TXT export.</p>
           </div>
           {checkoutError ? (
-            <p className="mb-4 flex items-center justify-end gap-3 text-sm font-semibold text-red-300">
+            <p className="mb-4 flex items-center justify-end gap-3 text-sm font-semibold text-red-300" aria-live="polite">
               <span>{checkoutError}</span>
               <button className="text-xs font-extrabold text-red-200 underline underline-offset-2" type="button" onClick={() => setCheckoutError("")}>
                 Close
@@ -351,7 +364,7 @@ export function PricingClient() {
             </div>
           ) : null}
           {checkoutNotice ? (
-            <p className="mb-4 rounded border border-cyan/30 bg-cyan/10 px-4 py-3 text-sm font-semibold text-cyan">
+            <p className="mb-4 rounded border border-cyan/30 bg-cyan/10 px-4 py-3 text-sm font-semibold text-cyan" aria-live="polite">
               {checkoutNotice}
             </p>
           ) : null}
@@ -394,9 +407,6 @@ export function PricingClient() {
               </article>
             ))}
           </div>
-          <p className="mb-0 mt-5 text-center text-sm font-semibold text-soft">
-            <Link className="text-cyan underline underline-offset-4" href="/terms-of-service">7-day money-back guarantee. No questions asked.</Link>
-          </p>
           <div className="mt-5 rounded border border-line bg-panel p-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>

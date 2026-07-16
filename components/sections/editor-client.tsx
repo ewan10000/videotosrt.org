@@ -9,6 +9,7 @@ import { LoginModal } from "@/components/modals/login-modal";
 import { Button } from "@/components/ui/button";
 import { api, type ApiJob, type ApiUser, type UploadResponse } from "@/lib/api";
 import { getLocalUser, normalizeUser, onAuthChange, setLocalUser } from "@/lib/auth";
+import { getPlanLimits, TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES } from "@/lib/limits";
 import { getExtraCreditLabel, getUserVipPlan, getVipBadgeClass, getVipLabel, mergeStoredMembership } from "@/lib/plans";
 import { getPendingUpload, deletePendingUpload } from "@/lib/upload-transfer";
 
@@ -24,7 +25,6 @@ type EditorDraft = {
 const EDITOR_DRAFT_KEY = "videotosrt.editor.draft";
 const EDITOR_JOB_KEY = "videotosrt.editor.job";
 const UPLOAD_META_KEY = "videotosrt.upload";
-const MAX_TRANSCRIPTION_UPLOAD_BYTES = 25 * 1024 * 1024;
 const MAX_JOB_POLL_ATTEMPTS = 240;
 const JOB_FAST_POLL_INTERVAL_MS = 2000;
 const JOB_SLOW_POLL_INTERVAL_MS = 5000;
@@ -32,13 +32,18 @@ const SUBTITLES_PER_PAGE = 8;
 const CAPTION_POSITION_KEY = "videotosrt.editor.captionPosition";
 
 function readMediaDuration(url: string, type: string) {
-  return new Promise<number>((resolve) => {
+  return new Promise<number>((resolve, reject) => {
     const media = document.createElement(type.startsWith("audio") ? "audio" : "video");
     media.preload = "metadata";
     media.onloadedmetadata = () => {
-      resolve(Number.isFinite(media.duration) ? Math.round(media.duration) : 0);
+      const duration = Number.isFinite(media.duration) ? Math.round(media.duration) : 0;
+      if (duration > 0) {
+        resolve(duration);
+      } else {
+        reject(new Error("Could not read the media duration. Try a different audio or video file."));
+      }
     };
-    media.onerror = () => resolve(0);
+    media.onerror = () => reject(new Error("This media file could not be decoded by the browser."));
     media.src = url;
   });
 }
@@ -241,34 +246,72 @@ export function EditorClient() {
   const [savedAtLabel, setSavedAtLabel] = useState("");
   const [saveFeedback, setSaveFeedback] = useState("");
   const [user, setUser] = useState<ApiUser | null>(null);
+  const [authLoaded, setAuthLoaded] = useState(false);
   const objectUrlRef = useRef<string | null>(null);
   const currentFileRef = useRef<File | null>(null);
+  const authRefreshRef = useRef<Promise<ApiUser | null> | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const videoFrameRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const vipPlan = getUserVipPlan(user);
   const extraCreditLabel = getExtraCreditLabel(user);
 
+  function refreshAuthUser() {
+    const request = api
+      .me()
+      .then((data) => {
+        const nextUser = mergeStoredMembership(normalizeUser(data), getLocalUser());
+        setLocalUser(nextUser);
+        setUser(nextUser);
+        return nextUser;
+      })
+      .catch(() => {
+        setLocalUser(null);
+        setUser(null);
+        return null;
+      })
+      .finally(() => {
+        setAuthLoaded(true);
+        authRefreshRef.current = null;
+      });
+
+    authRefreshRef.current = request;
+    return request;
+  }
+
   useEffect(() => {
     let mounted = true;
-    const removeAuthListener = onAuthChange((nextUser) => setUser(nextUser));
+    const removeAuthListener = onAuthChange((nextUser) => {
+      setUser(nextUser);
+      setAuthLoaded(true);
+    });
 
-    api
+    const request = api
       .me()
       .then((data) => {
         if (!mounted) {
-          return;
+          return null;
         }
         const nextUser = mergeStoredMembership(normalizeUser(data), getLocalUser());
         setLocalUser(nextUser);
         setUser(nextUser);
+        return nextUser;
       })
       .catch(() => {
         if (mounted) {
           setLocalUser(null);
           setUser(null);
         }
+        return null;
+      })
+      .finally(() => {
+        if (mounted) {
+          setAuthLoaded(true);
+        }
+        authRefreshRef.current = null;
       });
+
+    authRefreshRef.current = request;
 
     return () => {
       mounted = false;
@@ -386,7 +429,7 @@ export function EditorClient() {
   async function transcribeFile(file: File, mediaDuration: number) {
     setNeedsLoginForTranscription(false);
 
-    if (file.size > MAX_TRANSCRIPTION_UPLOAD_BYTES) {
+    if (file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES) {
       setStatus(
         `Automatic transcription currently supports files up to 25 MB. This file is ${formatFileSize(file.size)}. Please upload a shorter or compressed audio/video file.`
       );
@@ -521,25 +564,35 @@ export function EditorClient() {
   }
 
   async function handleFile(file: File, options: { autoTranscribe?: boolean } = {}) {
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
-    }
-
     const objectUrl = URL.createObjectURL(file);
-    objectUrlRef.current = objectUrl;
-    currentFileRef.current = file;
-    setMediaUrl(objectUrl);
-    setFilename(file.name);
-    setFileSize(file.size);
-    setRows([]);
-    setActive(0);
-    setSubtitlePage(0);
     setStatus("Reading media...");
     setReadError("");
-    window.sessionStorage.setItem(UPLOAD_META_KEY, JSON.stringify({ name: file.name, size: file.size, type: file.type }));
 
     try {
       const mediaDuration = await readMediaDuration(objectUrl, file.type);
+      const effectiveUser = authLoaded ? user : await (authRefreshRef.current ?? refreshAuthUser());
+      const effectiveVipPlan = getUserVipPlan(effectiveUser);
+      const limits = getPlanLimits(effectiveVipPlan);
+      if (mediaDuration > limits.maxFileMinutes * 60) {
+        URL.revokeObjectURL(objectUrl);
+        setReadError(`${getVipLabel(effectiveVipPlan)} supports media up to ${limits.maxFileMinutes} minutes per file. This file is ${formatDuration(mediaDuration)}.`);
+        setStatus("File duration is above your plan limit.");
+        return;
+      }
+
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+      }
+
+      objectUrlRef.current = objectUrl;
+      currentFileRef.current = file;
+      setMediaUrl(objectUrl);
+      setFilename(file.name);
+      setFileSize(file.size);
+      setRows([]);
+      setActive(0);
+      setSubtitlePage(0);
+      window.sessionStorage.setItem(UPLOAD_META_KEY, JSON.stringify({ name: file.name, size: file.size, type: file.type }));
       setDuration(mediaDuration);
       if (options.autoTranscribe ?? true) {
         void transcribeFile(file, mediaDuration);
@@ -547,21 +600,14 @@ export function EditorClient() {
         setStatus("Local file ready, add subtitles to begin");
       }
     } catch (error) {
-      setStatus("Ready");
+      URL.revokeObjectURL(objectUrl);
+      setStatus(hasProject ? "Current project unchanged." : "No active project");
       setReadError(error instanceof Error ? error.message : "Could not read this file.");
     }
   }
 
   function openFilePicker() {
     uploadInputRef.current?.click();
-  }
-
-  function retryTranscriptionAfterLogin() {
-    const file = currentFileRef.current;
-
-    if (file) {
-      void transcribeFile(file, duration);
-    }
   }
 
   function retryTranscription() {
@@ -808,6 +854,7 @@ export function EditorClient() {
               ref={uploadInputRef}
               className="sr-only"
               type="file"
+              aria-label="Upload video or audio file"
               accept="video/*,audio/*,.mp4,.mov,.m4a,.mp3"
               onChange={(event) => {
                 const file = event.target.files?.[0];
@@ -859,7 +906,7 @@ export function EditorClient() {
                 </button>
               ) : null}
               {readError ? (
-                <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3 rounded border border-red-400/30 bg-panel/95 px-3 py-2 text-sm font-semibold text-red-300">
+                <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3 rounded border border-red-400/30 bg-panel/95 px-3 py-2 text-sm font-semibold text-red-300" role="alert">
                   <span>{readError}</span>
                   <button className="shrink-0 text-xs font-extrabold text-red-200 underline underline-offset-2" type="button" onClick={() => {
                     setReadError("");
@@ -873,7 +920,8 @@ export function EditorClient() {
                   <span>Sign in to generate subtitles from this video.</span>
                   <LoginModal
                     trigger={<Button variant="secondary" size="sm" type="button">Sign in</Button>}
-                    onLoginSuccess={retryTranscriptionAfterLogin}
+                    title="Export subtitles"
+                    description="Sign in with Google to generate and export subtitles from this upload."
                   />
                 </div>
               ) : null}
@@ -1070,7 +1118,7 @@ export function EditorClient() {
           </aside>
         </main>
         <footer className="flex items-center gap-5 border-t border-line bg-panel px-4 text-xs font-semibold text-soft">
-          <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-success" />{status}</span>
+          <span className="flex items-center gap-2" aria-live="polite"><span className="h-2 w-2 rounded-full bg-success" />{status}</span>
           <span>{rows.length} subtitles</span>
           <span><span className="font-mono text-cyan">{formatDuration(duration)}</span> duration</span>
           {savedAtLabel ? <span>Saved {savedAtLabel}</span> : null}

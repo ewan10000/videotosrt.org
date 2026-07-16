@@ -14,9 +14,9 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ApiUser } from "@/lib/api";
-import { canUseStyledExport, getUserVipPlan, getVipBadgeClass, getVipLabel } from "@/lib/plans";
+import { getUserVipPlan, getVipBadgeClass, getVipLabel } from "@/lib/plans";
 
-type ExportFormat = "srt" | "vtt" | "txt" | "ass";
+type ExportFormat = "srt" | "vtt" | "txt";
 type ExportOptions = {
   includeSpeakerLabels: boolean;
   normalizeTimestamps: boolean;
@@ -52,16 +52,6 @@ function formatTimestamp(value: string, separator: "," | "." = ",") {
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}${separator}${milliseconds.toString().padStart(3, "0")}`;
 }
 
-function formatAssTimestamp(value: string) {
-  const totalCentiseconds = Math.max(0, Math.round(parseTimestamp(value) * 100));
-  const hours = Math.floor(totalCentiseconds / 360000);
-  const minutes = Math.floor((totalCentiseconds % 360000) / 6000);
-  const seconds = Math.floor((totalCentiseconds % 6000) / 100);
-  const centiseconds = totalCentiseconds % 100;
-
-  return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}.${centiseconds.toString().padStart(2, "0")}`;
-}
-
 function getTimestamp(value: string, normalize: boolean, separator: "," | "." = ",") {
   return normalize ? formatTimestamp(value, separator) : value.trim();
 }
@@ -73,10 +63,6 @@ function stripSpeakerLabel(text: string) {
 function formatSubtitleText(text: string, options: ExportOptions, format: ExportFormat) {
   const withoutSpeaker = options.includeSpeakerLabels ? text : stripSpeakerLabel(text);
   const withLineBreaks = options.keepLineBreaks ? withoutSpeaker : withoutSpeaker.replace(/\s*\n+\s*/g, " ");
-
-  if (format === "ass") {
-    return withLineBreaks.replace(/\n/g, "\\N");
-  }
 
   return withLineBreaks;
 }
@@ -119,17 +105,7 @@ function buildOutput(format: ExportFormat, subtitles: string[][] | undefined, op
       .join(options.keepLineBreaks ? "\n\n" : "\n");
   }
 
-  return `[Script Info]
-Title: VideoToSRT subtitles
-ScriptType: v4.00+
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,0,0,0,0,100,100,0,0,1,2,0,2,10,10,10,1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-${usableSubtitles.map(([start = "", end = "", text = ""]) => `Dialogue: 0,${options.normalizeTimestamps ? formatAssTimestamp(start) : start},${options.normalizeTimestamps ? formatAssTimestamp(end) : end},Default,,0,0,0,,${formatSubtitleText(text, options, format)}`).join("\n")}`;
+  return "";
 }
 
 function getBaseFilename(filename?: string) {
@@ -153,8 +129,6 @@ export function ExportModal({ trigger, subtitles, filename, user }: { trigger: R
   );
   const [outputFilename, setOutputFilename] = useState(`${baseFilename}-subtitles.${format}`);
   const vipPlan = getUserVipPlan(user);
-  const canExportStyled = canUseStyledExport(user);
-  const selectedFormatLocked = format === "ass" && !canExportStyled;
 
   useEffect(() => {
     setOutputFilename(`${baseFilename}-subtitles.${format}`);
@@ -170,10 +144,6 @@ export function ExportModal({ trigger, subtitles, filename, user }: { trigger: R
   }
 
   function downloadExport() {
-    if (selectedFormatLocked) {
-      return;
-    }
-
     const blob = createOutputBlob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -197,11 +167,10 @@ export function ExportModal({ trigger, subtitles, filename, user }: { trigger: R
           </DialogDescription>
         </DialogHeader>
         <Tabs value={format} onValueChange={(value) => setFormat(value as ExportFormat)} className="shrink-0">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="srt">SRT</TabsTrigger>
             <TabsTrigger value="vtt">VTT</TabsTrigger>
             <TabsTrigger value="txt">TXT</TabsTrigger>
-            <TabsTrigger value="ass" disabled={!canExportStyled}>ASS Pro</TabsTrigger>
           </TabsList>
         </Tabs>
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded border border-line bg-panel-2 px-3 py-2 text-sm font-semibold">
@@ -210,11 +179,6 @@ export function ExportModal({ trigger, subtitles, filename, user }: { trigger: R
             {getVipLabel(vipPlan)}
           </span>
         </div>
-        {!canExportStyled ? (
-          <p className="mb-0 shrink-0 rounded border border-cyan/30 bg-cyan/10 px-3 py-2 text-sm font-semibold text-cyan">
-            ASS styled export is unlocked for Pro and Studio VIP users. <a className="underline underline-offset-4" href="/pricing">Upgrade on pricing</a>.
-          </p>
-        ) : null}
         <div className="grid shrink-0 gap-3 py-4 sm:grid-cols-2">
           {[
             ["includeSpeakerLabels", "Include speaker labels"],
@@ -246,7 +210,7 @@ export function ExportModal({ trigger, subtitles, filename, user }: { trigger: R
             <Eye className="h-4 w-4 text-cyan" />
             Live preview updates as settings change
           </div>
-          <Button variant="primary" className="gap-2 sm:flex-1" type="button" onClick={downloadExport} disabled={selectedFormatLocked}>
+          <Button variant="primary" className="gap-2 sm:flex-1" type="button" onClick={downloadExport}>
             <Download className="h-4 w-4" />
             Download
           </Button>

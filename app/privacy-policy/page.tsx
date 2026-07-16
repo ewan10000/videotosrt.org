@@ -32,7 +32,7 @@ export default function PrivacyPolicyPage() {
             ["How we use data", "We use data to process uploads, generate subtitles, save drafts, manage usage limits, provide support, prevent abuse, and improve reliability."],
             ["Anonymous projects", "The product is designed for upload and editing before sign-in. Anonymous session data may be retained temporarily so you can complete the workflow."],
             ["Media retention", "MVP project media and anonymous session data are intended for short-lived processing and cleanup. Paid account retention settings may vary by plan."],
-            ["Third-party services", "VideoToSRT may use infrastructure, transcription, storage, authentication, payment, and email providers to deliver the service. Analytics are not configured unless IDs are provided."],
+            ["Third-party services", "VideoToSRT may use infrastructure, transcription, storage, authentication, and payment providers to deliver the service."],
             ["Contact", "Questions or deletion requests can be sent to support@videotosrt.org."]
           ].map(([title, body]) => (
             <section key={title} className="border-b border-line py-7">

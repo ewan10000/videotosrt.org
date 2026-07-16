@@ -100,15 +100,6 @@ export type ApiUserResponse =
     }
   | null;
 
-export type EmailAuthResponse = {
-  data?: {
-    user?: ApiUser | null;
-  } | null;
-  expires_in_seconds?: number;
-  sent?: boolean;
-  user?: ApiUser | null;
-};
-
 function buildUrl(path: string) {
   if (path.startsWith("http")) {
     return path;
@@ -117,7 +108,7 @@ function buildUrl(path: string) {
   return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-export function authLoginUrl(provider: "google" | "github" | "email", returnTo?: string) {
+export function authLoginUrl(provider: "google", returnTo?: string) {
   const origin = typeof window === "undefined" ? "https://videotosrt.org" : window.location.origin;
   const url = new URL(`${API_BASE_URL}/auth/login`, origin);
   const completeUrl = new URL("/auth/complete", origin);
@@ -196,8 +187,6 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
 
 export const api = {
   me: () => apiFetch<ApiUserResponse>("/auth/me"),
-  sendEmailCode: (email: string) =>
-    apiFetch<EmailAuthResponse>("/auth/email/send-code", { method: "POST", body: { email } }),
   logout: () => apiFetch<{ ok?: boolean }>("/auth/logout", { method: "POST" }),
   upload: (file: File) => {
     const body = new FormData();

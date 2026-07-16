@@ -70,7 +70,7 @@ export function createPageJsonLd({
         "@id": `${siteUrl}/#organization`,
         name: siteName,
         url: siteUrl,
-        logo: `${siteUrl}/logo.svg`
+        logo: `${siteUrl}/apple-touch-icon.png`
       },
       {
         "@type": "WebSite",

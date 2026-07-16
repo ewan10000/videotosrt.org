@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     await upsertUserLogin(env, localUser, "oauth");
     membership = await getStoredUserMembership(env, localUser);
   } catch {
-    // Login should still complete if local analytics/membership sync has a transient D1 issue.
+    // Login should still complete if local membership sync has a transient D1 issue.
   }
 
   const user = membership

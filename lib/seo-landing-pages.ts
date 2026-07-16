@@ -27,6 +27,7 @@ export interface LandingPageDefinition extends SeoLandingProps {
   metaDescription: string;
   howToName?: string;
   howToSteps?: SeoLandingStep[];
+  unavailableProduct?: boolean;
 }
 
 const languages = "English, Spanish, French, German, Italian, Portuguese, Dutch, Arabic, Hindi, Japanese, Korean, Chinese, and many more";
@@ -95,10 +96,10 @@ export const landingPages = {
         }
       },
       {
-        heading: "When to Use SRT, VTT, TXT, or Burn-In Preview",
+        heading: "When to Use SRT, VTT, TXT, or Burn-In Tools",
         body: [
           "Use SRT when you need a widely accepted subtitle file. Use VTT for web players that prefer WebVTT. Use TXT when you want a readable transcript for notes, posts, or repurposing.",
-          "If you need permanent captions in the video image, review the burn subtitles workflow. MP4 burn-in export is positioned for paid-plan workflows and should be checked against current plan availability before promising a client deliverable."
+          "VideoToSRT currently exports SRT, VTT, and TXT. If you need permanent captions in the video image, create a subtitle file here and use a separate burn-in tool for the final MP4."
         ],
         links: [
           { label: "Compare hardcoded subtitles and SRT", href: "/burn-subtitles" },
@@ -107,14 +108,14 @@ export const landingPages = {
       }
     ],
     faq: [
-      { question: "Is the video to SRT converter free?", answer: "You can start the video to SRT workflow for free and edit subtitles in the browser. Plan limits may apply to minutes, export options, and paid features, so check pricing before large batches." },
+      { question: "Is the video to SRT converter free?", answer: "You can start the video to SRT workflow for free and edit subtitles in the browser. VideoToSRT currently exports SRT, VTT, and TXT files." },
       { question: "How accurate is the transcription?", answer: "Accuracy depends on audio quality, accents, background noise, and speaker overlap. Clear speech gives the best result, and every line can be edited before you export the SRT." },
       { question: "What languages are supported?", answer: `The workflow is designed for transcription in 50+ languages, including ${languages}. Always review names and specialized vocabulary before publishing.` },
       { question: "Can I edit the SRT before exporting?", answer: "Yes. The editor lets you correct subtitle text and timing inline, which is why the workflow is better than downloading an unreviewed automatic transcript." },
       { question: "Is my video data secure?", answer: "VideoToSRT processes uploaded content for the subtitle workflow and does not claim rights to your media. You are responsible for having permission to process any content you upload." },
       { question: "What video formats are supported?", answer: "Common media formats such as MP4, MOV, AVI, MKV, and WebM are suitable starting points. Browser behavior and file encoding can still affect preview quality." },
       { question: "How long does the conversion take?", answer: "Short clips usually finish faster than long recordings. Audio clarity, file size, provider queue time, and network speed all affect total processing time." },
-      { question: "Can I convert multiple videos at once?", answer: "Batch-oriented workflows are part of the product direction and plan positioning. For production batches, confirm your current plan limits before uploading many files." },
+      { question: "Can I convert multiple videos at once?", answer: "Use the current workflow one upload at a time. For production batches, confirm the current product limits before uploading many files." },
       { question: "Can I extract subtitles from video?", answer: "You can generate a new subtitle file from a video you are allowed to process. If a video already has burned-in captions, those cannot be removed as editable subtitle tracks." }
     ],
     cta: {
@@ -172,7 +173,7 @@ export const landingPages = {
           rows: [
             ["Install required", "No install; runs in browser", "Desktop install required"],
             ["Quick text cleanup", "Focused inline editing", "Available but more complex"],
-            ["Advanced style authoring", "Best handled through ASS workflow pages and plan features", "Strong local controls"],
+            ["Advanced style authoring", "Requires a separate ASS authoring tool", "Strong local controls"],
             ["Best use case", "Fast subtitle cleanup and export", "Detailed offline subtitle production"]
           ]
         }
@@ -206,7 +207,7 @@ export const landingPages = {
       { question: "Can I adjust subtitle timing?", answer: "Yes. The editor is built for text and timing cleanup, so you can correct captions that appear too early, too late, or for the wrong duration." },
       { question: "How do I merge or split subtitle lines?", answer: "When a transcript creates awkward captions, edit the text and timing so each line is readable. Keep captions short enough for viewers to follow naturally." },
       { question: "Can I edit SRT on mobile?", answer: "The browser workflow can open on mobile, but subtitle editing is much easier on a desktop or tablet because timing and text review need screen space." },
-      { question: "Is the SRT editor free to use?", answer: "You can start editing for free. Some higher-volume, style, burn-in, or export workflows may depend on plan limits." },
+      { question: "Is the SRT editor free to use?", answer: "You can start editing for free. VideoToSRT currently exports SRT, VTT, and TXT; use separate tools for ASS styling or video burn-in." },
       { question: "Can I preview subtitles while editing?", answer: "Yes. The workflow is designed to keep the media preview near the subtitle rows so you can verify wording and timing before export." },
       { question: "How do I fix overlapping subtitles?", answer: "Review neighboring timestamps and adjust the end time of the earlier caption or the start time of the next caption so the lines do not collide." },
       { question: "Can I use the editor after converting video to SRT?", answer: "Yes. After automatic transcription, use the same cleanup workflow to correct the SRT before publishing or translating it." }
@@ -226,17 +227,18 @@ export const landingPages = {
   },
   "burn-subtitles": {
     path: "/burn-subtitles",
+    unavailableProduct: true,
     metaTitle: "Burn Subtitles into Video Online - Hardcode MP4",
     metaDescription: "Learn when to hardcode subtitles into MP4, compare burned captions with SRT files, and prepare captions for export.",
     title: "Burn Subtitles into Video Online - Hardcode MP4",
     eyebrow: "Hardcoded subtitle workflow",
-    description: "Burning subtitles means making captions part of the video image. VideoToSRT supports the preparation workflow for hardcoded subtitles: generate or upload captions, check timing, preview readability, and understand when permanent captions are better than a separate SRT file.",
-    highlights: ["Prepare captions for hardcoded MP4 workflows", "Compare soft subtitles and burned captions", "Preview readability before committing", "Useful for social clips and player compatibility"],
+    description: "Burning subtitles means making captions part of the video image. VideoToSRT helps with the preparation workflow: generate or upload captions, check timing, export SRT, VTT, or TXT, and understand when a separate burn-in tool is needed.",
+    highlights: ["Prepare subtitle files for hardcoded MP4 workflows", "Compare soft subtitles and burned captions", "Export SRT, VTT, or TXT first", "Useful for social clips and player compatibility"],
     howToName: "How to Burn Subtitles into MP4",
     howToSteps: [
       { title: "Upload Your Video and SRT", body: "Start with a video and subtitle file, or generate subtitles from the video first." },
-      { title: "Choose Plain or Styled Captions", body: "Review caption placement, length, and styling intent so text remains readable on mobile screens." },
-      { title: "Preview and Export MP4", body: "Use preview to catch errors before committing to a hardcoded export workflow. Confirm current plan availability for final burn-in export." }
+      { title: "Review Caption Readability", body: "Check timing, line length, and wording so text remains readable on mobile screens." },
+      { title: "Export a Subtitle File", body: "VideoToSRT currently exports SRT, VTT, and TXT. Use a separate burn-in tool when you need a final hardcoded MP4." }
     ],
     sections: [
       {
@@ -251,8 +253,8 @@ export const landingPages = {
         body: ["A careful hardcode subtitles MP4 workflow starts with accurate caption text and timing. Fix the subtitles before you create a permanent video."],
         steps: [
           { title: "Upload Your Video and SRT", body: "Generate captions from a video or upload an existing subtitle file for cleanup." },
-          { title: "Choose Style and Placement", body: "Use plain readable captions or a styled workflow when the platform and plan support it." },
-          { title: "Preview and Export MP4", body: "Preview the result before export so mistakes are not baked into the final file." }
+          { title: "Review Readability", body: "Use plain readable captions and keep line length practical before moving to any external styling or burn-in tool." },
+          { title: "Export a Subtitle File", body: "Download SRT, VTT, or TXT from VideoToSRT, then use a separate tool if you need the captions burned into the video." }
         ]
       },
       {
@@ -294,19 +296,19 @@ export const landingPages = {
       }
     ],
     faq: [
-      { question: "Can I burn subtitles for free?", answer: "You can prepare and preview subtitle workflows for free, but final burn-in export may be tied to paid-plan availability. Check pricing before relying on MP4 export." },
-      { question: "What subtitle styles are available?", answer: "VideoToSRT supports plain subtitle cleanup today and positions styled caption workflows around ASS/SSA and plan features. Keep styles readable and high contrast." },
+      { question: "Can I burn subtitles for free?", answer: "VideoToSRT does not currently export burned-in MP4 files. You can create SRT, VTT, or TXT here, then use a separate burn-in tool." },
+      { question: "What subtitle styles are available?", answer: "VideoToSRT supports plain subtitle cleanup and SRT, VTT, or TXT export today. Use a dedicated ASS/SSA authoring tool when you need styled subtitle output." },
       { question: "Will the video quality drop?", answer: "Any video re-export can affect quality depending on encoding settings. Keep the source file and subtitle file so you can export again if needed." },
       { question: "Can I burn subtitles on mobile?", answer: "You can review pages on mobile, but preparing hardcoded captions is easier on a larger screen where timing, placement, and text length are visible." },
       { question: "How long does the burning process take?", answer: "The export time depends on video length, resolution, queue time, and encoding settings. Short clips are faster than long high-resolution videos." },
-      { question: "Can I burn subtitles in different languages?", answer: "Yes, if you have a subtitle file in the target language. Translate or edit the SRT first, then use it for the hardcoded subtitle workflow." },
+      { question: "Can I burn subtitles in different languages?", answer: "If you have a subtitle file in the target language, edit or translate the SRT first, then use a separate tool for hardcoded video output." },
       { question: "What is the difference between soft and hard subtitles?", answer: "Soft subtitles are separate tracks such as SRT or VTT. Hard subtitles are permanent pixels in the video and cannot be switched off by the viewer." },
       { question: "Can I remove burned subtitles later?", answer: "Not cleanly. Because the captions are part of the image, you should keep the original video and SRT so you can create a version without burned captions." },
       { question: "Should I use SRT or hardcoded subtitles for accessibility?", answer: "Use SRT or VTT when the platform supports proper caption tracks. Burned captions help visibility, but separate subtitle tracks give viewers more control." }
     ],
     cta: {
-      heading: "Burn Subtitles into Your Video Now",
-      body: "Start by creating a clean SRT, then preview how captions should read before you commit to a permanent video export.",
+      heading: "Prepare Captions Before Burn-In",
+      body: "Create a clean SRT first. Final MP4 burn-in export is not available in the current VideoToSRT product.",
       primary: { label: "Create SRT First", href: "/video-to-srt" },
       secondary: { label: "See Pricing", href: "/pricing" }
     },
@@ -319,6 +321,7 @@ export const landingPages = {
   },
   "short-form-subtitles": {
     path: "/short-form-subtitles",
+    unavailableProduct: true,
     metaTitle: "Short-form Subtitle Generator - Styled Captions for TikTok, Reels, Shorts",
     metaDescription: "Generate and edit captions for TikTok, Instagram Reels, and YouTube Shorts with short-form subtitle workflows.",
     title: "Short-form Subtitle Generator - Styled Captions for TikTok, Reels, Shorts",
@@ -328,8 +331,8 @@ export const landingPages = {
     howToName: "How to Add Styled Subtitles to Short Videos",
     howToSteps: [
       { title: "Upload Your Short Video", body: "Start with the clip you plan to post and generate subtitle lines from the spoken audio." },
-      { title: "Choose a Caption Style", body: "Keep the wording short and use styling only when it improves readability. Advanced style workflows depend on current plan support." },
-      { title: "Export for TikTok, Reels, or Shorts", body: "Save the subtitle file or prepare the caption source for a burn-in workflow when permanent captions are required." }
+      { title: "Plan Caption Readability", body: "Keep the wording short and use styling only when it improves readability." },
+      { title: "Export for TikTok, Reels, or Shorts", body: "Save SRT, VTT, or TXT from VideoToSRT, then use a separate styling or burn-in tool when permanent captions are required." }
     ],
     sections: [
       {
@@ -345,20 +348,20 @@ export const landingPages = {
         steps: [
           { title: "Upload Your Short Video", body: "Use the same clip you plan to publish so timing matches the final edit." },
           { title: "Choose a Caption Style", body: "Plan high-contrast text, sensible placement, and short phrases that fit vertical screens." },
-          { title: "Export for TikTok, Reels, or Shorts", body: "Use SRT/VTT/TXT today, or continue into burn-in and styled workflows where your plan supports them." }
+          { title: "Export for TikTok, Reels, or Shorts", body: "Use SRT, VTT, or TXT from VideoToSRT today, then move to a separate burn-in or styled-caption tool if needed." }
         ]
       },
       {
         heading: "Subtitle Styles Available",
         body: [
           "Short-form creators often use plain captions, highlight captions, karaoke-style emphasis, or large centered text. VideoToSRT is a practical place to create the accurate subtitle source before styling decisions become permanent.",
-          "For style-heavy work, ASS/SSA files support font, color, and positioning concepts. For final permanent captions, review the burn subtitles workflow and current plan availability."
+          "For style-heavy work, ASS/SSA files support font, color, and positioning concepts. VideoToSRT does not currently export ASS/SSA or burned-in MP4 files, so use separate tools for those final outputs."
         ],
         features: [
           { title: "Plain Captions", body: "Best for clarity, accessibility, and fast review." },
           { title: "Highlight Intent", body: "Use emphasis sparingly for hooks, keywords, and speaker changes." },
-          { title: "ASS Styling", body: "Plan font, color, and position when using styled subtitle workflows." },
-          { title: "Burn-In Preview", body: "Check readability before permanent captions are exported." }
+          { title: "ASS Styling", body: "Plan font, color, and position before using a dedicated ASS authoring tool." },
+          { title: "Burn-In Preparation", body: "Check readability before moving subtitle files into a separate burn-in tool." }
         ]
       },
       {
@@ -388,18 +391,18 @@ export const landingPages = {
     faq: [
       { question: "Can I add subtitles to TikTok videos?", answer: "Yes. Generate a caption source from your clip, edit it for accuracy, and use the subtitle or burn-in workflow that matches your publishing process." },
       { question: "What caption styles work best for short videos?", answer: "High-contrast, short, well-timed captions work best. Style should support readability rather than cover the subject or distract from the hook." },
-      { question: "Can I export subtitles for Instagram Reels?", answer: "You can export subtitle files for reuse and prepare caption text for Reels workflows. If you need permanent captions, confirm burn-in export availability for your plan." },
+      { question: "Can I export subtitles for Instagram Reels?", answer: "You can export SRT, VTT, or TXT files for reuse and prepare caption text for Reels workflows. If you need permanent captions, use a separate burn-in tool." },
       { question: "Do styled subtitles increase engagement?", answer: "Captions can help viewers understand muted videos, which may improve watch time. Results still depend on the content, hook, pacing, and audience." },
-      { question: "Can I add animated captions?", answer: "Animation-heavy caption export is not something to overpromise here. Use VideoToSRT to create accurate subtitle text and timing, then use supported style workflows where available." },
+      { question: "Can I add animated captions?", answer: "VideoToSRT does not currently export animated captions. Use it to create accurate subtitle text and timing, then use a separate motion-caption tool if you need animation." },
       { question: "What is the best font for TikTok captions?", answer: "Use a bold, readable font with strong contrast. Avoid thin fonts, tiny text, and placement that conflicts with platform controls." },
       { question: "Can I add subtitles to YouTube Shorts?", answer: "Yes. Create and clean subtitle text for the clip, then publish through a separate subtitle file or a permanent-caption workflow depending on your needs." },
-      { question: "Are styled subtitles free to use?", answer: "Basic subtitle creation can start for free. Advanced style templates, burn-in preview, or paid export features may depend on the current plan." },
+      { question: "Are styled subtitles free to use?", answer: "Basic subtitle creation can start for free. Advanced styling and permanent-video export should be handled in a separate tool until VideoToSRT supports those workflows." },
       { question: "Should I use SRT or burned captions for short videos?", answer: "Use burned captions when you need the text visible everywhere. Keep an SRT source file for edits, translations, and future versions." }
     ],
     cta: {
-      heading: "Generate Styled Subtitles Now",
-      body: "Create accurate caption text first, then prepare the right export path for the social platform you are targeting.",
-      primary: { label: "Upload Video - Free", href: "/#upload" },
+      heading: "Prepare Short-Form Caption Text",
+      body: "Create accurate SRT, VTT, or TXT caption files first. Styled social caption templates are not available in the current product.",
+      primary: { label: "Create SRT", href: "/video-to-srt" },
       secondary: { label: "Review Burn-In Workflow", href: "/burn-subtitles" }
     },
     links: [
@@ -485,7 +488,7 @@ export const landingPages = {
       }
     ],
     faq: [
-      { question: "Can I transcribe podcasts for free?", answer: "You can start podcast transcription for free. Longer episodes, large volumes, or paid export features may depend on current plan limits." },
+      { question: "Can I transcribe podcasts for free?", answer: "You can start podcast transcription for free. VideoToSRT currently exports SRT, VTT, and TXT for podcast workflows." },
       { question: "How accurate is AI podcast transcription?", answer: "Accuracy depends on recording quality, speaker overlap, background noise, and vocabulary. Always review the transcript before publishing." },
       { question: "Can I add speaker labels?", answer: "You can edit transcript text inline, including speaker names or labels. For multi-speaker episodes, review turns carefully before export." },
       { question: "What audio formats are supported?", answer: "Podcast workflows commonly use MP3, WAV, M4A, AAC, and FLAC. Browser and encoding details can affect preview and upload behavior." },
@@ -583,7 +586,7 @@ export const landingPages = {
       }
     ],
     faq: [
-      { question: "Can I generate captions for free?", answer: "You can start generating course captions for free. Large courses, long lectures, or paid export features may depend on current plan limits." },
+      { question: "Can I generate captions for free?", answer: "You can start generating course captions for free. VideoToSRT currently exports SRT, VTT, and TXT for course workflows." },
       { question: "How accurate is the transcription for technical terms?", answer: "AI transcription is a strong first draft, but technical vocabulary needs human review. Correct formulas, acronyms, names, and product terms before publishing." },
       { question: "Can I export captions for Udemy?", answer: "You can export SRT or VTT files that are commonly used by course platforms. Always follow Udemy's current upload requirements when adding captions." },
       { question: "What languages are supported?", answer: `VideoToSRT is designed for 50+ language workflows, including ${languages}. Review translated or technical content before students see it.` },
@@ -608,6 +611,7 @@ export const landingPages = {
   },
   "subtitle-translator": {
     path: "/subtitle-translator",
+    unavailableProduct: true,
     metaTitle: "Translate Subtitles Online - SRT Translation",
     metaDescription: "Translate SRT files online, preserve timing, review AI subtitle translation, and export localized subtitles.",
     title: "Translate Subtitles Online - SRT Translation",
@@ -681,12 +685,12 @@ export const landingPages = {
       }
     ],
     faq: [
-      { question: "Can I translate subtitles for free?", answer: "You can start a subtitle translation workflow for free. Large files, repeated exports, or higher-volume use may depend on current plan limits." },
+      { question: "Can I translate subtitles for free?", answer: "You can start a subtitle translation workflow for free. VideoToSRT currently exports SRT, VTT, and TXT files." },
       { question: "How accurate is AI subtitle translation?", answer: "AI translation is useful for a first draft, but accuracy depends on language pair, context, idioms, and domain terms. Review before publishing." },
       { question: "What languages are supported?", answer: `VideoToSRT is designed for 50+ language workflows, including ${languages}. Availability can vary by provider and workflow.` },
       { question: "Can I translate SRT to VTT?", answer: "Use the subtitle translation workflow to localize the text, then export in the format supported by the current editor workflow, such as SRT or VTT." },
       { question: "Will the timing be preserved?", answer: "Yes. The goal of SRT translation is to preserve the subtitle timing while replacing the text with reviewed translated lines." },
-      { question: "Can I translate multiple files at once?", answer: "Batch workflows may depend on the current plan and product limits. Confirm limits before processing many subtitle files." },
+      { question: "Can I translate multiple files at once?", answer: "Use the current workflow one file at a time. Confirm current product limits before processing many subtitle files." },
       { question: "How do I translate YouTube subtitles?", answer: "Export or create an SRT for the video, translate and review it, then upload the translated subtitle file through YouTube's subtitle tools." },
       { question: "Can I edit the translation before exporting?", answer: "Yes. Reviewing the translated lines is important because line length, names, tone, and idioms often need human correction." },
       { question: "Can I auto translate subtitles from a video?", answer: "First create an SRT from the video, then translate the cleaned SRT. This keeps transcription cleanup separate from translation review." }
@@ -706,17 +710,18 @@ export const landingPages = {
   },
   "ass-subtitle-editor": {
     path: "/ass-subtitle-editor",
+    unavailableProduct: true,
     metaTitle: "ASS Subtitle Editor Online - Styled Subtitles",
     metaDescription: "Understand ASS subtitle editing, styled subtitle workflows, ASS vs SRT, and when to use styled captions online.",
     title: "ASS Subtitle Editor Online - Styled Subtitles",
     eyebrow: "Styled subtitle workflow",
-    description: "ASS and SSA subtitle files are used when captions need styling details such as font, color, position, and layout. VideoToSRT explains and supports the browser workflow around styled subtitles while keeping the source text editable.",
+    description: "ASS and SSA subtitle files are used when captions need styling details such as font, color, position, and layout. VideoToSRT explains those concepts, but currently exports only SRT, VTT, and TXT.",
     highlights: ["ASS subtitle editor workflow", "Styled subtitle editor guidance", "ASS vs SRT comparison", "Useful before burn-in or short-form caption work"],
     howToName: "How to Edit ASS Subtitles Online",
     howToSteps: [
       { title: "Upload ASS and Video", body: "Start with a styled subtitle file and matching media when you need to review layout in context." },
       { title: "Edit Styles", body: "Plan font, color, placement, and readability without losing the subtitle text workflow." },
-      { title: "Preview and Export", body: "Check the result before publishing or moving into a burn-in workflow supported by your plan." }
+      { title: "Choose an Export Tool", body: "VideoToSRT currently exports SRT, VTT, and TXT. Use a dedicated ASS or burn-in tool when you need styled or hardcoded output." }
     ],
     sections: [
       {
@@ -761,18 +766,18 @@ export const landingPages = {
     ],
     faq: [
       { question: "What is an ASS file?", answer: "An ASS file is a styled subtitle format that can store text, timing, font, color, position, and layout instructions." },
-      { question: "Can I edit ASS subtitles online?", answer: "VideoToSRT supports the browser workflow around styled subtitles and subtitle cleanup. Confirm current export support for your exact ASS workflow before client delivery." },
+      { question: "Can I edit ASS subtitles online?", answer: "VideoToSRT can explain ASS concepts and help clean subtitle text, but it currently exports only SRT, VTT, and TXT. Use a dedicated ASS authoring tool for styled ASS output." },
       { question: "What styling options are available?", answer: "ASS-style workflows commonly include font, size, color, outline, and position. Keep styles readable across mobile and desktop screens." },
       { question: "Can I convert ASS to SRT?", answer: "You can simplify styled subtitles into plain subtitle text when you need SRT compatibility, but style details will not carry into SRT." },
-      { question: "Is the ASS editor free?", answer: "You can start subtitle workflows for free. Advanced style templates or export features may depend on current plan limits." },
-      { question: "Can I preview ASS styles in real time?", answer: "Preview is important for styled captions because position and contrast affect readability. Check current editor behavior for the exact file and style features you need." },
+      { question: "Is the ASS editor free?", answer: "VideoToSRT currently focuses on SRT, VTT, and TXT workflows. Use a dedicated ASS authoring tool when you need styled ASS output." },
+      { question: "Can I preview ASS styles in real time?", answer: "Preview is important for styled captions because position and contrast affect readability. VideoToSRT does not currently provide full ASS style preview or ASS export." },
       { question: "Should I use ASS for TikTok captions?", answer: "ASS can help plan styled caption appearance, but final social posts often need burned captions. Keep an editable subtitle source before export." },
       { question: "Is ASS better than SRT?", answer: "ASS is better for styling. SRT is better for simple compatibility, translation, and platform subtitle uploads." }
     ],
     cta: {
-      heading: "Edit ASS Subtitles Now",
-      body: "Prepare styled subtitle text, review readability, and keep a clean source before moving into permanent caption exports.",
-      primary: { label: "Open Editor", href: "/editor" },
+      heading: "Learn ASS Subtitle Tradeoffs",
+      body: "VideoToSRT currently exports SRT, VTT, and TXT. Use this page as guidance before choosing a separate ASS authoring workflow.",
+      primary: { label: "Open SRT Editor", href: "/editor" },
       secondary: { label: "Compare Burn-In", href: "/burn-subtitles" }
     },
     links: [
@@ -784,6 +789,7 @@ export const landingPages = {
   },
   "public-url-subtitles": {
     path: "/public-url-subtitles",
+    unavailableProduct: true,
     metaTitle: "Public URL Subtitle Editor - Auto-Generate and Edit",
     metaDescription: "Generate subtitles from a public video URL when you have permission, then edit and export SRT, VTT, or TXT.",
     title: "Public URL Subtitle Editor - Auto-Generate and Edit",
@@ -844,15 +850,15 @@ export const landingPages = {
       { question: "Can I generate subtitles from a YouTube URL?", answer: "The URL workflow is intended for public video links where processing is permitted and technically available. Only process videos you own or have permission to use." },
       { question: "What video platforms are supported?", answer: "The product direction covers major public platforms and direct media links, but support can vary by platform behavior, access rules, and the specific URL." },
       { question: "Do I need to download the video?", answer: "A public URL workflow can avoid a download-upload loop when the link is supported. If not, upload a file you have the right to process." },
-      { question: "Is URL subtitle generation free?", answer: "You can start subtitle workflows for free. Longer media, repeated use, or paid export features may depend on current plan limits." },
+      { question: "Is URL subtitle generation free?", answer: "You can start subtitle workflows for free. VideoToSRT currently exports SRT, VTT, and TXT files." },
       { question: "How long does URL transcription take?", answer: "Processing time depends on media length, source access, audio extraction, transcription queue, and network conditions." },
       { question: "Can I edit subtitles before exporting?", answer: "Yes. The transcript should be reviewed in the editor before exporting SRT, VTT, or TXT." },
       { question: "Can I use a private video URL?", answer: "Private, restricted, or login-protected URLs may not work. Use public links or upload a file you are allowed to process." },
       { question: "Can I generate subtitles from a video link in another language?", answer: "Yes, when transcription supports the language and the audio is clear. Review the resulting subtitle file before publishing." }
     ],
     cta: {
-      heading: "Try URL Subtitle Generator Now",
-      body: "Start from a public link you have permission to process, then clean the generated subtitles before export.",
+      heading: "Use File Upload Today",
+      body: "Public URL import is not available in the current product. Upload a media file you have permission to process instead.",
       primary: { label: "Start from Upload Area", href: "/#upload" },
       secondary: { label: "Open SRT Editor", href: "/srt-editor" }
     },
@@ -873,22 +879,26 @@ export function createLandingMetadata(page: LandingPageDefinition): Metadata {
   return createPageMetadata({
     path: page.path,
     title: page.metaTitle,
-    description: page.metaDescription
+    description: page.metaDescription,
+    robots: page.unavailableProduct ? { index: false, follow: true } : undefined
   });
 }
 
 export function createLandingJsonLd(page: LandingPageDefinition) {
   const extraNodes: Array<Record<string, unknown>> = [
-    createSoftwareApplicationJsonLd({
-      name: page.title,
-      description: page.metaDescription,
-      url: `${siteUrl}${page.path}`
-    }),
     createFaqJsonLd(page.faq),
     createBreadcrumbJsonLd({ path: page.path, name: page.title })
   ];
 
-  if (page.howToName && page.howToSteps?.length) {
+  if (!page.unavailableProduct) {
+    extraNodes.unshift(createSoftwareApplicationJsonLd({
+      name: page.title,
+      description: page.metaDescription,
+      url: `${siteUrl}${page.path}`
+    }));
+  }
+
+  if (!page.unavailableProduct && page.howToName && page.howToSteps?.length) {
     extraNodes.push(createHowToJsonLd({ name: page.howToName, steps: page.howToSteps }));
   }
 

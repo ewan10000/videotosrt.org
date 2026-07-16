@@ -17,13 +17,13 @@ import { SiteNav } from "@/components/site-nav";
 export const metadata = createPageMetadata({
   path: "/",
   title: "VideoToSRT — Online Subtitle Editor",
-  description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up."
+  description: "Upload, transcribe, edit, and export subtitles in your browser. AI transcription, inline editor, and SRT, VTT, or TXT export."
 });
 
 const homeJsonLd = createPageJsonLd({
   path: "/",
   name: "VideoToSRT — Online Subtitle Editor",
-  description: "Upload, edit, and export subtitles in your browser. AI transcription + inline editor. SRT, VTT, ASS. No software, no sign-up.",
+  description: "Upload, transcribe, edit, and export subtitles in your browser. AI transcription, inline editor, and SRT, VTT, or TXT export.",
   extraNodes: [
     {
       "@type": "SoftwareApplication",
@@ -36,8 +36,8 @@ const homeJsonLd = createPageJsonLd({
     {
       "@type": "FAQPage",
       mainEntity: [
-        { "@type": "Question", name: "Do I need to create an account?", acceptedAnswer: { "@type": "Answer", text: "No. Upload and edit immediately. We only ask for your email when you hit Export — so we can send you the file." } },
-        { "@type": "Question", name: "What formats can I export?", acceptedAnswer: { "@type": "Answer", text: "SRT, VTT, and TXT are available today. ASS/SSA styled export and MP4 burn-in export are coming soon for paid plans." } },
+        { "@type": "Question", name: "Do I need to create an account?", acceptedAnswer: { "@type": "Answer", text: "Local upload, preview, and manual editing can start before sign-in. AI transcription, account export, checkout, and paid usage require Google sign-in." } },
+        { "@type": "Question", name: "What formats can I export?", acceptedAnswer: { "@type": "Answer", text: "SRT, VTT, and TXT are available today." } },
         { "@type": "Question", name: "Can I edit an existing SRT file?", acceptedAnswer: { "@type": "Answer", text: "Yes. Upload your SRT alongside the video, or paste it directly into the editor. Fix timing without touching code." } }
       ]
     }
