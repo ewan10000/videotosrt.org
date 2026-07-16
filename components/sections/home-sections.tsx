@@ -103,6 +103,7 @@ function UploadPanel() {
           className="peer sr-only"
           tabIndex={-1}
           type="file"
+          aria-label="Upload video or audio file"
           accept="video/*,audio/*"
           onChange={handleFileChange}
         />

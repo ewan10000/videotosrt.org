@@ -53,6 +53,7 @@ export function HomeUploadButton({ className }: { className?: string }) {
         ref={inputRef}
         className="sr-only"
         type="file"
+        aria-label="Upload video or audio file"
         accept="video/*,audio/*"
         onChange={handleFileChange}
       />
