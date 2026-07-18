@@ -47,7 +47,7 @@ export function HomeUploadButton({ className }: { className?: string }) {
         onClick={openFilePicker}
       >
         <FolderUp className="h-4 w-4" />
-        Upload Video — Free
+        Upload Media — Free
       </button>
       <input
         ref={inputRef}

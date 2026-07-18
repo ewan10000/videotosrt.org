@@ -12,6 +12,11 @@ import {
 
 type LandingPageKey =
   | "video-to-srt"
+  | "audio-to-srt"
+  | "mp4-to-srt"
+  | "video-to-text"
+  | "audio-to-text"
+  | "video-to-vtt"
   | "srt-editor"
   | "burn-subtitles"
   | "short-form-subtitles"
@@ -39,7 +44,7 @@ export const landingPages = {
     metaDescription: "Convert video to SRT online with AI transcription, inline editing, and clean SRT, VTT, or TXT export.",
     title: "Video to SRT Converter - Free Online",
     eyebrow: "AI subtitle transcription",
-    description: "Use VideoToSRT as a video to SRT converter for MP4, MOV, WebM, and other common media files. Upload a video, review the automatic transcript in the browser, fix timing or wording, and export a clean subtitle file without installing desktop software.",
+    description: "Use VideoToSRT as a video to SRT converter for local browser-readable media files such as MP4 or MOV. Upload a video, review the automatic transcript in the browser, fix timing or wording, and export a clean subtitle file without installing desktop software.",
     highlights: ["Convert video to SRT online", "Edit transcript text and timestamps inline", "Export SRT, VTT, or TXT from one workspace", "Useful for MP4 subtitles, captions, clips, and accessibility"],
     howToName: "How to Convert Video to SRT",
     howToSteps: [
@@ -52,33 +57,33 @@ export const landingPages = {
         heading: "What Is an SRT File and Why Do You Need One?",
         body: [
           "An SRT file is a plain-text subtitle file that stores caption numbers, start times, end times, and the text viewers see on screen.",
-          "Creators use SRT files because they are portable. You can upload an SRT to YouTube, attach it to an MP4 in many players, translate it into another language, or keep it as an editable transcript. A video to SRT converter is helpful when you have the final media but not a clean subtitle file.",
+          "Creators use SRT files because they are portable. You can upload an SRT to YouTube, attach it to an MP4 in many players, localize it later in a separate workflow, or keep it as an editable transcript. A video to SRT converter is helpful when you have the final media but not a clean subtitle file.",
           "VideoToSRT focuses on that workflow: automatic video transcription to SRT, fast cleanup, and export. It is also useful when you need to extract subtitles from video content you have the rights to process."
         ],
         links: [
-          { label: "Edit an existing SRT file online", href: "/srt-editor" },
-          { label: "Translate an SRT after export", href: "/subtitle-translator" }
+          { label: "Convert audio to SRT", href: "/audio-to-srt" },
+          { label: "Create a TXT transcript instead", href: "/video-to-text" }
         ]
       },
       {
         heading: "How to Convert Video to SRT in 3 Steps",
         body: ["The conversion workflow keeps upload, transcript cleanup, and export in one browser-based editor."],
         steps: [
-          { title: "Step 1 - Upload Your Video", body: "Start with MP4, MOV, WebM, or another common media file. You can also use audio when the goal is transcript cleanup." },
+          { title: "Step 1 - Upload Your Video", body: "Start with a local browser-readable video file such as MP4 or MOV. You can also use audio when the goal is transcript cleanup." },
           { title: "Step 2 - AI Auto-Transcription", body: "The app creates editable subtitle rows with timing. Review the rough transcript instead of retyping captions from scratch." },
           { title: "Step 3 - Export Clean SRT", body: "Correct wording, timing, and long lines, then download SRT. VTT and TXT export are available for related publishing workflows." }
         ]
       },
       {
-        heading: "Supported Video Formats",
+        heading: "Supported Video Input",
         body: [
-          "Most browser-friendly video and audio files can be used in the workflow, including MP4, MOV, AVI, MKV, WebM, MP3, WAV, M4A, AAC, and FLAC.",
-          "For the smoothest MP4 to SRT converter workflow, use clear speech, avoid heavy background music, and upload the highest-quality audio track you have. If the transcript needs cleanup, the editor is built for quick line-by-line correction."
+          "VideoToSRT starts from local video or audio uploads. The editor accepts browser media inputs, with MP4 and MOV called out in the current file picker for video workflows and MP3 or M4A for common audio workflows.",
+          "For the smoothest MP4 to SRT converter workflow, use clear speech, avoid heavy background music, and upload the highest-quality audio track you have. Other containers and codecs can depend on browser decoding and backend processing, so review the upload result before relying on a deadline."
         ],
         features: [
           { title: "MP4 to SRT", body: "Create subtitle files for the most common web video format." },
-          { title: "MOV and WebM", body: "Work with creator and browser video formats without a desktop subtitle suite." },
-          { title: "Audio Sources", body: "Use podcast and lecture audio when the final deliverable is an SRT or transcript." },
+          { title: "MOV Sources", body: "Work with common creator exports when the browser can read the file." },
+          { title: "Audio Sources", body: "Use audio uploads when the final deliverable is an SRT or transcript." },
           { title: "Manual Cleanup", body: "Fix names, technical terms, punctuation, and timing before export." }
         ]
       },
@@ -102,8 +107,8 @@ export const landingPages = {
           "VideoToSRT currently exports SRT, VTT, and TXT. If you need permanent captions in the video image, create a subtitle file here and use a separate burn-in tool for the final MP4."
         ],
         links: [
-          { label: "Compare hardcoded subtitles and SRT", href: "/burn-subtitles" },
-          { label: "Generate subtitles from a public URL", href: "/public-url-subtitles" }
+          { label: "Export WebVTT instead", href: "/video-to-vtt" },
+          { label: "Create a plain text transcript", href: "/video-to-text" }
         ]
       }
     ],
@@ -113,9 +118,9 @@ export const landingPages = {
       { question: "What languages are supported?", answer: `The workflow is designed for transcription in 50+ languages, including ${languages}. Always review names and specialized vocabulary before publishing.` },
       { question: "Can I edit the SRT before exporting?", answer: "Yes. The editor lets you correct subtitle text and timing inline, which is why the workflow is better than downloading an unreviewed automatic transcript." },
       { question: "Is my video data secure?", answer: "VideoToSRT processes uploaded content for the subtitle workflow and does not claim rights to your media. You are responsible for having permission to process any content you upload." },
-      { question: "What video formats are supported?", answer: "Common media formats such as MP4, MOV, AVI, MKV, and WebM are suitable starting points. Browser behavior and file encoding can still affect preview quality." },
+      { question: "What video formats are supported?", answer: "The product starts from local video or audio uploads. MP4 and MOV are called out in the current video picker, while other containers and codecs depend on browser decoding and backend processing." },
       { question: "How long does the conversion take?", answer: "Short clips usually finish faster than long recordings. Audio clarity, file size, provider queue time, and network speed all affect total processing time." },
-      { question: "Can I convert multiple videos at once?", answer: "Use the current workflow one upload at a time. For production batches, confirm the current product limits before uploading many files." },
+      { question: "Can I convert multiple videos at once?", answer: "Use the current workflow one upload at a time and confirm the current product limits before processing many files." },
       { question: "Can I extract subtitles from video?", answer: "You can generate a new subtitle file from a video you are allowed to process. If a video already has burned-in captions, those cannot be removed as editable subtitle tracks." }
     ],
     cta: {
@@ -125,10 +130,495 @@ export const landingPages = {
       secondary: { label: "Open SRT Editor", href: "/srt-editor" }
     },
     links: [
-      { label: "SRT Editor Online", href: "/srt-editor" },
-      { label: "Burn Subtitles into Video", href: "/burn-subtitles" },
-      { label: "Translate Subtitles Online", href: "/subtitle-translator" },
-      { label: "Public URL Subtitle Editor", href: "/public-url-subtitles" }
+      { label: "MP4 to SRT Converter", href: "/mp4-to-srt" },
+      { label: "Audio to SRT Converter", href: "/audio-to-srt" },
+      { label: "Video to VTT Converter", href: "/video-to-vtt" },
+      { label: "Video to Text Converter", href: "/video-to-text" }
+    ]
+  },
+  "audio-to-srt": {
+    path: "/audio-to-srt",
+    metaTitle: "Audio to SRT Converter - Online AI Captions",
+    metaDescription: "Convert audio to SRT with AI transcription, browser cleanup, timing review, and SRT, VTT, or TXT export.",
+    title: "Audio to SRT Converter",
+    eyebrow: "Audio subtitle transcription",
+    description: "Use VideoToSRT to turn local audio recordings into editable subtitle files. Upload an audio file, generate an automatic timed transcript, review every caption line in the browser, and export SRT for video editors, platforms, courses, podcasts, or archives.",
+    highlights: ["Convert audio to SRT from a local upload", "Review timing and wording before export", "Export SRT, VTT, or TXT from the same editor", "Good for podcasts, lectures, interviews, and voiceovers"],
+    howToName: "How to Convert Audio to SRT",
+    howToSteps: [
+      { title: "Upload Your Audio", body: "Choose a local audio file such as MP3 or M4A, or another browser-readable audio upload that passes the product's checks." },
+      { title: "Generate Timed Captions", body: "AI transcription creates subtitle rows with start and end times so the audio can become an SRT file." },
+      { title: "Review and Export SRT", body: "Correct names, punctuation, unclear words, and timing, then download SRT. VTT and TXT exports are also available today." }
+    ],
+    sections: [
+      {
+        heading: "When Audio Needs an SRT File",
+        body: [
+          "An audio to SRT workflow is useful when spoken audio will become a captioned video, audiogram, training clip, course lesson, or searchable archive. SRT keeps text and timing together, which makes it more useful than a plain transcript when the words must sync to media.",
+          "VideoToSRT is built around local uploads, automatic transcription, browser cleanup, and export. It does not guarantee perfect text, so plan a review pass before publishing captions."
+        ],
+        links: [
+          { label: "Need text without timestamps?", href: "/audio-to-text" },
+          { label: "Caption an MP4 instead", href: "/mp4-to-srt" }
+        ]
+      },
+      {
+        heading: "How to Convert Audio to SRT in 3 Steps",
+        body: ["Start from the cleanest audio source you have, then use the editor to make the automatic draft publishable."],
+        steps: [
+          { title: "Upload Your Audio", body: "Use a local audio file. MP3 and M4A are common choices, while other audio inputs depend on browser and backend handling." },
+          { title: "Generate Timed Captions", body: "The transcription job turns speech into editable subtitle rows with timestamps." },
+          { title: "Review and Export SRT", body: "Fix misheard words, tighten line breaks, and download SRT for the next tool or platform." }
+        ]
+      },
+      {
+        heading: "Good Audio Sources for SRT Captions",
+        body: [
+          "Clean speech matters more than the filename. A quiet recording with steady levels usually produces a better automatic transcript than a noisy high-bitrate file.",
+          "Use the final audio edit when possible. If you later trim or rearrange the media, the SRT timing may need another pass."
+        ],
+        features: [
+          { title: "Podcasts", body: "Create caption files for audiograms, video podcast clips, and episode archives." },
+          { title: "Lectures", body: "Generate subtitle drafts for recorded lessons and training modules." },
+          { title: "Interviews", body: "Turn recorded conversations into timed text, then review overlapping speech carefully." },
+          { title: "Voiceovers", body: "Prepare captions for demos, tutorials, explainers, and narrated product videos." }
+        ]
+      },
+      {
+        heading: "SRT, VTT, and TXT for Audio Workflows",
+        body: ["VideoToSRT currently exports SRT, VTT, and TXT. Choose the output based on where the transcript goes next."],
+        table: {
+          columns: ["Output", "Best for", "Review focus"],
+          rows: [
+            ["SRT", "Subtitle uploads, video editors, caption archives", "Timing, line length, and punctuation"],
+            ["VTT", "Web players and browser caption tracks", "Cue readability and platform requirements"],
+            ["TXT", "Show notes, notes, search, and repurposing", "Paragraph flow and removed timestamp context"],
+            ["Manual edits", "Any publishable result", "Names, jargon, accents, and unclear words"]
+          ]
+        }
+      },
+      {
+        heading: "Accuracy and Manual Review",
+        body: [
+          "Accuracy depends on recording quality, background noise, accents, speaker overlap, and specialized vocabulary. Automatic transcription is a strong first draft, not a publishing guarantee.",
+          "Review the SRT while listening to the source audio. Correct names, acronyms, product terms, numbers, and any caption that stays on screen too briefly or too long."
+        ],
+        links: [
+          { label: "Open the subtitle editor", href: "/srt-editor" },
+          { label: "Compare video transcript output", href: "/video-to-text" }
+        ]
+      }
+    ],
+    faq: [
+      { question: "Can I convert audio to SRT for free?", answer: "You can start for free within the current plan limits. Free includes 60 transcription minutes per month and 60 minutes per file." },
+      { question: "What audio files can I upload?", answer: "The product accepts local audio uploads. MP3 and M4A are common supported choices in the current picker; other audio files can depend on browser decoding and backend processing." },
+      { question: "Does VideoToSRT export TXT too?", answer: "Yes. VideoToSRT currently exports SRT, VTT, and TXT, so the same audio transcript can support captions or plain text notes." },
+      { question: "How accurate is audio transcription?", answer: "Accuracy depends on the audio. Clear speech with low background noise works best, and every line should be reviewed before publishing." },
+      { question: "Can I use it for podcasts?", answer: "Yes. Audio to SRT is useful for podcast clips, audiograms, video podcast captions, and episode archives." },
+      { question: "Can I upload a public audio URL?", answer: "No. The current product starts from local video or audio uploads, not public URL ingestion." },
+      { question: "Can I process many files at once?", answer: "Use the current workflow one upload at a time and stay within the plan limits shown on the pricing page." },
+      { question: "How long are uploaded source files retained?", answer: "Uploaded source files are retained no longer than 7 days where storage retention applies." },
+      { question: "Do I need to sign in?", answer: "Google sign-in is required for AI transcription, account export, checkout, and paid usage. Local upload, preview, and manual editing can start before sign-in." }
+    ],
+    cta: {
+      heading: "Convert Audio to SRT",
+      body: "Upload local audio, generate a timed transcript, review the draft, and export SRT, VTT, or TXT.",
+      primary: { label: "Upload Audio - Free", href: "/#upload" },
+      secondary: { label: "Create Audio TXT", href: "/audio-to-text" }
+    },
+    links: [
+      { label: "Audio to Text Converter", href: "/audio-to-text" },
+      { label: "Video to SRT Converter", href: "/video-to-srt" },
+      { label: "MP4 to SRT Converter", href: "/mp4-to-srt" },
+      { label: "Video to VTT Converter", href: "/video-to-vtt" }
+    ]
+  },
+  "mp4-to-srt": {
+    path: "/mp4-to-srt",
+    metaTitle: "MP4 to SRT Converter - Online AI Subtitles",
+    metaDescription: "Convert MP4 to SRT online from a local upload, review AI captions, and export SRT, VTT, or TXT.",
+    title: "MP4 to SRT Converter",
+    eyebrow: "MP4 subtitle transcription",
+    description: "Convert an MP4 video into an editable SRT subtitle file. Upload your local MP4, let AI transcription create the first timed draft, clean up the wording and timestamps in the browser, and export SRT for platforms, editors, archives, or accessibility workflows.",
+    highlights: ["MP4 to SRT from a local file", "AI transcript with manual cleanup", "Export SRT, VTT, or TXT today", "Built for captions, transcripts, clips, and course videos"],
+    howToName: "How to Convert MP4 to SRT",
+    howToSteps: [
+      { title: "Upload Your MP4", body: "Choose the local MP4 file you have permission to process." },
+      { title: "Create an AI Subtitle Draft", body: "VideoToSRT transcribes the spoken audio into timed, editable subtitle rows." },
+      { title: "Fix and Export SRT", body: "Review the transcript, adjust timing, and download SRT. VTT and TXT export are also available." }
+    ],
+    sections: [
+      {
+        heading: "Why Convert MP4 to SRT?",
+        body: [
+          "MP4 is common for finished videos, exports from editing tools, and files shared by clients or course teams. An SRT file gives that video a portable subtitle track that can be uploaded, edited, archived, or reused in another workflow.",
+          "VideoToSRT focuses on the practical path from local MP4 upload to reviewed subtitle file. It does not burn captions into the video or promise perfect automatic accuracy."
+        ],
+        links: [
+          { label: "Need WebVTT instead?", href: "/video-to-vtt" },
+          { label: "Need plain transcript text?", href: "/video-to-text" }
+        ]
+      },
+      {
+        heading: "How to Convert MP4 to SRT in 3 Steps",
+        body: ["Use the final MP4 when possible so the exported subtitle timing matches the video people will watch."],
+        steps: [
+          { title: "Upload Your MP4", body: "Start from a local MP4 upload. You are responsible for having the rights to process the media." },
+          { title: "Create an AI Subtitle Draft", body: "The transcription job creates timed caption rows from the video's audio track." },
+          { title: "Fix and Export SRT", body: "Correct names, punctuation, timing drift, and long lines before downloading the SRT." }
+        ]
+      },
+      {
+        heading: "MP4 Caption Use Cases",
+        body: [
+          "MP4 to SRT conversion fits creator, education, marketing, and internal training work because it produces a separate subtitle file instead of changing the video pixels.",
+          "A separate SRT is easier to review later, replace on a platform, or convert into TXT when you need notes or documentation."
+        ],
+        features: [
+          { title: "YouTube Uploads", body: "Prepare an SRT track for videos where the platform supports separate captions." },
+          { title: "Course Videos", body: "Review terms and timestamps before adding captions to lesson media." },
+          { title: "Client Reviews", body: "Send a subtitle file that can be inspected without re-exporting the video." },
+          { title: "Clip Repurposing", body: "Keep the SRT source available when making shorter cuts from a longer MP4." }
+        ]
+      },
+      {
+        heading: "SRT vs VTT vs TXT for MP4",
+        body: ["VideoToSRT currently exports SRT, VTT, and TXT. Pick the format based on the platform and how editable the result needs to remain."],
+        table: {
+          columns: ["Format", "Use it when", "Important caveat"],
+          rows: [
+            ["SRT", "You need broad subtitle compatibility", "Styling is limited and platform display can vary"],
+            ["VTT", "You need WebVTT for a browser or web player", "Check the target player's requirements"],
+            ["TXT", "You need readable transcript text", "It does not preserve caption timing as a subtitle file"],
+            ["Burned video", "You need permanent visible captions", "VideoToSRT does not currently export hardcoded MP4 files"]
+          ]
+        }
+      },
+      {
+        heading: "Accuracy and Cleanup for MP4 Files",
+        body: [
+          "The audio inside the MP4 drives transcription quality. Background music, low volume, overlapping speech, accents, and technical vocabulary can all create mistakes.",
+          "Use the browser editor to check timing against the video preview and manually fix every caption that matters before publishing."
+        ],
+        links: [
+          { label: "Edit SRT online", href: "/srt-editor" },
+          { label: "Compare audio-only SRT", href: "/audio-to-srt" }
+        ]
+      }
+    ],
+    faq: [
+      { question: "Can I convert MP4 to SRT online?", answer: "Yes. Upload a local MP4, generate a timed transcript, review it in the editor, and export SRT." },
+      { question: "Is MP4 to SRT free?", answer: "You can start for free within current plan limits. Free includes 60 minutes per month and 60 minutes per file." },
+      { question: "Does the MP4 get changed?", answer: "No. VideoToSRT exports subtitle or transcript files. It does not currently create a hardcoded MP4 with captions burned into the image." },
+      { question: "Can I export VTT from the same MP4?", answer: "Yes. VideoToSRT currently exports SRT, VTT, and TXT after cleanup." },
+      { question: "How accurate is the MP4 transcript?", answer: "Accuracy depends on audio quality, background noise, speaker overlap, accents, and vocabulary. Review the automatic transcript before publishing." },
+      { question: "Can I upload a YouTube link instead of an MP4?", answer: "No. The current product starts from local video or audio uploads, not public URL ingestion." },
+      { question: "What is the file duration limit?", answer: "Current plan limits are Free 60 minutes per file, Pro 180 minutes per file, and Studio 360 minutes per file." },
+      { question: "What happens to uploaded MP4 files?", answer: "Uploaded source files are retained no longer than 7 days where storage retention applies." },
+      { question: "Do I need an account?", answer: "Google sign-in is required for AI transcription, account export, checkout, and paid usage. Local upload, preview, and manual editing can start before sign-in." }
+    ],
+    cta: {
+      heading: "Convert Your MP4 to SRT",
+      body: "Upload an MP4, generate a subtitle draft, review it against the video, and export SRT, VTT, or TXT.",
+      primary: { label: "Upload MP4 - Free", href: "/#upload" },
+      secondary: { label: "Export VTT Instead", href: "/video-to-vtt" }
+    },
+    links: [
+      { label: "Video to SRT Converter", href: "/video-to-srt" },
+      { label: "Video to VTT Converter", href: "/video-to-vtt" },
+      { label: "Video to Text Converter", href: "/video-to-text" },
+      { label: "Audio to SRT Converter", href: "/audio-to-srt" }
+    ]
+  },
+  "video-to-text": {
+    path: "/video-to-text",
+    metaTitle: "Video to Text Converter - AI Transcript Online",
+    metaDescription: "Convert video to text from a local upload, review the AI transcript, and export TXT, SRT, or VTT.",
+    title: "Video to Text Converter",
+    eyebrow: "Video transcription",
+    description: "Turn a local video upload into editable text. VideoToSRT generates an automatic transcript from the video's audio, lets you clean the words in the browser, and exports TXT when you need readable text or SRT/VTT when you also need captions.",
+    highlights: ["Convert video to TXT transcript", "AI transcription with manual review", "Export TXT, SRT, or VTT", "Useful for notes, articles, archives, accessibility, and captions"],
+    howToName: "How to Convert Video to Text",
+    howToSteps: [
+      { title: "Upload Your Video", body: "Choose a local video file you have permission to process." },
+      { title: "Generate a Transcript", body: "AI transcription turns the spoken audio into editable text with caption timing." },
+      { title: "Clean Up and Export TXT", body: "Review the transcript, fix mistakes, and export TXT. SRT and VTT are available when you need timed captions." }
+    ],
+    sections: [
+      {
+        heading: "When a Video Transcript Is Better Than Captions",
+        body: [
+          "A video to text converter is useful when the final deliverable is an article draft, meeting note, research archive, quote bank, support document, or searchable transcript. TXT is easier to skim and repurpose than a subtitle file.",
+          "VideoToSRT still keeps caption timing available during cleanup, so you can export subtitles too if the same video later needs accessibility captions."
+        ],
+        links: [
+          { label: "Need subtitles instead?", href: "/video-to-srt" },
+          { label: "Convert MP4 to SRT", href: "/mp4-to-srt" }
+        ]
+      },
+      {
+        heading: "How to Convert Video to Text in 3 Steps",
+        body: ["The workflow creates a transcript draft first, then gives you a browser editor for cleanup before export."],
+        steps: [
+          { title: "Upload Your Video", body: "Start from a local file. Public URL ingestion is not part of the current product." },
+          { title: "Generate a Transcript", body: "The transcription job extracts speech into editable rows that can also become captions." },
+          { title: "Clean Up and Export TXT", body: "Correct words, punctuation, and line breaks, then export TXT for readable transcript use." }
+        ]
+      },
+      {
+        heading: "Use Cases for Video Text Transcripts",
+        body: [
+          "Text transcripts help teams reuse spoken content without repeatedly scrubbing through a timeline. They are especially useful when one video supports several deliverables.",
+          "Review matters because names, numbers, acronyms, and quoted language need to be correct before they become documentation."
+        ],
+        features: [
+          { title: "Content Repurposing", body: "Turn webinar or tutorial speech into draft notes, posts, or outlines." },
+          { title: "Searchable Archives", body: "Keep a text record alongside training, research, or product videos." },
+          { title: "Accessibility Review", body: "Use TXT for readability checks before exporting SRT or VTT captions." },
+          { title: "Editorial Cleanup", body: "Remove false starts and fix punctuation when the transcript needs to read naturally." }
+        ]
+      },
+      {
+        heading: "TXT vs SRT vs VTT",
+        body: ["VideoToSRT currently exports SRT, VTT, and TXT. TXT is for reading and reuse; SRT and VTT are for timed captions."],
+        table: {
+          columns: ["Output", "Best for", "What it does not do"],
+          rows: [
+            ["TXT", "Readable transcript text, notes, archives", "Does not act as a timed subtitle track"],
+            ["SRT", "Most subtitle upload workflows", "Does not include styling or layout control"],
+            ["VTT", "Web player caption tracks", "May be less accepted than SRT in some tools"],
+            ["Edited transcript", "Publishing or documentation", "Still requires manual review for accuracy"]
+          ]
+        }
+      },
+      {
+        heading: "Accuracy and Transcript Cleanup",
+        body: [
+          "Accuracy depends on audio clarity, background noise, accents, overlapping speakers, and specialized vocabulary. Do not treat the automatic transcript as guaranteed.",
+          "Before using TXT in public notes or documentation, review the source video, correct unclear words, and remove timing artifacts that do not belong in readable text."
+        ],
+        links: [
+          { label: "Convert audio to text", href: "/audio-to-text" },
+          { label: "Open SRT editor", href: "/srt-editor" }
+        ]
+      }
+    ],
+    faq: [
+      { question: "Can I convert video to text online?", answer: "Yes. Upload a local video, generate an AI transcript, edit it, and export TXT." },
+      { question: "Does VideoToSRT export TXT?", answer: "Yes. VideoToSRT currently exports SRT, VTT, and TXT." },
+      { question: "Is video to text free?", answer: "You can start for free within current limits. Free includes 60 transcription minutes per month and 60 minutes per file." },
+      { question: "Can I get subtitles from the same transcript?", answer: "Yes. The same workflow can export SRT or VTT when you need timed captions instead of plain text." },
+      { question: "How accurate is video transcription?", answer: "Accuracy depends on the recording. Clear speech works best, and the transcript should be manually reviewed before publishing." },
+      { question: "Can I transcribe a public video URL?", answer: "No. The current product starts from local video or audio uploads, not public URL ingestion." },
+      { question: "Can I summarize the transcript?", answer: "No. VideoToSRT focuses on transcription, browser cleanup, and SRT, VTT, or TXT export. It does not provide summarization." },
+      { question: "How long are uploaded source files retained?", answer: "Uploaded source files are retained no longer than 7 days where storage retention applies." },
+      { question: "Do I need to sign in?", answer: "Google sign-in is required for AI transcription, account export, checkout, and paid usage. Local upload, preview, and manual editing can start before sign-in." }
+    ],
+    cta: {
+      heading: "Convert Video to Text",
+      body: "Upload a local video, generate an editable transcript, review the draft, and export TXT, SRT, or VTT.",
+      primary: { label: "Upload Video - Free", href: "/#upload" },
+      secondary: { label: "Create SRT Instead", href: "/video-to-srt" }
+    },
+    links: [
+      { label: "Audio to Text Converter", href: "/audio-to-text" },
+      { label: "Video to SRT Converter", href: "/video-to-srt" },
+      { label: "MP4 to SRT Converter", href: "/mp4-to-srt" },
+      { label: "Video to VTT Converter", href: "/video-to-vtt" }
+    ]
+  },
+  "audio-to-text": {
+    path: "/audio-to-text",
+    metaTitle: "Audio to Text Converter - AI Transcript Online",
+    metaDescription: "Convert audio to text from a local upload, review the AI transcript, and export TXT, SRT, or VTT.",
+    title: "Audio to Text Converter",
+    eyebrow: "Audio transcription",
+    description: "Convert local audio recordings into editable text transcripts. Upload audio, generate an automatic transcript, clean up names and wording in the browser, and export TXT for notes or SRT/VTT when you also need timed captions.",
+    highlights: ["Convert audio to TXT transcript", "Browser transcript cleanup", "Export TXT, SRT, or VTT", "Good for podcasts, lectures, interviews, voice notes, and archives"],
+    howToName: "How to Convert Audio to Text",
+    howToSteps: [
+      { title: "Upload Your Audio", body: "Start with a local audio file such as MP3 or M4A, or another audio upload that passes browser and backend checks." },
+      { title: "Generate an AI Transcript", body: "VideoToSRT transcribes speech into editable rows." },
+      { title: "Review and Export TXT", body: "Correct the transcript, then export TXT. SRT and VTT are available if you need timed captions." }
+    ],
+    sections: [
+      {
+        heading: "Turn Spoken Audio Into Usable Text",
+        body: [
+          "Audio to text conversion helps when a recording needs to become notes, documentation, searchable archives, a quote bank, or caption source material. TXT is easier to read and reuse than a raw subtitle file.",
+          "VideoToSRT keeps the workflow grounded in transcription and manual cleanup. It does not create summaries or automatically label who is speaking."
+        ],
+        links: [
+          { label: "Need timed subtitles?", href: "/audio-to-srt" },
+          { label: "Convert video to text", href: "/video-to-text" }
+        ]
+      },
+      {
+        heading: "How to Convert Audio to Text in 3 Steps",
+        body: ["Upload the recording, generate the first draft, then edit the text until it is useful outside the media player."],
+        steps: [
+          { title: "Upload Your Audio", body: "Use a local recording you have permission to process. Public URL ingestion is not currently available." },
+          { title: "Generate an AI Transcript", body: "The transcription job turns speech into editable text rows." },
+          { title: "Review and Export TXT", body: "Fix names, punctuation, numbers, and unclear phrases before downloading TXT." }
+        ]
+      },
+      {
+        heading: "Audio Transcript Use Cases",
+        body: [
+          "A reviewed transcript can save hours when spoken material needs to be quoted, searched, shared, or turned into another asset.",
+          "For public or high-stakes content, keep the original audio handy and verify important language before publishing."
+        ],
+        features: [
+          { title: "Podcast Notes", body: "Create a transcript base for quotes, episode pages, and clips." },
+          { title: "Lecture Review", body: "Turn recorded lessons into study notes or searchable teaching materials." },
+          { title: "Interview Archives", body: "Preserve conversations as text after correcting names and key terms." },
+          { title: "Voiceover Scripts", body: "Recover spoken narration as editable copy for revisions or documentation." }
+        ]
+      },
+      {
+        heading: "TXT Output Compared with Subtitle Files",
+        body: ["VideoToSRT currently exports SRT, VTT, and TXT. The best choice depends on whether the result needs timing."],
+        table: {
+          columns: ["Output", "Best for", "Cleanup to check"],
+          rows: [
+            ["TXT", "Readable notes, archives, quotes, and reuse", "Paragraph flow, punctuation, and filler"],
+            ["SRT", "Caption files for editors and platforms", "Start/end timing and line length"],
+            ["VTT", "Web player captions", "Cue formatting and player compatibility"],
+            ["Manual review", "Every final deliverable", "Names, numbers, technical terms, and unclear speech"]
+          ]
+        }
+      },
+      {
+        heading: "Accuracy Caveats for Audio Transcription",
+        body: [
+          "Automatic transcript quality depends on audio clarity, volume, background noise, speaker overlap, accents, and vocabulary. A clean recording reduces cleanup, but manual review is still required.",
+          "Use TXT export after removing subtitle-specific line breaks that make sense on screen but read awkwardly in a document."
+        ],
+        links: [
+          { label: "Create audio subtitles", href: "/audio-to-srt" },
+          { label: "Review pricing limits", href: "/pricing" }
+        ]
+      }
+    ],
+    faq: [
+      { question: "Can I convert audio to text for free?", answer: "You can start for free within current limits. Free includes 60 transcription minutes per month and 60 minutes per file." },
+      { question: "What export formats are available?", answer: "VideoToSRT currently exports SRT, VTT, and TXT." },
+      { question: "What audio formats can I upload?", answer: "The current product accepts local audio uploads. MP3 and M4A are common choices; other audio files can depend on browser decoding and backend processing." },
+      { question: "How accurate is audio to text?", answer: "Accuracy depends on recording quality, background noise, accents, speaker overlap, and vocabulary. Review the transcript before using it." },
+      { question: "Can VideoToSRT label who is speaking?", answer: "No. You can manually edit text, including names or labels, but the product does not automatically label speakers." },
+      { question: "Can I summarize audio?", answer: "No. VideoToSRT focuses on transcription, cleanup, and SRT, VTT, or TXT export, not summaries." },
+      { question: "Can I upload an audio URL?", answer: "No. The current product starts from local video or audio uploads, not public URL ingestion." },
+      { question: "How long are uploaded source files retained?", answer: "Uploaded source files are retained no longer than 7 days where storage retention applies." },
+      { question: "Do I need to sign in?", answer: "Google sign-in is required for AI transcription, account export, checkout, and paid usage. Local upload, preview, and manual editing can start before sign-in." }
+    ],
+    cta: {
+      heading: "Convert Audio to Text",
+      body: "Upload audio, generate a transcript draft, review the words, and export TXT, SRT, or VTT.",
+      primary: { label: "Upload Audio - Free", href: "/#upload" },
+      secondary: { label: "Create SRT Instead", href: "/audio-to-srt" }
+    },
+    links: [
+      { label: "Audio to SRT Converter", href: "/audio-to-srt" },
+      { label: "Video to Text Converter", href: "/video-to-text" },
+      { label: "Video to SRT Converter", href: "/video-to-srt" },
+      { label: "Video to VTT Converter", href: "/video-to-vtt" }
+    ]
+  },
+  "video-to-vtt": {
+    path: "/video-to-vtt",
+    metaTitle: "Video to VTT Converter - WebVTT Captions Online",
+    metaDescription: "Convert video to VTT from a local upload, review AI captions, and export WebVTT, SRT, or TXT.",
+    title: "Video to VTT Converter",
+    eyebrow: "WebVTT caption export",
+    description: "Create WebVTT captions from a local video upload. VideoToSRT transcribes the video's audio, lets you review text and timing in the browser, and exports VTT for web players, plus SRT or TXT when your workflow needs another format.",
+    highlights: ["Convert video to WebVTT", "AI captions with manual timing review", "Export VTT, SRT, or TXT", "Good for HTML5 video, web players, lessons, and accessibility workflows"],
+    howToName: "How to Convert Video to VTT",
+    howToSteps: [
+      { title: "Upload Your Video", body: "Choose a local video file you have permission to process." },
+      { title: "Generate Timed Captions", body: "AI transcription creates editable caption rows from the spoken audio." },
+      { title: "Review and Export VTT", body: "Clean up wording and timing, then export WebVTT. SRT and TXT exports are also available." }
+    ],
+    sections: [
+      {
+        heading: "Why Use VTT for Web Video?",
+        body: [
+          "WebVTT is commonly used for caption tracks in browser-based video players. It keeps timing with the text, similar to SRT, but is designed for web playback.",
+          "Use VideoToSRT when you need a reviewed VTT file from a local video upload. The product currently exports SRT, VTT, and TXT; it does not create styled dynamic captions or hardcoded video output."
+        ],
+        links: [
+          { label: "Need SRT instead?", href: "/video-to-srt" },
+          { label: "Need text only?", href: "/video-to-text" }
+        ]
+      },
+      {
+        heading: "How to Convert Video to VTT in 3 Steps",
+        body: ["Create a WebVTT caption file by transcribing the video first, then reviewing the result before export."],
+        steps: [
+          { title: "Upload Your Video", body: "Start from a local browser-readable video file such as MP4 or MOV." },
+          { title: "Generate Timed Captions", body: "The AI transcript becomes editable caption rows with start and end times." },
+          { title: "Review and Export VTT", body: "Fix transcript mistakes, check timing, and download the VTT file." }
+        ]
+      },
+      {
+        heading: "Where WebVTT Helps",
+        body: [
+          "VTT is a strong choice when captions are going into a web player or HTML5 video workflow. It is also useful when your engineering or content team standardizes on WebVTT instead of SRT.",
+          "Always verify the exact target player's requirements. Some platforms prefer SRT, while custom web players often expect VTT."
+        ],
+        features: [
+          { title: "HTML5 Video", body: "Use VTT as a caption track for browser playback workflows." },
+          { title: "Product Demos", body: "Add accessible captions to videos embedded in product or marketing pages." },
+          { title: "Course Players", body: "Prepare VTT for learning environments that support WebVTT tracks." },
+          { title: "Web Archives", body: "Keep captions near video assets used in documentation or internal portals." }
+        ]
+      },
+      {
+        heading: "VTT vs SRT vs TXT",
+        body: ["VideoToSRT currently exports SRT, VTT, and TXT, so one reviewed transcript can support several destinations."],
+        table: {
+          columns: ["Format", "Best for", "Caveat"],
+          rows: [
+            ["VTT", "Web players and browser caption tracks", "Confirm target player requirements"],
+            ["SRT", "Broad subtitle upload compatibility", "Less web-native than VTT"],
+            ["TXT", "Readable transcripts and notes", "No subtitle timing for playback"],
+            ["Hardcoded captions", "Permanent text in the video image", "Not exported by VideoToSRT today"]
+          ]
+        }
+      },
+      {
+        heading: "Accuracy and Web Caption Review",
+        body: [
+          "Automatic captions need review before they become web accessibility content. Accuracy depends on the video's audio track, background noise, speaker overlap, accents, and vocabulary.",
+          "Check both text and timing. Captions that are technically valid can still be hard to read if they are too long, too fast, or split at awkward points."
+        ],
+        links: [
+          { label: "Convert MP4 to SRT", href: "/mp4-to-srt" },
+          { label: "Open editor", href: "/srt-editor" }
+        ]
+      }
+    ],
+    faq: [
+      { question: "Can I convert video to VTT online?", answer: "Yes. Upload a local video, generate a timed transcript, review it, and export VTT." },
+      { question: "Does VideoToSRT export WebVTT?", answer: "Yes. VideoToSRT currently exports SRT, VTT, and TXT." },
+      { question: "What is VTT used for?", answer: "VTT is commonly used for WebVTT caption tracks in browser and web player workflows." },
+      { question: "Can I export SRT from the same video?", answer: "Yes. After cleanup, you can export SRT, VTT, or TXT from the current workflow." },
+      { question: "How accurate are video to VTT captions?", answer: "Accuracy depends on audio clarity, background noise, accents, overlapping speech, and vocabulary. Review the captions before publishing." },
+      { question: "Can I create styled or dynamic captions?", answer: "No. VideoToSRT currently focuses on plain SRT, VTT, and TXT export, not styled or dynamic caption output." },
+      { question: "Can I convert from a public URL?", answer: "No. The current product starts from local video or audio uploads, not public URL ingestion." },
+      { question: "What are the plan limits?", answer: "Free includes 60 minutes per month and 60 minutes per file; Pro includes 600 and 180; Studio includes 3000 and 360." },
+      { question: "How long are uploaded source files retained?", answer: "Uploaded source files are retained no longer than 7 days where storage retention applies." }
+    ],
+    cta: {
+      heading: "Convert Video to VTT",
+      body: "Upload a local video, generate a caption draft, review timing and text, and export WebVTT, SRT, or TXT.",
+      primary: { label: "Upload Video - Free", href: "/#upload" },
+      secondary: { label: "Create SRT Instead", href: "/video-to-srt" }
+    },
+    links: [
+      { label: "Video to SRT Converter", href: "/video-to-srt" },
+      { label: "MP4 to SRT Converter", href: "/mp4-to-srt" },
+      { label: "Video to Text Converter", href: "/video-to-text" },
+      { label: "Audio to Text Converter", href: "/audio-to-text" }
     ]
   },
   "srt-editor": {

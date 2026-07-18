@@ -121,7 +121,7 @@ export function SeoLanding({
         <div className="site-container">
           <div className="section-head">
             <h2>Related Subtitle Tools</h2>
-            <p>Move between transcription, editing, translation, and export workflows without leaving VideoToSRT.</p>
+            <p>Move between local transcription, subtitle cleanup, and SRT, VTT, or TXT export workflows.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {links.map((link) => (
@@ -171,10 +171,11 @@ function LandingSection({ section, muted }: { section: SeoLandingSection; muted:
         {section.table ? (
           <div className="mt-6 overflow-x-auto rounded border border-line">
             <table className="w-full min-w-[680px] border-collapse text-left text-sm">
+              <caption className="sr-only">{section.heading} comparison table</caption>
               <thead className="bg-panel-2 text-text">
                 <tr>
                   {section.table.columns.map((column) => (
-                    <th key={column} className="border-b border-line p-4 font-extrabold">{column}</th>
+                    <th key={column} className="border-b border-line p-4 font-extrabold" scope="col">{column}</th>
                   ))}
                 </tr>
               </thead>

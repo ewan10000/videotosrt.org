@@ -101,6 +101,63 @@ const dangerousHtmlFiles = walk(".").filter((file) => {
 assert.deepEqual(dangerousHtmlFiles, ["components/seo/json-ld.tsx"]);
 
 const landing = readFileSync("lib/seo-landing-pages.ts", "utf8");
+function withoutTruthfulUnsupportedDisclaimers(text) {
+  return text
+    .replace(/[^.?!]*(?:does not|do not|not currently|not part of|not available|No\.)[^.?!]*[.?!]/gi, " ")
+    .replace(/[^.?!]*VideoToSRT currently focuses on[^.?!]*not [^.?!]*[.?!]/gi, " ");
+}
+
+const unsupportedNewRouteClaims = [
+  {
+    label: "public URL ingestion",
+    pattern: /\b(?:VideoToSRT|product|workflow|converter|tool)\b[^.?!]*(?:supports|accepts|imports|ingests|transcribes|converts|generates)[^.?!]*(?:public URL|video URL|audio URL|YouTube link|YouTube URL|from URL|from a link)/i
+  },
+  {
+    label: "summarization",
+    pattern: /\b(?:VideoToSRT|product|workflow|converter|tool)\b[^.?!]*(?:summarizes|creates? summaries|provides? summarization|exports? summaries|AI summaries)/i
+  },
+  {
+    label: "automatic speaker labels",
+    pattern: /\b(?:VideoToSRT|product|workflow|converter|tool|AI)\b[^.?!]*(?:automatically labels? speakers|speaker diarization|diarizes|adds? speaker labels? automatically)/i
+  },
+  {
+    label: "styled or dynamic caption output",
+    pattern: /\b(?:VideoToSRT|product|workflow|converter|tool)\b[^.?!]*(?:creates?|exports?|supports|offers)[^.?!]*(?:styled captions?|dynamic captions?|ASS\/SSA|ASS subtitles?|SSA subtitles?|style templates?)/i
+  },
+  {
+    label: "burn-in or hardcoded video output",
+    pattern: /\b(?:VideoToSRT|product|workflow|converter|tool)\b[^.?!]*(?:burns?|burns in|creates?|exports?|supports|offers)[^.?!]*(?:burned-in|burn-in|hardcoded|hard-coded|permanent visible captions?)/i
+  },
+  {
+    label: "batch processing",
+    pattern: /\b(?:VideoToSRT|product|workflow|converter|tool)\b[^.?!]*(?:batch|bulk|multiple files at once|many files at once)/i
+  }
+];
+
+for (const route of ["audio-to-srt", "mp4-to-srt", "video-to-text", "audio-to-text", "video-to-vtt"]) {
+  const start = landing.indexOf(`"${route}": {`);
+  assert.notEqual(start, -1, `${route} exists`);
+  const end = landing.indexOf("\n  },", start);
+  const block = landing.slice(start, end);
+  const claimBlock = withoutTruthfulUnsupportedDisclaimers(block);
+  assert.equal(/unavailableProduct: true/.test(block), false, `${route} must be an available/indexable landing page`);
+  assert.match(block, /VideoToSRT currently exports SRT, VTT, and TXT/, `${route} states current export formats`);
+  assert.match(block, /Accuracy depends|automatic transcript/i, `${route} includes accuracy or review caveat`);
+  for (const { label, pattern } of unsupportedNewRouteClaims) {
+    assert.equal(pattern.test(claimBlock), false, `${route} must not claim ${label}`);
+  }
+}
+assert.equal(/Move between transcription, editing, translation, and export workflows/.test(landing), false, "related links must not imply in-app translation");
+assert.match(landing, /href: "\/audio-to-srt"/);
+assert.match(landing, /href: "\/mp4-to-srt"/);
+assert.match(landing, /href: "\/video-to-text"/);
+assert.match(landing, /href: "\/audio-to-text"/);
+assert.match(landing, /href: "\/video-to-vtt"/);
+
+const sitemap = readFileSync("app/sitemap.ts", "utf8");
+for (const route of ["/audio-to-srt", "/mp4-to-srt", "/video-to-text", "/audio-to-text", "/video-to-vtt"]) {
+  assert.match(sitemap, new RegExp(`"${route}"`), `sitemap contains ${route}`);
+}
 for (const route of ["burn-subtitles", "short-form-subtitles", "subtitle-translator", "ass-subtitle-editor", "public-url-subtitles"]) {
   const start = landing.indexOf(`"${route}": {`);
   assert.notEqual(start, -1, `${route} exists`);

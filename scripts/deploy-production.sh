@@ -2,6 +2,7 @@
 set -euo pipefail
 
 npx opennextjs-cloudflare build
+node scripts/check-seo-pages.mjs
 npx opennextjs-cloudflare deploy
 
 if [[ "${GITHUB_ACTIONS:-}" != "true" ]]; then
