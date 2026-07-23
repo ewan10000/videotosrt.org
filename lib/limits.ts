@@ -6,7 +6,7 @@ export const PLAN_LIMITS: Record<PlanId, { maxFileMinutes: number; monthlyMinute
   studio: { monthlyMinutes: 3000, maxFileMinutes: 360 }
 };
 
-export const TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES = 25 * 1024 * 1024;
+export const TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES = 1 * 1024 * 1024 * 1024;
 
 export function getPlanLimits(plan: PlanId) {
   return PLAN_LIMITS[plan];

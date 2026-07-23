@@ -68,7 +68,7 @@ export function HomeUploadButton({ className }: { className?: string }) {
         onClick={openFilePicker}
       >
         <FolderUp className="h-4 w-4" />
-        Upload (25 MB AI guard)
+        Upload (1 GB AI limit)
       </button>
       <input
         ref={inputRef}

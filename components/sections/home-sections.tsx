@@ -16,7 +16,7 @@ const features = [
   ["60", "Free Minutes", "Free accounts include 60 transcription minutes per month and up to 60 minutes per file."],
   ["AI", "AI Transcription", "Generate an editable draft after Google sign-in, then review every line."],
   ["180", "Per-file Duration", "Plan limits are duration based: Free 60, Pro 180, and Studio 360 minutes per file."],
-  ["25", "Technical Guard", "AI transcription currently has a 25 MB upload guard in addition to minute quotas."]
+  ["1 GB", "Technical Limit", "AI transcription currently has a 1 GB technical file-size limit in addition to minute quotas."]
 ];
 
 const faqs = [
@@ -25,7 +25,7 @@ const faqs = [
   ["How accurate is transcription?", "Accuracy depends on audio quality, speakers, background noise, and vocabulary. Every line is editable inline before export."],
   ["Can I use exported subtitles commercially?", "Yes. Everything you export is yours. We don't watermark, we don't claim rights, we don't look at your content."],
   ["What happens to my video after upload?", "Uploaded media is used to run the transcription workflow. A daily retention job deletes uploaded media under uploads/ from R2 after it is older than 7 days. Local editor drafts remain in your browser until you clear them."],
-  ["Is there a file size limit?", "Plan limits are duration based: Free 60 minutes per file, Pro 180, Studio 360. Automatic transcription also has a 25 MB technical payload guard today."],
+  ["Is there a file size limit?", "Plan limits are duration based: Free 60 minutes per file, Pro 180, Studio 360. Automatic transcription also has a 1 GB technical file-size limit today."],
   ["Can I edit an existing SRT file?", "Yes. Upload your SRT alongside the video, or paste it directly into the editor. Fix timing without touching code."],
   ["What's the difference between Free and Pro?", "Free includes 60 transcription minutes per month and 60 minutes per file. Pro includes 600 minutes per month and 180 minutes per file."],
   ["Does the pay-as-you-go credit expire?", "Never. Buy once, use whenever. No monthly pressure."],
@@ -136,7 +136,7 @@ function UploadPanel() {
             </div>
             <h2 className="mb-[9px] text-2xl font-extrabold leading-[1.2]">Drop your video here</h2>
             <p className="mx-auto mb-5 max-w-[410px] leading-[1.6] text-muted">
-              Drag in a local MP4, MOV, WebM, MP3, M4A, or WAV file. AI transcription requires Google sign-in and has a 25 MB technical upload guard; minute quotas still apply by plan.
+              Drag in a local MP4, MOV, WebM, MP3, M4A, or WAV file. AI transcription requires Google sign-in and has a 1 GB technical file-size limit; minute quotas still apply by plan.
             </p>
           </div>
         </label>
@@ -393,7 +393,7 @@ export function FinalCtaSection() {
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px" href="/#upload">
-            Start free upload - 25 MB AI guard
+            Start free upload - 1 GB AI limit
           </Link>
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold text-text transition hover:-translate-y-px" href="/pricing">
             See Pricing

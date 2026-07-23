@@ -25,7 +25,7 @@ const forbidden = [
   /brand templates/i,
   /style templates/i,
   /95%\+/i,
-  /1GB|2GB/i,
+  /2GB/i,
   /money-back guarantee/i,
   /send you the file/i,
   /MVP/i,
@@ -47,12 +47,13 @@ const heroEnd = homeSections.indexOf("function UploadPanel()", heroStart);
 assert.notEqual(heroStart, -1, "homepage hero exists");
 assert.notEqual(heroEnd, -1, "homepage upload panel follows hero");
 const heroBlock = homeSections.slice(heroStart, heroEnd);
-assert.equal(/25\s*MB|25MB/i.test(heroBlock), false, "hero must not present 25 MB as a primary product limit");
+const staleMegabyteLimitPattern = new RegExp(`${25}\\s*MB|${25}MB`, "i");
+assert.equal(staleMegabyteLimitPattern.test(heroBlock), false, "hero must not present the retired small-file limit as a primary product limit");
 assert.match(heroBlock, /Free includes 60 minutes per month and 60 minutes per file/);
 assert.match(heroBlock, /Google sign-in is required for AI transcription, account export, checkout, and paid usage/);
 
 assert.match(homeSections, /Plan limits are duration based: Free 60, Pro 180, and Studio 360 minutes per file/);
-assert.match(homeSections, /25 MB technical upload guard|25 MB technical guard/, "homepage discloses the technical guard near upload/transcription copy");
+assert.match(homeSections, /1 GB technical file-size limit/, "homepage discloses the technical file-size limit near upload/transcription copy");
 assert.match(homeSections, retentionCopyPattern, "homepage states verified 7-day uploaded media retention");
 assert.match(homeSections, browserDraftPattern, "homepage notes local drafts stay in the browser");
 
@@ -279,7 +280,11 @@ assert.match(exportModalSource, /export_started/);
 assert.match(exportModalSource, /download_initiated/);
 assert.equal(/export_completed/.test(exportModalSource), false, "export modal must not claim export completion");
 const editorClientSource = readFileSync("components/sections/editor-client.tsx", "utf8");
-assert.match(editorClientSource, /errorType: "technical_size_guard"/, "25 MB AI guard is tracked as transcription failure, not upload rejection");
+assert.match(editorClientSource, /errorType: "technical_size_guard"/, "1 GB AI guard is tracked as transcription failure, not upload rejection");
+assert.match(editorClientSource, /file\.size <= 0/, "editor rejects empty files before upload");
+assert.match(editorClientSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES/, "editor uses the shared technical upload limit");
+assert.equal(/api\.upload\(file\)/.test(editorClientSource), false, "production browser transcription path must not use Worker multipart /upload");
+assert.match(editorClientSource, /api\.uploadDirectToR2\(file\)/, "production browser transcription path uploads directly to R2");
 assert.match(editorClientSource, /\) : hasProject && !rows\.length && !isTranscribing \? \(/, "empty editor state must not render duplicate Generate CTAs");
 assert.match(editorClientSource, /max-w-full overflow-x-hidden bg-bg text-text min-\[760px\]:hidden/, "mobile editor shell must prevent page-level horizontal overflow");
 assert.match(editorClientSource, /min-\[360px\]:grid-cols-2/, "mobile editor actions must collapse to one column and grow to two columns");
@@ -287,5 +292,14 @@ assert.match(editorClientSource, /className="w-full px-3"/, "mobile generate CTA
 assert.match(editorClientSource, /<div className="min-h-0 overflow-auto">\s*<table className="w-full min-w-\[520px\]/, "subtitle table horizontal scroll must stay inside the table container");
 const homeUploadSource = readFileSync("components/home-upload-button.tsx", "utf8");
 assert.equal(/file\.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES \? "file_rejected" : "file_selected"/.test(homeUploadSource), false, "large home uploads are still accepted for local editing");
+
+const limitsSource = readFileSync("lib/limits.ts", "utf8");
+assert.match(limitsSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES\s*=\s*1\s*\*\s*1024\s*\*\s*1024\s*\*\s*1024/, "frontend technical upload limit is exactly 1 GiB");
+
+const apiSource = readFileSync("lib/api.ts", "utf8");
+assert.match(apiSource, /\/upload\/presign/, "frontend requests backend presigned upload URLs");
+assert.match(apiSource, /method:\s*["']PUT["']/, "frontend uploads media to R2 with direct PUT");
+assert.match(apiSource, /body:\s*file/, "frontend streams the File as the direct PUT body");
+assert.match(apiSource, /\/upload\/url/, "frontend asks backend for an owned upload URL after direct PUT");
 
 console.log("frontend product truth tests passed");

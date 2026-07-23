@@ -90,6 +90,15 @@ export type UploadResponse = {
   url?: string;
 };
 
+type PresignUploadResponse = {
+  contentType?: string;
+  data?: PresignUploadResponse;
+  filename?: string;
+  key?: string;
+  size?: number;
+  url?: string;
+};
+
 export type ApiUserResponse =
   | ApiUser
   | {
@@ -192,6 +201,45 @@ export const api = {
     const body = new FormData();
     body.set("file", file);
     return apiFetch<UploadResponse>("/upload", { method: "POST", body, timeoutMs: 120000 });
+  },
+  uploadDirectToR2: async (file: File) => {
+    const contentType = file.type || "application/octet-stream";
+    const presign = await apiFetch<PresignUploadResponse>(
+      `/upload/presign?filename=${encodeURIComponent(file.name || "upload")}&contentType=${encodeURIComponent(contentType)}&size=${encodeURIComponent(String(file.size))}`,
+    );
+    const presigned = presign.data ?? presign;
+
+    if (!presigned.url || !presigned.key) {
+      throw new Error("Upload could not start because the storage URL was not returned.");
+    }
+
+    const controller = new AbortController();
+    const timeout = globalThis.setTimeout(() => controller.abort(), 30 * 60 * 1000);
+    let response: Response;
+
+    try {
+      response = await fetch(presigned.url, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": presigned.contentType || contentType,
+        },
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        throw new Error("Upload to storage timed out. Please check your connection and try again.");
+      }
+      throw new Error("Upload to storage failed. Please check your connection and try again.");
+    } finally {
+      globalThis.clearTimeout(timeout);
+    }
+
+    if (!response.ok) {
+      throw new Error(`Upload to storage failed with status ${response.status}. Please try again.`);
+    }
+
+    return apiFetch<UploadResponse>(`/upload/url?key=${encodeURIComponent(presigned.key)}`);
   },
   transcribe: (payload: { filename: string; audio_url: string; duration_seconds: number }) =>
     apiFetch<ApiJob>("/transcribe", { method: "POST", body: payload }),

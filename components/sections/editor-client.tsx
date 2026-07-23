@@ -440,6 +440,18 @@ export function EditorClient() {
   async function transcribeFile(file: File, mediaDuration: number) {
     setNeedsLoginForTranscription(false);
 
+    if (file.size <= 0) {
+      trackConversionEvent("transcription_failed", {
+        errorType: "empty_file",
+        fileSize: file.size,
+        fileType: fileTypeLabel(file),
+        reason: "empty_file",
+        source: "editor_transcribe"
+      });
+      setStatus("This file is empty. Please upload an audio or video file with media content.");
+      return;
+    }
+
     if (file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES) {
       trackConversionEvent("transcription_failed", {
         errorType: "technical_size_guard",
@@ -449,7 +461,7 @@ export function EditorClient() {
         source: "editor_transcribe"
       });
       setStatus(
-        `Automatic transcription currently supports files up to 25 MB. This file is ${formatFileSize(file.size)}. Please upload a shorter or compressed audio/video file.`
+        `Automatic transcription currently supports files up to 1 GB. This file is ${formatFileSize(file.size)}. Please upload a shorter or compressed audio/video file.`
       );
       return;
     }
@@ -471,7 +483,7 @@ export function EditorClient() {
     });
 
     try {
-      const upload = await api.upload(file);
+      const upload = await api.uploadDirectToR2(file);
       const audioUrl = extractUploadUrl(upload);
 
       if (!audioUrl) {
@@ -994,7 +1006,7 @@ export function EditorClient() {
                   <p className="text-sm font-semibold text-soft">
                     {hasProject
                       ? `${formatFileSize(fileSize)} · Select the file again here to preview it in the browser.`
-                      : "Start with local MP4, MOV, WebM, MP3, M4A, or WAV. AI transcription requires Google sign-in and has a 25 MB technical guard."}
+                      : "Start with local MP4, MOV, WebM, MP3, M4A, or WAV. AI transcription requires Google sign-in and has a 1 GB technical file-size limit."}
                   </p>
                 </button>
               ) : null}
@@ -1227,7 +1239,7 @@ export function EditorClient() {
             </div>
             <Button variant="secondary" size="sm" className="shrink-0" type="button" onClick={openFilePicker}>Upload</Button>
           </div>
-          <p className="mb-0 mt-2 break-words text-xs font-semibold leading-5 text-soft">Local audio/video upload. AI transcription requires Google sign-in and a file under 25 MB; minute quotas still apply.</p>
+          <p className="mb-0 mt-2 break-words text-xs font-semibold leading-5 text-soft">Local audio/video upload. AI transcription requires Google sign-in and a file under 1 GB; minute quotas still apply.</p>
         </header>
         <main className="grid min-w-0 max-w-full gap-4 p-3">
           <h1 className="sr-only">VideoToSRT Subtitle Editor</h1>

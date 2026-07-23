@@ -38,7 +38,7 @@ export default function ToolsPage() {
             <span className="eyebrow"><span className="dot" /> Available tools</span>
             <h1 className="mb-4 mt-5 max-w-[760px] text-[clamp(42px,6vw,68px)] font-extrabold leading-[1]">Subtitle Tools You Can Use Today</h1>
             <p className="mb-0 max-w-[760px] text-lg leading-[1.7] text-muted">
-              These tools reflect current product abilities only: local media upload, AI transcription with Google sign-in, inline editing, and SRT, VTT, or TXT export. AI transcription has a 25 MB technical upload guard in addition to minute quotas.
+              These tools reflect current product abilities only: local media upload, AI transcription with Google sign-in, inline editing, and SRT, VTT, or TXT export. AI transcription has a 1 GB technical file-size limit in addition to minute quotas.
             </p>
           </div>
         </header>

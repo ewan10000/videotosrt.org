@@ -10,7 +10,7 @@ const faqs = [
   ["How accurate is transcription?", "Accuracy is strongest with clear audio, and every line remains editable inline before export."],
   ["Can I use exported subtitles commercially?", "Yes. Everything you export is yours. We do not watermark, claim rights, or review your content."],
   ["What happens to my video after upload?", "Uploaded media is used to run the transcription workflow. A daily retention job deletes uploaded media under uploads/ from R2 after it is older than 7 days. Local editor drafts remain in your browser until you clear them."],
-  ["Is there a file size limit?", "User-facing limits are duration based: Free 60 minutes per file, Pro 180, Studio 360. Automatic transcription also has a 25 MB technical payload guard today."],
+  ["Is there a file size limit?", "User-facing limits are duration based: Free 60 minutes per file, Pro 180, Studio 360. Automatic transcription also has a 1 GB technical file-size limit today."],
   ["Can I edit an existing SRT file?", "Yes. You can use the editor workflow to adjust subtitle text and timing, then export clean subtitle files."],
   ["What is the difference between Free and Pro?", "Free includes 60 minutes per month and 60 minutes per file. Pro includes 600 minutes per month and 180 minutes per file."],
   ["Do pay-as-you-go credits expire?", "No. Extra transcription credits are intended to be used whenever you need them."],

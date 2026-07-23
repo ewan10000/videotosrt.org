@@ -397,7 +397,7 @@ export function PricingClient() {
             <span className="eyebrow"><span className="dot" /> Simple subtitle pricing</span>
             <h1 className="mb-4 mt-5 max-w-[760px] text-[clamp(42px,6vw,68px)] font-extrabold leading-[1]">Simple Pricing. No Surprises.</h1>
             <p className="mb-0 max-w-[720px] text-lg leading-[1.7] text-muted">
-              Start free. Upgrade when you need more transcription minutes. A 25 MB technical upload guard applies while transcription runs through the current browser and Worker pipeline.
+              Start free. Upgrade when you need more transcription minutes. A 1 GB technical file-size limit applies while minute quotas remain duration based.
             </p>
           </div>
           <div className="rounded border border-line bg-panel p-2">
@@ -476,7 +476,7 @@ export function PricingClient() {
                 </ul>
                 {plan.plan === "free" ? (
                   <Link className="inline-flex min-h-[42px] w-full items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold" href="/#upload">
-                    Start free upload - 25 MB AI guard
+                    Start free upload - 1 GB AI limit
                   </Link>
                 ) : (
                   <Button
@@ -520,7 +520,7 @@ export function PricingClient() {
           </div>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {[
-              ["Technical guard", "AI transcription currently accepts local audio/video uploads up to 25 MB. Minute quotas are separate duration limits, so a long high-bitrate file may need compression before transcription."],
+              ["Technical limit", "AI transcription currently accepts local audio/video uploads up to 1 GB. Minute quotas are separate duration limits, so a long high-bitrate file may need compression before transcription."],
               ["Billing provider", "Subscriptions and extra-hour purchases open PayPal checkout after Google sign-in so the purchase can attach to your account."],
               ["Cancellation and support", "Cancel subscription billing in PayPal or contact support@videotosrt.org. Refunds are not promised here and are handled case by case through support and the payment provider process."]
             ].map(([title, body]) => (
