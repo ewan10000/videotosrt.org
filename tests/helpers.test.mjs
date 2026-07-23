@@ -167,21 +167,58 @@ assert.deepEqual(failedRaceStatements, [
 
 function createRequestTestEnv(options = {}) {
   const queries = [];
+  const users = [];
   return {
     SITE_NAME: "VideoToSRT",
     APP_ORIGIN: "https://videotosrt.org",
     SESSION_SECRET: "test-secret",
+    GOOGLE_CLIENT_ID: "google-client",
+    GOOGLE_CLIENT_SECRET: "google-secret",
+    GOOGLE_REDIRECT_URI: "https://api.videotosrt.org/api/auth/callback/google",
+    SHIPANY_BRIDGE_SECRET: "shipany-secret",
     DB: {
       prepare(sql) {
+        let bindings = [];
         queries.push(sql);
         return {
-          bind() {
+          bind(...values) {
+            bindings = values;
             return this;
           },
-          run: async () => ({}),
+          run: async () => {
+            if (sql.startsWith("INSERT INTO users")) {
+              users.push({
+                id: bindings[0],
+                email: bindings[1],
+                name: bindings[2],
+                avatar: bindings[3],
+                provider: bindings[4],
+                provider_id: bindings[5],
+                plan: "free",
+                created_at: bindings[6],
+                updated_at: bindings[7],
+              });
+            }
+            if (sql.startsWith("UPDATE users")) {
+              const user = users.find((entry) => entry.id === bindings[4]);
+              if (user) {
+                user.email = bindings[0];
+                user.name = bindings[1];
+                user.avatar = bindings[2];
+                user.updated_at = bindings[3];
+              }
+            }
+            return {};
+          },
           all: async () => ({ results: [{ name: "plan" }, { name: "extra_credit_hours" }, { name: "last_login_at" }] }),
           first: async () => {
             if (options.failSessionLookup) throw new Error("session lookup failed");
+            if (sql === "SELECT * FROM users WHERE provider = ? AND provider_id = ?") {
+              return users.find((entry) => entry.provider === bindings[0] && entry.provider_id === bindings[1]) ?? null;
+            }
+            if (sql === "SELECT * FROM users WHERE id = ?") {
+              return users.find((entry) => entry.id === bindings[0]) ?? null;
+            }
             return null;
           },
         };
@@ -193,6 +230,7 @@ function createRequestTestEnv(options = {}) {
       }),
     },
     __queries: queries,
+    __users: users,
   };
 }
 
@@ -237,6 +275,61 @@ const errorResponse = await fetchWorker("/api/health", {
 assert.equal(errorResponse.status, 500);
 assert.equal(errorResponse.headers.get("x-robots-tag"), "noindex,nofollow");
 assert.equal((await errorResponse.json()).error.code, "INTERNAL_ERROR");
+
+const oauthEnv = createRequestTestEnv();
+const oauthState = await session.createStateToken(oauthEnv, {
+  provider: "google",
+  returnTo: "https://videotosrt.org/auth/complete?next=%2Fdashboard&source=google",
+});
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async (input, init) => {
+  const url = new URL(typeof input === "string" ? input : input.url);
+  if (url.href === "https://oauth2.googleapis.com/token") {
+    return Response.json({ access_token: "google-access-token" });
+  }
+  if (url.href === "https://www.googleapis.com/oauth2/v2/userinfo") {
+    assert.equal(init?.headers?.Authorization, "Bearer google-access-token");
+    return Response.json({
+      id: "google-user-1",
+      email: "User@Example.test",
+      name: "Test User",
+      picture: "https://example.test/avatar.png",
+    });
+  }
+  return originalFetch(input, init);
+};
+try {
+  const callbackResponse = await fetchWorker(
+    `/api/auth/callback/google?state=${encodeURIComponent(oauthState)}&code=oauth-code`,
+    {},
+    oauthEnv,
+  );
+  assert.equal(callbackResponse.status, 302);
+
+  const callbackLocation = callbackResponse.headers.get("location");
+  assert.ok(callbackLocation);
+  const redirectUrl = new URL(callbackLocation);
+  assert.equal(redirectUrl.origin, "https://videotosrt.org");
+  assert.equal(redirectUrl.pathname, "/auth/complete");
+  assert.equal(redirectUrl.searchParams.get("next"), "/dashboard");
+  assert.equal(redirectUrl.searchParams.get("source"), "google");
+  assert.equal(redirectUrl.searchParams.has("token"), false);
+
+  const fragmentParams = new URLSearchParams(redirectUrl.hash.slice(1));
+  const redirectToken = fragmentParams.get("token");
+  assert.ok(redirectToken);
+
+  const setCookieHeader = callbackResponse.headers.get("set-cookie") ?? "";
+  const cookieTokenMatch = setCookieHeader.match(/vts_session=([^;]+)/);
+  assert.ok(cookieTokenMatch);
+  assert.equal(decodeURIComponent(cookieTokenMatch[1]), redirectToken);
+
+  const payload = await session.verifySignedToken(redirectToken, oauthEnv.SESSION_SECRET);
+  assert.equal(payload.userId, oauthEnv.__users[0].id);
+  assert.equal(oauthEnv.__users[0].email, "User@Example.test");
+} finally {
+  globalThis.fetch = originalFetch;
+}
 
 const rootResponse = await fetchWorker("/");
 assert.equal(rootResponse.status, 200);

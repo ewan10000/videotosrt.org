@@ -4,7 +4,6 @@ import { addCreditsIdempotent } from "../lib/credits";
 import { appOrigin, createId, nowIso } from "../lib/env";
 import { fail, ok } from "../lib/response";
 import {
-  createSessionCookie,
   createSessionToken,
   createSignedToken,
   createStateToken,
@@ -112,6 +111,19 @@ function redirectToShipAnyCompletion(target: ShipAnyCompletionTarget, token: str
   redirectUrl.searchParams.set("returnTo", target.returnPath);
   redirectUrl.searchParams.set("token", token);
   return redirectUrl.toString();
+}
+
+function redirectWithFrontendSessionToken(env: HonoAppEnv["Bindings"], returnTo: string, token: string) {
+  const url = new URL(returnTo);
+  const appUrl = new URL(appOrigin(env));
+  if (url.origin !== appUrl.origin || url.pathname !== "/auth/complete" || url.username || url.password) {
+    return returnTo;
+  }
+
+  const fragment = new URLSearchParams(url.hash.slice(1));
+  fragment.set("token", token);
+  url.hash = fragment.toString();
+  return url.toString();
 }
 
 async function upsertUser(env: HonoAppEnv["Bindings"], profile: UserProfile) {
@@ -380,9 +392,10 @@ authRoutes.get("/auth/callback/:provider", async (c) => {
 
   const user = await upsertUser(c.env, profile);
   clearCookie(c, STATE_COOKIE);
-  await createSessionCookie(c, user.id);
+  const token = await createSessionToken(c, user.id);
+  setCookie(c, SESSION_COOKIE, token);
 
-  return c.redirect(verifiedState.returnTo);
+  return c.redirect(redirectWithFrontendSessionToken(c.env, verifiedState.returnTo, token));
 });
 
 authRoutes.get("/auth/me", (c) => {
