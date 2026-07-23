@@ -327,6 +327,33 @@ try {
   const payload = await session.verifySignedToken(redirectToken, oauthEnv.SESSION_SECRET);
   assert.equal(payload.userId, oauthEnv.__users[0].id);
   assert.equal(oauthEnv.__users[0].email, "User@Example.test");
+
+  const bearerMeResponse = await fetchWorker("/api/auth/me", {
+    headers: { Authorization: `Bearer ${redirectToken}` },
+  }, oauthEnv);
+  assert.equal(bearerMeResponse.status, 200);
+  assert.equal((await bearerMeResponse.json()).data.user.email, "User@Example.test");
+
+  const cookieMeResponse = await fetchWorker("/api/auth/me", {
+    headers: { Cookie: `vts_session=${redirectToken}` },
+  }, oauthEnv);
+  assert.equal(cookieMeResponse.status, 200);
+  assert.equal((await cookieMeResponse.json()).data.user.email, "User@Example.test");
+
+  const lowerBearerMeResponse = await fetchWorker("/api/auth/me", {
+    headers: { Authorization: `bearer ${redirectToken}` },
+  }, oauthEnv);
+  assert.equal(lowerBearerMeResponse.status, 200);
+  assert.equal((await lowerBearerMeResponse.json()).data.user.email, "User@Example.test");
+
+  const malformedBearerMeResponse = await fetchWorker("/api/auth/me", {
+    headers: {
+      Authorization: `Bearer ${redirectToken} extra`,
+      Cookie: `vts_session=${redirectToken}`,
+    },
+  }, oauthEnv);
+  assert.equal(malformedBearerMeResponse.status, 200);
+  assert.equal((await malformedBearerMeResponse.json()).data.user, null);
 } finally {
   globalThis.fetch = originalFetch;
 }

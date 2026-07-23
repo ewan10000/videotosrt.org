@@ -13,6 +13,11 @@ type StatePayload = {
   exp: number;
 };
 
+type SessionTokenSource =
+  | { status: "token"; token: string }
+  | { status: "absent" }
+  | { status: "invalid" };
+
 const encoder = new TextEncoder();
 
 function base64Url(input: ArrayBuffer | Uint8Array | string) {
@@ -87,8 +92,22 @@ export async function verifyStateToken(env: Bindings, token: string | null, prov
   return payload;
 }
 
+function getBearerSessionToken(c: Context<HonoAppEnv>): SessionTokenSource {
+  const authorization = c.req.header("Authorization");
+  if (!authorization) return { status: "absent" };
+
+  const match = /^Bearer ([^\s]+)$/i.exec(authorization);
+  if (!match) return { status: "invalid" };
+
+  return { status: "token", token: match[1] };
+}
+
 export async function getSessionUser(c: Context<HonoAppEnv>) {
-  const payload = await verifySignedToken<SessionPayload>(getCookie(c, SESSION_COOKIE), c.env.SESSION_SECRET);
+  const bearer = getBearerSessionToken(c);
+  if (bearer.status === "invalid") return null;
+
+  const token = bearer.status === "token" ? bearer.token : getCookie(c, SESSION_COOKIE);
+  const payload = await verifySignedToken<SessionPayload>(token, c.env.SESSION_SECRET);
   if (!payload || payload.exp < Math.floor(Date.now() / 1000)) return null;
 
   return c.env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(payload.userId).first<User>();
