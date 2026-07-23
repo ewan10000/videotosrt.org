@@ -167,7 +167,7 @@ assert.deepEqual(failedRaceStatements, [
 
 function createRequestTestEnv(options = {}) {
   const queries = [];
-  const users = [];
+  const users = [...(options.users ?? [])];
   return {
     SITE_NAME: "VideoToSRT",
     APP_ORIGIN: "https://videotosrt.org",
@@ -230,6 +230,14 @@ function createRequestTestEnv(options = {}) {
       }),
     },
     __queries: queries,
+    R2_ACCOUNT_ID: "test-account",
+    R2_BUCKET_NAME: "test-bucket",
+    R2_ENDPOINT: "https://test-account.r2.cloudflarestorage.com",
+    R2_ACCESS_KEY_ID: "test-access-key",
+    R2_SECRET_ACCESS_KEY: "test-secret-key",
+    R2: {
+      put: async () => ({})
+    },
     __users: users,
   };
 }
@@ -357,6 +365,139 @@ try {
 } finally {
   globalThis.fetch = originalFetch;
 }
+
+const uploadUser = {
+  id: "user_upload",
+  email: "upload@example.test",
+  name: "Upload User",
+  avatar: "",
+  provider: "google",
+  provider_id: "google-upload",
+  plan: "free",
+  created_at: "2026-07-16T00:00:00.000Z",
+  updated_at: "2026-07-16T00:00:00.000Z",
+};
+const uploadEnv = createRequestTestEnv({ users: [uploadUser] });
+const uploadObjects = new Map();
+const deletedUploadKeys = [];
+const uploadHeadKeys = [];
+uploadEnv.R2 = {
+  async head(key) {
+    uploadHeadKeys.push(key);
+    return uploadObjects.get(key) ?? null;
+  },
+  async delete(key) {
+    deletedUploadKeys.push(key);
+    uploadObjects.delete(key);
+  },
+  async put() {
+    return {};
+  },
+};
+const uploadSessionToken = await session.createSignedToken(
+  { userId: uploadUser.id, exp: Math.floor(Date.now() / 1000) + 60 },
+  uploadEnv.SESSION_SECRET,
+);
+const uploadAuthHeaders = { Authorization: `Bearer ${uploadSessionToken}` };
+
+const missingSizePresignResponse = await fetchWorker(
+  "/api/upload/presign?filename=clip.mp4&contentType=video/mp4",
+  { headers: uploadAuthHeaders },
+  uploadEnv,
+);
+assert.equal(missingSizePresignResponse.status, 400);
+assert.equal((await missingSizePresignResponse.json()).error.code, "INVALID_SIZE");
+
+const zeroSizePresignResponse = await fetchWorker(
+  "/api/upload/presign?filename=clip.mp4&contentType=video/mp4&size=0",
+  { headers: uploadAuthHeaders },
+  uploadEnv,
+);
+assert.equal(zeroSizePresignResponse.status, 400);
+assert.equal((await zeroSizePresignResponse.json()).error.code, "EMPTY_FILE");
+
+const oversizedPresignResponse = await fetchWorker(
+  "/api/upload/presign?filename=clip.mp4&contentType=video/mp4&size=1073741825",
+  { headers: uploadAuthHeaders },
+  uploadEnv,
+);
+assert.equal(oversizedPresignResponse.status, 413);
+assert.equal((await oversizedPresignResponse.json()).error.code, "FILE_TOO_LARGE");
+
+const unsafeTypePresignResponse = await fetchWorker(
+  "/api/upload/presign?filename=clip.mp4&contentType=text/html&size=1000",
+  { headers: uploadAuthHeaders },
+  uploadEnv,
+);
+assert.equal(unsafeTypePresignResponse.status, 400);
+assert.equal((await unsafeTypePresignResponse.json()).error.code, "INVALID_CONTENT_TYPE");
+
+const validPresignResponse = await fetchWorker(
+  "/api/upload/presign?filename=..%2Funsafe%20clip.mp4&contentType=video/mp4&size=1073741824",
+  { headers: uploadAuthHeaders },
+  uploadEnv,
+);
+assert.equal(validPresignResponse.status, 200);
+const validPresignPayload = (await validPresignResponse.json()).data;
+assert.match(validPresignPayload.key, /^uploads\/user_upload\/media_[a-z0-9]+\.mp4$/);
+assert.equal(validPresignPayload.filename, "unsafe clip.mp4");
+assert.equal(validPresignPayload.contentType, "video/mp4");
+assert.equal(validPresignPayload.size, 1073741824);
+assert.match(validPresignPayload.url, /^https:\/\/test-account\.r2\.cloudflarestorage\.com\/test-bucket\/uploads\/user_upload\/media_/);
+const signedPutUrl = new URL(validPresignPayload.url);
+assert.equal(signedPutUrl.searchParams.get("X-Amz-SignedHeaders"), "content-type;host");
+assert.ok(signedPutUrl.searchParams.get("X-Amz-Signature"));
+
+const ownedUploadUrlResponse = await fetchWorker(
+  `/api/upload/url?key=${encodeURIComponent(validPresignPayload.key)}`,
+  { headers: uploadAuthHeaders },
+  uploadEnv,
+);
+assert.equal(ownedUploadUrlResponse.status, 404);
+assert.equal((await ownedUploadUrlResponse.json()).error.code, "UPLOAD_NOT_FOUND");
+assert.deepEqual(deletedUploadKeys, []);
+
+const emptyUploadKey = "uploads/user_upload/media_empty.mp4";
+uploadObjects.set(emptyUploadKey, { key: emptyUploadKey, size: 0 });
+const emptyUploadUrlResponse = await fetchWorker(
+  `/api/upload/url?key=${encodeURIComponent(emptyUploadKey)}`,
+  { headers: uploadAuthHeaders },
+  uploadEnv,
+);
+assert.equal(emptyUploadUrlResponse.status, 400);
+assert.equal((await emptyUploadUrlResponse.json()).error.code, "EMPTY_FILE");
+assert.deepEqual(deletedUploadKeys, [emptyUploadKey]);
+assert.equal(uploadObjects.has(emptyUploadKey), false);
+
+const oversizedUploadKey = "uploads/user_upload/media_oversized.mp4";
+uploadObjects.set(oversizedUploadKey, { key: oversizedUploadKey, size: 1073741825 });
+const oversizedUploadUrlResponse = await fetchWorker(
+  `/api/upload/url?key=${encodeURIComponent(oversizedUploadKey)}`,
+  { headers: uploadAuthHeaders },
+  uploadEnv,
+);
+assert.equal(oversizedUploadUrlResponse.status, 413);
+assert.equal((await oversizedUploadUrlResponse.json()).error.code, "FILE_TOO_LARGE");
+assert.deepEqual(deletedUploadKeys, [emptyUploadKey, oversizedUploadKey]);
+assert.equal(uploadObjects.has(oversizedUploadKey), false);
+
+uploadObjects.set(validPresignPayload.key, { key: validPresignPayload.key, size: 1073741824 });
+const validOwnedUploadUrlResponse = await fetchWorker(
+  `/api/upload/url?key=${encodeURIComponent(validPresignPayload.key)}`,
+  { headers: uploadAuthHeaders },
+  uploadEnv,
+);
+assert.equal(validOwnedUploadUrlResponse.status, 200);
+assert.match((await validOwnedUploadUrlResponse.json()).data.url, /^https:\/\/test-account\.r2\.cloudflarestorage\.com\/test-bucket\/uploads\/user_upload\/media_/);
+
+const forbiddenUploadUrlResponse = await fetchWorker(
+  "/api/upload/url?key=uploads/other_user/media_file.mp4",
+  { headers: uploadAuthHeaders },
+  uploadEnv,
+);
+assert.equal(forbiddenUploadUrlResponse.status, 403);
+assert.equal((await forbiddenUploadUrlResponse.json()).error.code, "FORBIDDEN");
+assert.equal(uploadHeadKeys.includes("uploads/other_user/media_file.mp4"), false);
 
 const rootResponse = await fetchWorker("/");
 assert.equal(rootResponse.status, 200);
