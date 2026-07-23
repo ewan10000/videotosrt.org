@@ -2,9 +2,23 @@ name = "videotosrt-backend"
 main = "src/worker.ts"
 compatibility_date = "2026-04-30"
 
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+persist = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 0.01
+persist = true
+
 [assets]
 directory = "./public"
 binding = "ASSETS"
+run_worker_first = true
 
 [[d1_databases]]
 binding = "DB"

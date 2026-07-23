@@ -6,6 +6,9 @@ const duration = await import("../dist/lib/duration.js");
 const refund = await import("../dist/lib/refund.js");
 const queue = await import("../dist/lib/queue.js");
 const schema = await import("../dist/lib/schema.js");
+const crawler = await import("../dist/lib/crawler.js");
+const session = await import("../dist/lib/session.js");
+const worker = await import("../dist/worker.js?request-tests");
 
 assert.equal(plans.getPlanQuota("free").monthlyMinutes, 60);
 assert.equal(plans.getPlanQuota("pro").monthlyMinutes, 600);
@@ -36,6 +39,19 @@ assert.equal(queue.MAX_PROVIDER_ATTEMPTS, 3);
 assert.equal(queue.shouldCallTranscriptionProvider(1), true);
 assert.equal(queue.shouldCallTranscriptionProvider(3), true);
 assert.equal(queue.shouldCallTranscriptionProvider(4), false);
+assert.equal(crawler.X_ROBOTS_TAG, "noindex,nofollow");
+assert.equal(crawler.robotsTxt(), "User-agent: *\nAllow: /\n");
+
+const searchableResponse = new Response("{}", {
+  headers: {
+    "content-type": "application/json",
+    "cache-control": "no-store",
+  },
+});
+const noindexResponse = crawler.withNoindexHeaders(searchableResponse);
+assert.equal(noindexResponse.headers.get("x-robots-tag"), "noindex,nofollow");
+assert.equal(noindexResponse.headers.get("content-type"), "application/json");
+assert.equal(noindexResponse.headers.get("cache-control"), "no-store");
 
 assert.deepEqual(
   schema.missingUserColumnAlterStatements([
@@ -148,6 +164,89 @@ assert.deepEqual(failedRaceStatements, [
   "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'",
   "PRAGMA table_info(users)",
 ]);
+
+function createRequestTestEnv(options = {}) {
+  const queries = [];
+  return {
+    SITE_NAME: "VideoToSRT",
+    APP_ORIGIN: "https://videotosrt.org",
+    SESSION_SECRET: "test-secret",
+    DB: {
+      prepare(sql) {
+        queries.push(sql);
+        return {
+          bind() {
+            return this;
+          },
+          run: async () => ({}),
+          all: async () => ({ results: [{ name: "plan" }, { name: "extra_credit_hours" }, { name: "last_login_at" }] }),
+          first: async () => {
+            if (options.failSessionLookup) throw new Error("session lookup failed");
+            return null;
+          },
+        };
+      },
+    },
+    ASSETS: {
+      fetch: async (request) => new Response(`asset:${new URL(request.url).pathname}`, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
+    },
+    __queries: queries,
+  };
+}
+
+async function fetchWorker(path, init = {}, env = createRequestTestEnv()) {
+  const request = new Request(`https://api.example.test${path}`, init);
+  return worker.default.fetch(request, env, {});
+}
+
+const robotsResponse = await fetchWorker("/robots.txt");
+assert.equal(robotsResponse.status, 200);
+assert.equal(robotsResponse.headers.get("x-robots-tag"), "noindex,nofollow");
+assert.equal(await robotsResponse.text(), "User-agent: *\nAllow: /\n");
+assert.equal(robotsResponse.headers.get("content-type"), "text/plain; charset=utf-8");
+
+const healthResponse = await fetchWorker("/api/health");
+assert.equal(healthResponse.status, 200);
+assert.equal(healthResponse.headers.get("x-robots-tag"), "noindex,nofollow");
+assert.match(healthResponse.headers.get("content-type") ?? "", /^application\/json/);
+assert.equal((await healthResponse.json()).data.status, "healthy");
+
+const optionsResponse = await fetchWorker("/api/health", {
+  method: "OPTIONS",
+  headers: {
+    Origin: "https://client.example",
+    "Access-Control-Request-Method": "GET",
+  },
+});
+assert.equal(optionsResponse.status, 204);
+assert.equal(optionsResponse.headers.get("x-robots-tag"), "noindex,nofollow");
+assert.equal(optionsResponse.headers.get("access-control-allow-origin"), "https://client.example");
+assert.equal(optionsResponse.headers.get("access-control-allow-credentials"), "true");
+
+const api404Response = await fetchWorker("/api/missing", { method: "POST" });
+assert.equal(api404Response.status, 404);
+assert.equal(api404Response.headers.get("x-robots-tag"), "noindex,nofollow");
+assert.equal((await api404Response.json()).error.code, "NOT_FOUND");
+
+const sessionToken = await session.createSignedToken({ userId: "user_test", exp: Math.floor(Date.now() / 1000) + 60 }, "test-secret");
+const errorResponse = await fetchWorker("/api/health", {
+  headers: { Cookie: `vts_session=${sessionToken}` },
+}, createRequestTestEnv({ failSessionLookup: true }));
+assert.equal(errorResponse.status, 500);
+assert.equal(errorResponse.headers.get("x-robots-tag"), "noindex,nofollow");
+assert.equal((await errorResponse.json()).error.code, "INTERNAL_ERROR");
+
+const rootResponse = await fetchWorker("/");
+assert.equal(rootResponse.status, 200);
+assert.equal(rootResponse.headers.get("x-robots-tag"), "noindex,nofollow");
+assert.equal(await rootResponse.text(), "asset:/");
+
+const staticResponse = await fetchWorker("/index.html");
+assert.equal(staticResponse.status, 200);
+assert.equal(staticResponse.headers.get("x-robots-tag"), "noindex,nofollow");
+assert.equal(await staticResponse.text(), "asset:/index.html");
 
 const now = new Date("2026-07-16T00:00:00.000Z");
 const cutoff = retention.retentionCutoff(now);

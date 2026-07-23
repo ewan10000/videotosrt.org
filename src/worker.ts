@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { transcribeWithGroq } from "./lib/ai";
+import { robotsTxt, withNoindexHeaders } from "./lib/crawler";
 import { refundJobMinutes } from "./lib/credits";
 import { appOrigin, nowIso } from "./lib/env";
 import { shouldCallTranscriptionProvider } from "./lib/queue";
@@ -18,6 +19,14 @@ import { webhookRoutes } from "./routes/webhooks";
 import type { Bindings, HonoAppEnv, TranscriptionQueueMessage } from "./types";
 
 const app = new Hono<HonoAppEnv>();
+
+app.use("*", async (c, next) => {
+  try {
+    await next();
+  } finally {
+    c.res = withNoindexHeaders(c.res);
+  }
+});
 
 app.use(
   "/api/*",
@@ -39,6 +48,13 @@ app.route("/api", uploadRoutes);
 app.route("/api", transcribeRoutes);
 app.route("/api", checkoutRoutes);
 app.route("/api", webhookRoutes);
+
+app.get("/robots.txt", (c) => c.text(robotsTxt(), 200, { "Content-Type": "text/plain; charset=utf-8" }));
+
+app.onError((error, c) => {
+  console.error("[Worker Error]", error);
+  return withNoindexHeaders(c.json({ ok: false, error: { code: "INTERNAL_ERROR", message: "Internal server error" } }, 500));
+});
 
 app.notFound(async (c) => {
   if (c.req.method === "GET") {
