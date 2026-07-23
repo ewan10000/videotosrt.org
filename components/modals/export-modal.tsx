@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ApiUser } from "@/lib/api";
+import { trackConversionEvent } from "@/lib/conversion-events";
 import { getUserVipPlan, getVipBadgeClass, getVipLabel } from "@/lib/plans";
 
 type ExportFormat = "srt" | "vtt" | "txt";
@@ -144,6 +145,12 @@ export function ExportModal({ trigger, subtitles, filename, user }: { trigger: R
   }
 
   function downloadExport() {
+    trackConversionEvent("export_started", {
+      format,
+      hasRows: Boolean(subtitles?.length),
+      rowCount: subtitles?.length ?? 0,
+      source: "export_modal"
+    });
     const blob = createOutputBlob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -154,6 +161,12 @@ export function ExportModal({ trigger, subtitles, filename, user }: { trigger: R
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    trackConversionEvent("download_initiated", {
+      format,
+      hasRows: Boolean(subtitles?.length),
+      rowCount: subtitles?.length ?? 0,
+      source: "export_modal"
+    });
   }
 
   return (

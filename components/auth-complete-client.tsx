@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch, type ApiUserResponse } from "@/lib/api";
 import { normalizeUser, persistSessionToken, setLocalUser } from "@/lib/auth";
+import { trackConversionEvent } from "@/lib/conversion-events";
 
 function safeReturnTo(value: string | null) {
   if (!value) {
@@ -90,6 +91,7 @@ export function AuthCompleteClient() {
         setLocalUser(user);
         persistSessionToken(token);
         cleanSessionTokenFromLocation();
+        trackConversionEvent("sign_in_completed", { source: "oauth_complete" });
         window.location.replace(returnTo);
       } catch (error) {
         if (!cancelled) {

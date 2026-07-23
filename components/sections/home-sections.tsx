@@ -14,9 +14,9 @@ const features = [
   ["ED", "Inline Editor", "Edit text and timestamps directly. No external tools, no format juggling."],
   ["SRT", "Subtitle Export", "Download SRT, VTT, or TXT after cleanup."],
   ["60", "Free Minutes", "Free accounts include 60 transcription minutes per month and up to 60 minutes per file."],
-  ["50+", "50+ Languages", "Auto-detect or manually set. Whisper-powered, edit-friendly accuracy."],
+  ["AI", "AI Transcription", "Generate an editable draft after Google sign-in, then review every line."],
   ["180", "Per-file Duration", "Plan limits are duration based: Free 60, Pro 180, and Studio 360 minutes per file."],
-  ["7d", "Upload Retention", "Uploaded media is automatically deleted from storage after 7 days."]
+  ["25", "Technical Guard", "AI transcription currently has a 25 MB upload guard in addition to minute quotas."]
 ];
 
 const faqs = [
@@ -24,7 +24,7 @@ const faqs = [
   ["What formats can I export?", "SRT, VTT, and TXT are available today."],
   ["How accurate is transcription?", "Accuracy depends on audio quality, speakers, background noise, and vocabulary. Every line is editable inline before export."],
   ["Can I use exported subtitles commercially?", "Yes. Everything you export is yours. We don't watermark, we don't claim rights, we don't look at your content."],
-  ["What happens to my video after upload?", "Uploaded media under uploads/ is automatically deleted from R2 after 7 days. Local editor drafts remain in your browser until you clear them."],
+  ["What happens to my video after upload?", "Uploaded media is used to run the transcription workflow. A daily retention job deletes uploaded media under uploads/ from R2 after it is older than 7 days. Local editor drafts remain in your browser until you clear them."],
   ["Is there a file size limit?", "Plan limits are duration based: Free 60 minutes per file, Pro 180, Studio 360. Automatic transcription also has a 25 MB technical payload guard today."],
   ["Can I edit an existing SRT file?", "Yes. Upload your SRT alongside the video, or paste it directly into the editor. Fix timing without touching code."],
   ["What's the difference between Free and Pro?", "Free includes 60 transcription minutes per month and 60 minutes per file. Pro includes 600 minutes per month and 180 minutes per file."],
@@ -38,6 +38,16 @@ const useCases = [
   ["Course captions", "Prepare readable subtitles for lessons, tutorials, and internal training videos."],
   ["Podcast video", "Turn recorded conversations into editable subtitle drafts for review before publishing."],
   ["Existing SRT cleanup", "Load subtitle files alongside media and adjust wording or timing in one editor."]
+];
+
+const toolLinks = [
+  ["/video-to-srt", "Convert video to SRT"],
+  ["/audio-to-srt", "Convert audio to SRT"],
+  ["/mp4-to-srt", "Convert MP4 to SRT"],
+  ["/video-to-text", "Convert video to text"],
+  ["/audio-to-text", "Convert audio to text"],
+  ["/video-to-vtt", "Convert video to VTT"],
+  ["/srt-editor", "Open the SRT editor"]
 ];
 
 export function HeroSection() {
@@ -126,7 +136,7 @@ function UploadPanel() {
             </div>
             <h2 className="mb-[9px] text-2xl font-extrabold leading-[1.2]">Drop your video here</h2>
             <p className="mx-auto mb-5 max-w-[410px] leading-[1.6] text-muted">
-              Drag in a video or audio file. AI transcription starts after the file passes browser metadata checks.
+              Drag in a local MP4, MOV, WebM, MP3, M4A, or WAV file. AI transcription requires Google sign-in and has a 25 MB technical upload guard; minute quotas still apply by plan.
             </p>
           </div>
         </label>
@@ -154,6 +164,59 @@ export function WorkflowSection() {
               <div className="mb-[18px] grid h-[38px] w-[38px] place-items-center rounded bg-indigo/20 text-cyan"><Icon className="h-5 w-5" /></div>
               <h3 className="mb-[9px] text-lg font-extrabold">{index + 1}. {title}</h3>
               <p className="mb-0 leading-[1.65] text-muted">{copy}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function ToolsDiscoverySection() {
+  return (
+    <section className="section-pad">
+      <div className="site-container">
+        <div className="section-head">
+          <h2>Subtitle Tools</h2>
+          <p>Direct paths for the local upload, AI transcription, edit, and export workflows available today.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {toolLinks.map(([href, label]) => (
+            <Link key={href} className="panel-card p-4 text-sm font-extrabold text-soft transition hover:-translate-y-px hover:border-cyan hover:text-text" href={href}>
+              {label}
+            </Link>
+          ))}
+          <Link className="panel-card p-4 text-sm font-extrabold text-cyan transition hover:-translate-y-px hover:border-cyan" href="/tools">
+            View all available tools
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function SampleProofSection() {
+  const samples = {
+    SRT: "1\n00:00:00,000 --> 00:00:03,200\nWelcome to the product walkthrough.\n\n2\n00:00:03,200 --> 00:00:06,400\nEdit any line before exporting.",
+    VTT: "WEBVTT\n\n00:00:00.000 --> 00:00:03.200\nWelcome to the product walkthrough.\n\n00:00:03.200 --> 00:00:06.400\nEdit any line before exporting.",
+    TXT: "[00:00:00.000 - 00:00:03.200]\nWelcome to the product walkthrough.\n\n[00:00:03.200 - 00:00:06.400]\nEdit any line before exporting."
+  };
+
+  return (
+    <section className="section-pad border-y border-soft/15 bg-[#101A2E]">
+      <div className="site-container grid gap-8 lg:grid-cols-[.8fr_1.2fr] lg:items-start">
+        <div>
+          <span className="eyebrow"><span className="dot" /> Product proof</span>
+          <h2 className="mb-4 mt-5 text-[clamp(30px,4vw,44px)] font-extrabold leading-[1.08]">Transparent Export Preview</h2>
+          <p className="mb-0 leading-7 text-muted">
+            The editor creates plain subtitle and transcript files you can inspect. Review AI text and timing before downloading SRT, VTT, or TXT.
+          </p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          {Object.entries(samples).map(([format, body]) => (
+            <article key={format} className="rounded border border-line bg-panel p-4">
+              <h3 className="mb-3 text-sm font-extrabold text-cyan">{format}</h3>
+              <pre className="mb-0 overflow-auto whitespace-pre-wrap rounded border border-line bg-bg p-3 font-mono text-[11px] leading-5 text-soft">{body}</pre>
             </article>
           ))}
         </div>
@@ -292,7 +355,7 @@ export function PricingTeaserSection() {
           ))}
         </div>
         <p className="mb-0 mt-5 text-center text-sm font-semibold text-soft">
-          All plans: No watermark · 50+ languages · Secure processing · You own your exports
+          All plans: No watermark · Google sign-in for AI transcription · PayPal checkout · You own your exports
         </p>
       </div>
     </section>
@@ -330,7 +393,7 @@ export function FinalCtaSection() {
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px" href="/#upload">
-            Start Free - Upload Video
+            Start free upload - 25 MB AI guard
           </Link>
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold text-text transition hover:-translate-y-px" href="/pricing">
             See Pricing

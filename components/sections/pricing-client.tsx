@@ -5,8 +5,9 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { LoginModal } from "@/components/modals/login-modal";
 import { Button } from "@/components/ui/button";
-import { api, type ApiUser } from "@/lib/api";
+import { api, authLoginUrl, type ApiUser } from "@/lib/api";
 import { getLocalUser, normalizeUser, onAuthChange, setLocalUser } from "@/lib/auth";
+import { trackConversionEvent } from "@/lib/conversion-events";
 import { getUserVipPlan, getVipBadgeClass, getVipLabel, mergeStoredMembership } from "@/lib/plans";
 
 const plans = [
@@ -62,6 +63,62 @@ type PendingCheckoutIntent =
   | { billing: "monthly" | "yearly"; createdAt: number; kind: "plan"; plan: "pro" | "studio" }
   | { createdAt: number; credits: "2h" | "5h" | "20h"; kind: "credits" };
 
+function isPlan(value: unknown): value is "pro" | "studio" {
+  return value === "pro" || value === "studio";
+}
+
+function isBilling(value: unknown): value is "monthly" | "yearly" {
+  return value === "monthly" || value === "yearly";
+}
+
+function isCredits(value: unknown): value is "2h" | "5h" | "20h" {
+  return value === "2h" || value === "5h" || value === "20h";
+}
+
+function isFreshTimestamp(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && Date.now() - value <= 30 * 60 * 1000;
+}
+
+function isPendingCheckoutIntent(value: unknown): value is PendingCheckoutIntent {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const intent = value as Record<string, unknown>;
+  if (!isFreshTimestamp(intent.createdAt)) {
+    return false;
+  }
+
+  if (intent.kind === "plan") {
+    return isPlan(intent.plan) && isBilling(intent.billing);
+  }
+
+  if (intent.kind === "credits") {
+    return isCredits(intent.credits);
+  }
+
+  return false;
+}
+
+function getValidApprovalUrl(data: { approvalUrl?: string; checkout_url?: string; sessionUrl?: string; url?: string }) {
+  const value = data.approvalUrl ?? data.url ?? data.checkout_url ?? data.sessionUrl;
+  if (!value) {
+    return "";
+  }
+
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (url.protocol === "https:" && (host === "www.paypal.com" || host === "www.sandbox.paypal.com")) {
+      return url.toString();
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
 function readPendingPaypalSubscription() {
   try {
     const value = window.localStorage.getItem(PENDING_PAYPAL_SUBSCRIPTION_KEY);
@@ -76,8 +133,8 @@ function readPendingCheckoutIntent() {
   try {
     const value = window.localStorage.getItem(PENDING_CHECKOUT_INTENT_KEY);
     if (!value) return null;
-    const parsed = JSON.parse(value) as PendingCheckoutIntent;
-    if (!parsed.createdAt || Date.now() - parsed.createdAt > 30 * 60 * 1000) {
+    const parsed = JSON.parse(value) as unknown;
+    if (!isPendingCheckoutIntent(parsed)) {
       window.localStorage.removeItem(PENDING_CHECKOUT_INTENT_KEY);
       return null;
     }
@@ -116,12 +173,12 @@ export function PricingClient() {
           const intent = nextUser ? readPendingCheckoutIntent() : null;
           if (intent?.kind === "plan" && !resumedCheckoutIntentRef.current) {
             resumedCheckoutIntentRef.current = true;
-            window.localStorage.removeItem(PENDING_CHECKOUT_INTENT_KEY);
+            setCheckoutNotice(`Signed in. Resuming ${intent.plan} ${intent.billing} checkout...`);
             void runCheckout(intent.plan, intent.billing);
           }
           if (intent?.kind === "credits" && !resumedCheckoutIntentRef.current) {
             resumedCheckoutIntentRef.current = true;
-            window.localStorage.removeItem(PENDING_CHECKOUT_INTENT_KEY);
+            setCheckoutNotice(`Signed in. Resuming ${intent.credits} extra-hours checkout...`);
             void runCreditsCheckout(intent.credits);
           }
         }
@@ -154,6 +211,7 @@ export function PricingClient() {
           .syncPaypalSubscription({ billing: returnedBilling, plan, subscriptionId })
           .then((data) => {
             window.localStorage.removeItem(PENDING_PAYPAL_SUBSCRIPTION_KEY);
+            trackConversionEvent("checkout_completed", { billing: returnedBilling, plan, source: "paypal_subscription" });
             if (data.user) {
               setLocalUser(data.user);
               setUser(data.user);
@@ -162,6 +220,7 @@ export function PricingClient() {
           })
           .catch((error) => {
             void refreshUser();
+            trackConversionEvent("checkout_failed", { billing: returnedBilling, plan, source: "paypal_subscription_sync" });
             setCheckoutNotice(error instanceof Error ? error.message : "Payment completed, but VIP verification failed. Please refresh in a moment.");
           });
       } else {
@@ -194,6 +253,7 @@ export function PricingClient() {
           .captureCredits(orderId)
           .then((data) => {
             window.localStorage.setItem(captureKey, "done");
+            trackConversionEvent("checkout_completed", { credits: credits ?? "unknown", source: "paypal_credits" });
             const currentUser = getLocalUser();
             const nextUser = data.user ?? (currentUser
               ? { ...currentUser, extra_credit_hours: (currentUser.extra_credit_hours ?? 0) + (data.hours ?? 0) }
@@ -206,6 +266,7 @@ export function PricingClient() {
           })
           .catch((error) => {
             window.localStorage.removeItem(captureKey);
+            trackConversionEvent("checkout_failed", { credits: credits ?? "unknown", source: "paypal_credits_capture" });
             setCheckoutNotice(error instanceof Error ? error.message : "Payment completed, but credits sync failed. Please try refreshing.");
           });
       }
@@ -222,11 +283,15 @@ export function PricingClient() {
   }, []);
 
   async function runCheckout(plan: "pro" | "studio", selectedBilling: "monthly" | "yearly") {
+    if (loadingPlan || loadingCredits) {
+      return;
+    }
     setLoadingPlan(plan);
     setCheckoutError("");
+    trackConversionEvent("checkout_started", { billing: selectedBilling, plan, source: "pricing" });
     try {
       const data = await api.checkout(plan, selectedBilling);
-      const url = data.approvalUrl ?? data.url ?? data.checkout_url ?? data.sessionUrl;
+      const url = getValidApprovalUrl(data);
 
       if (!url) {
         throw new Error("Checkout is not available right now. Please try again later.");
@@ -238,8 +303,10 @@ export function PricingClient() {
         plan,
         subscriptionId: data.id
       } satisfies PendingPaypalSubscription));
+      window.localStorage.removeItem(PENDING_CHECKOUT_INTENT_KEY);
       window.location.href = url;
     } catch (error) {
+      trackConversionEvent("checkout_failed", { billing: selectedBilling, plan, source: "pricing_start" });
       setCheckoutError(error instanceof Error ? error.message : "Could not start checkout. Please try again.");
     } finally {
       setLoadingPlan(null);
@@ -247,18 +314,24 @@ export function PricingClient() {
   }
 
   async function runCreditsCheckout(credits: "2h" | "5h" | "20h") {
+    if (loadingCredits || loadingPlan) {
+      return;
+    }
     setLoadingCredits(credits);
     setCheckoutError("");
+    trackConversionEvent("checkout_started", { credits, source: "pricing_credits" });
     try {
       const data = await api.checkoutCredits(credits);
-      const url = data.approvalUrl ?? data.url ?? data.checkout_url ?? data.sessionUrl;
+      const url = getValidApprovalUrl(data);
 
       if (!url) {
         throw new Error("Credits checkout is not available right now. Please try again later.");
       }
 
+      window.localStorage.removeItem(PENDING_CHECKOUT_INTENT_KEY);
       window.location.href = url;
     } catch (error) {
+      trackConversionEvent("checkout_failed", { credits, source: "pricing_credits_start" });
       setCheckoutError(error instanceof Error ? error.message : "Could not start credits checkout. Please try again.");
     } finally {
       setLoadingCredits(null);
@@ -266,15 +339,22 @@ export function PricingClient() {
   }
 
   function startCheckout(plan: "pro" | "studio", selectedBilling = billing) {
+    if (loadingPlan || loadingCredits) {
+      return;
+    }
+    trackConversionEvent("checkout_intent", { billing: selectedBilling, plan, source: "pricing" });
     if (!user) {
       setPendingPlan(plan);
+      setPendingCredits(null);
       window.localStorage.setItem(PENDING_CHECKOUT_INTENT_KEY, JSON.stringify({
         billing: selectedBilling,
         createdAt: Date.now(),
         kind: "plan",
         plan
       } satisfies PendingCheckoutIntent));
-      setLoginOpen(true);
+      setCheckoutNotice(`Redirecting to Google sign-in. ${plan === "pro" ? "Pro" : "Studio"} ${selectedBilling} checkout will resume automatically.`);
+      trackConversionEvent("sign_in_started", { source: "pricing_checkout" });
+      window.location.href = authLoginUrl("google", "/pricing");
       return;
     }
 
@@ -282,14 +362,21 @@ export function PricingClient() {
   }
 
   function startCreditsCheckout(credits: "2h" | "5h" | "20h") {
+    if (loadingPlan || loadingCredits) {
+      return;
+    }
+    trackConversionEvent("checkout_intent", { credits, source: "pricing_credits" });
     if (!user) {
       setPendingCredits(credits);
+      setPendingPlan(null);
       window.localStorage.setItem(PENDING_CHECKOUT_INTENT_KEY, JSON.stringify({
         createdAt: Date.now(),
         credits,
         kind: "credits"
       } satisfies PendingCheckoutIntent));
-      setLoginOpen(true);
+      setCheckoutNotice(`Redirecting to Google sign-in. ${credits} extra-hours checkout will resume automatically.`);
+      trackConversionEvent("sign_in_started", { source: "pricing_credits" });
+      window.location.href = authLoginUrl("google", "/pricing");
       return;
     }
 
@@ -389,7 +476,7 @@ export function PricingClient() {
                 </ul>
                 {plan.plan === "free" ? (
                   <Link className="inline-flex min-h-[42px] w-full items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold" href="/#upload">
-                    Start Free
+                    Start free upload - 25 MB AI guard
                   </Link>
                 ) : (
                   <Button
@@ -430,6 +517,18 @@ export function PricingClient() {
                 ))}
               </div>
             </div>
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            {[
+              ["Technical guard", "AI transcription currently accepts local audio/video uploads up to 25 MB. Minute quotas are separate duration limits, so a long high-bitrate file may need compression before transcription."],
+              ["Billing provider", "Subscriptions and extra-hour purchases open PayPal checkout after Google sign-in so the purchase can attach to your account."],
+              ["Cancellation and support", "Cancel subscription billing in PayPal or contact support@videotosrt.org. Refunds are not promised here and are handled case by case through support and the payment provider process."]
+            ].map(([title, body]) => (
+              <article key={title} className="rounded border border-line bg-panel p-4">
+                <h3 className="mb-2 text-base font-extrabold">{title}</h3>
+                <p className="mb-0 text-sm leading-6 text-muted">{body}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>

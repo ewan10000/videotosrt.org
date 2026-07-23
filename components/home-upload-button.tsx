@@ -3,13 +3,33 @@
 import { useRef, type ChangeEvent } from "react";
 import { FolderUp } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { trackConversionEvent } from "@/lib/conversion-events";
+import { TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES } from "@/lib/limits";
 import { savePendingUpload } from "@/lib/upload-transfer";
+
+const acceptedMedia = "video/*,audio/*,.mp4,.mov,.m4a,.mp3,.wav,.webm";
+
+function fileTypeLabel(file: File) {
+  if (file.type.startsWith("audio/")) {
+    return "audio";
+  }
+  if (file.type.startsWith("video/")) {
+    return "video";
+  }
+  return file.type || "unknown";
+}
 
 export function useHomeUploadPicker() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const startUpload = async (file: File) => {
+    trackConversionEvent("file_selected", {
+      fileSize: file.size,
+      fileType: fileTypeLabel(file),
+      reason: file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES ? "technical_size_guard" : undefined,
+      source: "home_upload"
+    });
     try {
       const upload = await savePendingUpload(file);
       window.sessionStorage.setItem("videotosrt.upload", JSON.stringify({ id: upload.id, name: file.name, size: file.size, type: file.type }));
@@ -20,6 +40,7 @@ export function useHomeUploadPicker() {
   };
 
   const openFilePicker = () => {
+    trackConversionEvent("upload_clicked", { source: "home_upload" });
     inputRef.current?.click();
   };
 
@@ -47,14 +68,14 @@ export function HomeUploadButton({ className }: { className?: string }) {
         onClick={openFilePicker}
       >
         <FolderUp className="h-4 w-4" />
-        Upload Media — Free
+        Upload (25 MB AI guard)
       </button>
       <input
         ref={inputRef}
         className="sr-only"
         type="file"
         aria-label="Upload video or audio file"
-        accept="video/*,audio/*"
+        accept={acceptedMedia}
         onChange={handleFileChange}
       />
     </>

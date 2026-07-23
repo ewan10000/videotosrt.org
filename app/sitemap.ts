@@ -5,6 +5,7 @@ const routes = [
   "/pricing",
   "/editor",
   "/faq",
+  "/tools",
   "/contact",
   "/privacy-policy",
   "/terms-of-service",
@@ -16,13 +17,8 @@ const routes = [
   "/audio-to-text",
   "/video-to-vtt",
   "/srt-editor",
-  "/burn-subtitles",
-  "/public-url-subtitles",
-  "/short-form-subtitles",
   "/podcast-transcription",
-  "/course-captions",
-  "/subtitle-translator",
-  "/ass-subtitle-editor"
+  "/course-captions"
 ] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {

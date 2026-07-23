@@ -16,6 +16,7 @@ const LOCAL_API_ROUTES = new Set([
   "/api/checkout/paypal/credits",
   "/api/checkout/paypal/credits/capture",
   "/api/checkout/paypal/sync",
+  "/api/events",
   "/api/webhooks/paypal"
 ]);
 

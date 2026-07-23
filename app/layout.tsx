@@ -1,13 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type * as React from "react";
-import { Inter } from "next/font/google";
+import { ConversionTracker } from "@/components/conversion-tracker";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-inter"
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://videotosrt.org"),
@@ -51,7 +45,8 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} min-h-screen font-sans antialiased`}>
+      <body className="min-h-screen font-sans antialiased">
+        <ConversionTracker />
         {children}
       </body>
     </html>

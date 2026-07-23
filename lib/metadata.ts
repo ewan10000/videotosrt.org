@@ -109,7 +109,9 @@ export function createSoftwareApplicationJsonLd({
     applicationCategory: "VideoApplication",
     operatingSystem: "Web",
     url: url ?? siteUrl,
-    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }
+    offers: [
+      { "@type": "Offer", availability: "https://schema.org/InStock", price: "0", priceCurrency: "USD" }
+    ]
   };
 }
 

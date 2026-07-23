@@ -5,13 +5,13 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, FileVideo, Pause, Play, Plus, Save, Trash2 } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ExportModal } from "@/components/modals/export-modal";
-import { LoginModal } from "@/components/modals/login-modal";
 import { Button } from "@/components/ui/button";
-import { api, type ApiJob, type ApiUser, type UploadResponse } from "@/lib/api";
+import { api, authLoginUrl, type ApiJob, type ApiUser, type UploadResponse } from "@/lib/api";
 import { getLocalUser, normalizeUser, onAuthChange, setLocalUser } from "@/lib/auth";
+import { trackConversionEvent } from "@/lib/conversion-events";
 import { getPlanLimits, TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES } from "@/lib/limits";
 import { getExtraCreditLabel, getUserVipPlan, getVipBadgeClass, getVipLabel, mergeStoredMembership } from "@/lib/plans";
-import { getPendingUpload, deletePendingUpload } from "@/lib/upload-transfer";
+import { getPendingUpload, deletePendingUpload, savePendingUpload } from "@/lib/upload-transfer";
 
 type SubtitleRow = [string, string, string];
 type EditorDraft = {
@@ -30,6 +30,7 @@ const JOB_FAST_POLL_INTERVAL_MS = 2000;
 const JOB_SLOW_POLL_INTERVAL_MS = 5000;
 const SUBTITLES_PER_PAGE = 8;
 const CAPTION_POSITION_KEY = "videotosrt.editor.captionPosition";
+const acceptedMedia = "video/*,audio/*,.mp4,.mov,.m4a,.mp3,.wav,.webm";
 
 function readMediaDuration(url: string, type: string) {
   return new Promise<number>((resolve, reject) => {
@@ -70,6 +71,16 @@ function formatFileSize(bytes: number | null) {
   }
 
   return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function fileTypeLabel(file: File) {
+  if (file.type.startsWith("audio/")) {
+    return "audio";
+  }
+  if (file.type.startsWith("video/")) {
+    return "video";
+  }
+  return file.type || "unknown";
 }
 
 function extractUploadUrl(data: UploadResponse): string {
@@ -430,14 +441,34 @@ export function EditorClient() {
     setNeedsLoginForTranscription(false);
 
     if (file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES) {
+      trackConversionEvent("transcription_failed", {
+        errorType: "technical_size_guard",
+        fileSize: file.size,
+        fileType: fileTypeLabel(file),
+        reason: "technical_size_guard",
+        source: "editor_transcribe"
+      });
       setStatus(
         `Automatic transcription currently supports files up to 25 MB. This file is ${formatFileSize(file.size)}. Please upload a shorter or compressed audio/video file.`
       );
       return;
     }
 
+    const effectiveUser = authLoaded ? user : await (authRefreshRef.current ?? refreshAuthUser());
+    if (!effectiveUser) {
+      setNeedsLoginForTranscription(true);
+      setStatus("Sign in with Google to generate subtitles for this upload. Local preview, manual rows, save, and export stay available.");
+      return;
+    }
+
     setIsTranscribing(true);
     setStatus("Uploading media for transcription...");
+    trackConversionEvent("transcription_started", {
+      durationSeconds: mediaDuration,
+      fileSize: file.size,
+      fileType: fileTypeLabel(file),
+      source: "editor"
+    });
 
     try {
       const upload = await api.upload(file);
@@ -446,6 +477,7 @@ export function EditorClient() {
       if (!audioUrl) {
         setStatus("Upload completed, but no media URL was returned.");
         setIsTranscribing(false);
+        trackConversionEvent("transcription_failed", { errorType: "missing_upload_url", source: "editor" });
         return;
       }
 
@@ -462,6 +494,7 @@ export function EditorClient() {
         if (providerError) {
           setStatus(providerError);
           setIsTranscribing(false);
+          trackConversionEvent("transcription_failed", { errorType: "provider", source: "editor" });
           return;
         }
 
@@ -471,6 +504,10 @@ export function EditorClient() {
         setSubtitlePage(0);
         setStatus(parsedRows.length ? "Transcription complete" : "Transcription returned no usable text");
         setIsTranscribing(false);
+        trackConversionEvent(parsedRows.length ? "transcription_completed" : "transcription_failed", {
+          rowCount: parsedRows.length,
+          source: "editor"
+        });
         return;
       }
 
@@ -478,6 +515,7 @@ export function EditorClient() {
       if (!jobId) {
         setStatus("Transcription started, but no job id was returned.");
         setIsTranscribing(false);
+        trackConversionEvent("transcription_failed", { errorType: "missing_job_id", source: "editor" });
         return;
       }
 
@@ -497,6 +535,7 @@ export function EditorClient() {
         setStatus(needsAuth ? "Sign in to generate subtitles for this upload." : message);
       }
       setIsTranscribing(false);
+      trackConversionEvent("transcription_failed", { errorType: needsAuth ? "auth" : quotaExceeded ? "quota" : "request", source: "editor" });
     }
   }
 
@@ -517,6 +556,7 @@ export function EditorClient() {
           window.localStorage.removeItem(EDITOR_JOB_KEY);
           setStatus(providerError);
           setIsTranscribing(false);
+          trackConversionEvent("transcription_failed", { errorType: "provider", source: "editor_poll" });
           return;
         }
 
@@ -527,6 +567,10 @@ export function EditorClient() {
         window.localStorage.removeItem(EDITOR_JOB_KEY);
         setStatus(parsedRows.length ? "Transcription complete" : "Transcription completed, but no usable text was returned.");
         setIsTranscribing(false);
+        trackConversionEvent(parsedRows.length ? "transcription_completed" : "transcription_failed", {
+          rowCount: parsedRows.length,
+          source: "editor_poll"
+        });
         return;
       }
 
@@ -541,6 +585,7 @@ export function EditorClient() {
         window.localStorage.removeItem(EDITOR_JOB_KEY);
         setStatus(message ? `Transcription failed: ${message}` : "Transcription failed on the server. Please try a shorter audio/video file.");
         setIsTranscribing(false);
+        trackConversionEvent("transcription_failed", { errorType: "job_failed", source: "editor_poll" });
         return;
       }
 
@@ -550,6 +595,7 @@ export function EditorClient() {
         window.localStorage.removeItem(EDITOR_JOB_KEY);
         setStatus("Transcription completed, but the server returned an empty subtitle file.");
         setIsTranscribing(false);
+        trackConversionEvent("transcription_failed", { errorType: "empty_result", source: "editor_poll" });
         return;
       }
 
@@ -561,6 +607,7 @@ export function EditorClient() {
 
     setStatus("Transcription is still processing. Keep this page open or refresh later; the editor will keep checking this job.");
     setIsTranscribing(false);
+    trackConversionEvent("transcription_failed", { errorType: "timeout", source: "editor_poll" });
   }
 
   async function handleFile(file: File, options: { autoTranscribe?: boolean } = {}) {
@@ -577,6 +624,13 @@ export function EditorClient() {
         URL.revokeObjectURL(objectUrl);
         setReadError(`${getVipLabel(effectiveVipPlan)} supports media up to ${limits.maxFileMinutes} minutes per file. This file is ${formatDuration(mediaDuration)}.`);
         setStatus("File duration is above your plan limit.");
+        trackConversionEvent("file_rejected", {
+          durationSeconds: mediaDuration,
+          fileSize: file.size,
+          fileType: fileTypeLabel(file),
+          reason: "duration_plan_limit",
+          source: "editor"
+        });
         return;
       }
 
@@ -594,6 +648,12 @@ export function EditorClient() {
       setSubtitlePage(0);
       window.sessionStorage.setItem(UPLOAD_META_KEY, JSON.stringify({ name: file.name, size: file.size, type: file.type }));
       setDuration(mediaDuration);
+      trackConversionEvent("file_selected", {
+        durationSeconds: mediaDuration,
+        fileSize: file.size,
+        fileType: fileTypeLabel(file),
+        source: "editor"
+      });
       if (options.autoTranscribe ?? true) {
         void transcribeFile(file, mediaDuration);
       } else {
@@ -603,10 +663,17 @@ export function EditorClient() {
       URL.revokeObjectURL(objectUrl);
       setStatus(hasProject ? "Current project unchanged." : "No active project");
       setReadError(error instanceof Error ? error.message : "Could not read this file.");
+      trackConversionEvent("file_rejected", {
+        fileSize: file.size,
+        fileType: fileTypeLabel(file),
+        reason: "browser_decode_failed",
+        source: "editor"
+      });
     }
   }
 
   function openFilePicker() {
+    trackConversionEvent("upload_clicked", { source: "editor" });
     uploadInputRef.current?.click();
   }
 
@@ -619,6 +686,22 @@ export function EditorClient() {
     }
 
     void transcribeFile(file, duration);
+  }
+
+  async function startGoogleForTranscription() {
+    const file = currentFileRef.current;
+    if (file) {
+      try {
+        const upload = await savePendingUpload(file);
+        window.sessionStorage.setItem(UPLOAD_META_KEY, JSON.stringify({ id: upload.id, name: file.name, size: file.size, type: file.type }));
+      } catch {
+        window.sessionStorage.setItem(UPLOAD_META_KEY, JSON.stringify({ name: file.name, size: file.size, type: file.type }));
+      }
+    }
+
+    setStatus("Opening Google sign-in. This upload will resume when you return to the editor.");
+    trackConversionEvent("sign_in_started", { source: "editor_transcription" });
+    window.location.href = authLoginUrl("google", "/editor");
   }
 
   async function togglePlayback() {
@@ -823,9 +906,24 @@ export function EditorClient() {
     !isTranscribing &&
     !needsLoginForTranscription &&
     /(failed|error|empty|no usable|timed out|usage limit|provider|upload completed|no job id)/i.test(status);
+  const canGenerate = hasProject && !isTranscribing && Boolean(currentFileRef.current);
 
   return (
     <>
+      <input
+        ref={uploadInputRef}
+        className="sr-only"
+        type="file"
+        aria-label="Upload video or audio file"
+        accept={acceptedMedia}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) {
+            void handleFile(file);
+          }
+          event.target.value = "";
+        }}
+      />
       <div className="hidden min-h-screen min-w-[760px] grid-rows-[64px_1fr_36px] bg-bg text-text min-[760px]:grid">
         <header className="flex items-center justify-between border-b border-line bg-panel px-4">
           <Brand />
@@ -850,20 +948,15 @@ export function EditorClient() {
               <FileVideo className="h-4 w-4" />
               Upload
             </Button>
-            <input
-              ref={uploadInputRef}
-              className="sr-only"
-              type="file"
-              aria-label="Upload video or audio file"
-              accept="video/*,audio/*,.mp4,.mov,.m4a,.mp3"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) {
-                  handleFile(file);
-                }
-                event.target.value = "";
-              }}
-            />
+            <Button
+              variant="primary"
+              className="gap-2"
+              type="button"
+              disabled={!canGenerate}
+              onClick={user ? retryTranscription : startGoogleForTranscription}
+            >
+              {isTranscribing ? "Generating..." : user ? "Generate subtitles" : "Sign in to generate"}
+            </Button>
             <Button variant="secondary" size="icon" type="button" aria-label="Play or pause" onClick={togglePlayback}>
               {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
@@ -901,7 +994,7 @@ export function EditorClient() {
                   <p className="text-sm font-semibold text-soft">
                     {hasProject
                       ? `${formatFileSize(fileSize)} · Select the file again here to preview it in the browser.`
-                      : "Start with your own file. The editor will stay empty until subtitles are added or generated."}
+                      : "Start with local MP4, MOV, WebM, MP3, M4A, or WAV. AI transcription requires Google sign-in and has a 25 MB technical guard."}
                   </p>
                 </button>
               ) : null}
@@ -918,11 +1011,7 @@ export function EditorClient() {
               {needsLoginForTranscription ? (
                 <div className="absolute left-4 right-4 top-4 z-10 flex items-center justify-between gap-3 rounded border border-cyan/40 bg-panel/95 px-3 py-2 text-sm font-semibold text-cyan">
                   <span>Sign in to generate subtitles from this video.</span>
-                  <LoginModal
-                    trigger={<Button variant="secondary" size="sm" type="button">Sign in</Button>}
-                    title="Export subtitles"
-                    description="Sign in with Google to generate and export subtitles from this upload."
-                  />
+                  <Button variant="secondary" size="sm" type="button" onClick={startGoogleForTranscription}>Sign in with Google</Button>
                 </div>
               ) : null}
               {activeRow ? (
@@ -957,8 +1046,8 @@ export function EditorClient() {
                 Row
               </Button>
             </div>
-            <div className="min-h-0 overflow-hidden">
-              <table className="w-full border-collapse text-left text-sm">
+            <div className="min-h-0 overflow-auto">
+              <table className="w-full min-w-[520px] border-collapse text-left text-sm">
                 <thead className="bg-panel-2 text-xs uppercase tracking-normal text-soft">
                   <tr>
                     <th className="w-12 border-b border-line px-3 py-2">#</th>
@@ -1069,11 +1158,15 @@ export function EditorClient() {
                           <span>
                             {hasProject || status !== "No active project"
                               ? status
-                              : "No subtitles yet. Upload media, then add a row or generate subtitles from your backend workflow."}
+                              : "No subtitles yet. Upload local media, then add a row or use Google sign-in for AI transcription."}
                           </span>
                           {canRetryTranscription ? (
                             <Button variant="secondary" size="sm" type="button" onClick={retryTranscription}>
                               Generate subtitles
+                            </Button>
+                          ) : hasProject && !rows.length && !isTranscribing ? (
+                            <Button variant="primary" size="sm" type="button" onClick={user ? retryTranscription : startGoogleForTranscription}>
+                              {user ? "Generate subtitles" : "Sign in with Google to generate subtitles"}
                             </Button>
                           ) : null}
                         </div>
@@ -1126,13 +1219,78 @@ export function EditorClient() {
           <a className="ml-auto text-cyan" href="mailto:support@videotosrt.org">support@videotosrt.org</a>
         </footer>
       </div>
-      <div className="grid min-h-screen place-items-center bg-bg p-6 min-[760px]:hidden">
-        <div className="max-w-md rounded border border-line bg-panel p-6 text-center shadow-panel">
-          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded bg-indigo font-extrabold">VS</div>
-          <h2 className="mb-3 text-2xl font-extrabold">VideoToSRT Subtitle Editor</h2>
-          <p className="mb-5 leading-6 text-muted">The MVP subtitle editor is built for desktop workflows with a minimum width of 760px.</p>
-          <Button variant="primary" onClick={() => history.back()}>Go back</Button>
-        </div>
+      <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-bg text-text min-[760px]:hidden">
+        <header className="sticky top-0 z-20 max-w-full border-b border-line bg-panel/95 p-3">
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="min-w-0 shrink">
+              <Brand />
+            </div>
+            <Button variant="secondary" size="sm" className="shrink-0" type="button" onClick={openFilePicker}>Upload</Button>
+          </div>
+          <p className="mb-0 mt-2 break-words text-xs font-semibold leading-5 text-soft">Local audio/video upload. AI transcription requires Google sign-in and a file under 25 MB; minute quotas still apply.</p>
+        </header>
+        <main className="grid min-w-0 max-w-full gap-4 p-3">
+          <h1 className="sr-only">VideoToSRT Subtitle Editor</h1>
+          <section className="min-w-0 max-w-full rounded border border-line bg-panel p-3">
+            <div className="relative grid aspect-video place-items-center overflow-hidden rounded border border-line bg-bg">
+              {mediaUrl ? (
+                <video
+                  ref={videoRef}
+                  className="h-full w-full object-contain"
+                  src={mediaUrl}
+                  controls
+                  onPause={() => setPlaying(false)}
+                  onPlay={() => setPlaying(true)}
+                  onTimeUpdate={(event) => syncActiveRow(event.currentTarget.currentTime)}
+                />
+              ) : (
+                <button className="grid min-w-0 max-w-full gap-2 p-5 text-center" type="button" onClick={openFilePicker}>
+                  <FileVideo className="mx-auto h-8 w-8 text-cyan" />
+                  <span className="text-lg font-extrabold">Upload media</span>
+                  <span className="break-words text-sm font-semibold leading-5 text-soft">MP4, MOV, WebM, MP3, M4A, or WAV</span>
+                </button>
+              )}
+              {activeRow ? (
+                <div className="absolute bottom-4 left-4 right-4 rounded bg-black/70 px-3 py-2 text-center text-sm font-extrabold break-words">
+                  {activeRow[2]}
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-3 grid min-w-0 gap-2">
+              <Button variant="primary" className="w-full px-3" type="button" disabled={!canGenerate} onClick={user ? retryTranscription : startGoogleForTranscription}>
+                {isTranscribing ? "Generating subtitles..." : user ? "Generate subtitles" : "Sign in with Google to generate subtitles"}
+              </Button>
+              <div className="grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-2">
+                <Button variant="secondary" size="sm" className="w-full" type="button" onClick={addRow}>Add row</Button>
+                <Button variant="secondary" size="sm" className="w-full" type="button" onClick={saveDraft}>{saveFeedback ? "Saved" : "Save"}</Button>
+                <ExportModal trigger={<Button variant="secondary" size="sm" className="w-full min-[360px]:col-span-2" type="button">Export</Button>} subtitles={rows} filename={filename} user={user} />
+              </div>
+            </div>
+            {readError ? <p className="mt-3 break-words rounded border border-red-400/30 bg-red-500/10 p-3 text-sm font-semibold leading-6 text-red-300">{readError}</p> : null}
+            <p className="mb-0 mt-3 break-words text-sm font-semibold leading-6 text-soft" aria-live="polite">{status}</p>
+          </section>
+          <section className="grid min-w-0 gap-3" aria-label="Subtitle rows">
+            {rows.length ? rows.map(([start, end, text], index) => (
+              <article key={index} className={`min-w-0 rounded border p-3 ${active === index ? "border-cyan bg-cyan/10" : "border-line bg-panel"}`}>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <button className="text-sm font-extrabold text-cyan" type="button" onClick={() => seekToRow(index)}>#{index + 1}</button>
+                  <Button variant="ghost" size="icon" type="button" aria-label={`Delete subtitle row ${index + 1}`} onClick={() => deleteRow(index)}>
+                    <Trash2 className="h-4 w-4 text-soft" />
+                  </Button>
+                </div>
+                <div className="mb-2 grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-2">
+                  <input className="min-h-11 min-w-0 rounded border border-line bg-bg px-2 font-mono text-xs text-cyan" value={start} aria-label={`Start time row ${index + 1}`} onChange={(event) => updateRow(index, 0, event.target.value)} onBlur={() => commitTimeEdit(index, 0)} />
+                  <input className="min-h-11 min-w-0 rounded border border-line bg-bg px-2 font-mono text-xs text-cyan" value={end} aria-label={`End time row ${index + 1}`} onChange={(event) => updateRow(index, 1, event.target.value)} onBlur={() => commitTimeEdit(index, 1)} />
+                </div>
+                <textarea className="min-h-24 w-full min-w-0 resize-y rounded border border-line bg-bg px-3 py-2 text-sm text-text" value={text} aria-label={`Subtitle text row ${index + 1}`} onChange={(event) => updateRow(index, 2, event.target.value)} />
+              </article>
+            )) : (
+              <div className="min-w-0 break-words rounded border border-line bg-panel p-5 text-center text-sm font-semibold leading-6 text-soft">
+                No subtitles yet. Upload media, sign in for AI transcription, or add a manual row.
+              </div>
+            )}
+          </section>
+        </main>
       </div>
     </>
   );

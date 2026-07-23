@@ -113,6 +113,11 @@ export function SeoLanding({
                 {cta.secondary.label}
               </Link>
             ) : null}
+            {cta.primary.href === "/#upload" ? (
+              <p className="mb-0 w-full text-xs font-semibold text-soft lg:text-right">
+                Local media upload. AI transcription requires Google sign-in and a file under 25 MB; minute quotas still apply.
+              </p>
+            ) : null}
           </div>
         </div>
       </section>

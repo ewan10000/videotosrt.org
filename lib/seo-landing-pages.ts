@@ -115,7 +115,7 @@ export const landingPages = {
     faq: [
       { question: "Is the video to SRT converter free?", answer: "You can start the video to SRT workflow for free and edit subtitles in the browser. VideoToSRT currently exports SRT, VTT, and TXT files." },
       { question: "How accurate is the transcription?", answer: "Accuracy depends on audio quality, accents, background noise, and speaker overlap. Clear speech gives the best result, and every line can be edited before you export the SRT." },
-      { question: "What languages are supported?", answer: `The workflow is designed for transcription in 50+ languages, including ${languages}. Always review names and specialized vocabulary before publishing.` },
+      { question: "What languages are supported?", answer: "The transcription backend may support multiple languages, but availability can vary by provider and workflow. Always review names and specialized vocabulary before publishing." },
       { question: "Can I edit the SRT before exporting?", answer: "Yes. The editor lets you correct subtitle text and timing inline, which is why the workflow is better than downloading an unreviewed automatic transcript." },
       { question: "Is my video data secure?", answer: "VideoToSRT processes uploaded content for the subtitle workflow and does not claim rights to your media. You are responsible for having permission to process any content you upload." },
       { question: "What video formats are supported?", answer: "The product starts from local video or audio uploads. MP4 and MOV are called out in the current video picker, while other containers and codecs depend on browser decoding and backend processing." },
@@ -217,7 +217,7 @@ export const landingPages = {
       { question: "Can I use it for podcasts?", answer: "Yes. Audio to SRT is useful for podcast clips, audiograms, video podcast captions, and episode archives." },
       { question: "Can I upload a public audio URL?", answer: "No. The current product starts from local video or audio uploads, not public URL ingestion." },
       { question: "Can I process many files at once?", answer: "Use the current workflow one upload at a time and stay within the plan limits shown on the pricing page." },
-      { question: "How long are uploaded source files retained?", answer: "Uploaded source files are retained no longer than 7 days where storage retention applies." },
+      { question: "How long are uploaded source files retained?", answer: "Uploaded media is used for the transcription workflow. A daily retention job deletes uploaded media under uploads/ from R2 after it is older than 7 days. Local editor drafts remain in your browser until you clear them." },
       { question: "Do I need to sign in?", answer: "Google sign-in is required for AI transcription, account export, checkout, and paid usage. Local upload, preview, and manual editing can start before sign-in." }
     ],
     cta: {
@@ -314,7 +314,7 @@ export const landingPages = {
       { question: "How accurate is the MP4 transcript?", answer: "Accuracy depends on audio quality, background noise, speaker overlap, accents, and vocabulary. Review the automatic transcript before publishing." },
       { question: "Can I upload a YouTube link instead of an MP4?", answer: "No. The current product starts from local video or audio uploads, not public URL ingestion." },
       { question: "What is the file duration limit?", answer: "Current plan limits are Free 60 minutes per file, Pro 180 minutes per file, and Studio 360 minutes per file." },
-      { question: "What happens to uploaded MP4 files?", answer: "Uploaded source files are retained no longer than 7 days where storage retention applies." },
+      { question: "What happens to uploaded MP4 files?", answer: "Uploaded media is used for the transcription workflow. A daily retention job deletes uploaded media under uploads/ from R2 after it is older than 7 days. Local editor drafts remain in your browser until you clear them." },
       { question: "Do I need an account?", answer: "Google sign-in is required for AI transcription, account export, checkout, and paid usage. Local upload, preview, and manual editing can start before sign-in." }
     ],
     cta: {
@@ -411,7 +411,7 @@ export const landingPages = {
       { question: "How accurate is video transcription?", answer: "Accuracy depends on the recording. Clear speech works best, and the transcript should be manually reviewed before publishing." },
       { question: "Can I transcribe a public video URL?", answer: "No. The current product starts from local video or audio uploads, not public URL ingestion." },
       { question: "Can I summarize the transcript?", answer: "No. VideoToSRT focuses on transcription, browser cleanup, and SRT, VTT, or TXT export. It does not provide summarization." },
-      { question: "How long are uploaded source files retained?", answer: "Uploaded source files are retained no longer than 7 days where storage retention applies." },
+      { question: "How long are uploaded source files retained?", answer: "Uploaded media is used for the transcription workflow. A daily retention job deletes uploaded media under uploads/ from R2 after it is older than 7 days. Local editor drafts remain in your browser until you clear them." },
       { question: "Do I need to sign in?", answer: "Google sign-in is required for AI transcription, account export, checkout, and paid usage. Local upload, preview, and manual editing can start before sign-in." }
     ],
     cta: {
@@ -508,7 +508,7 @@ export const landingPages = {
       { question: "Can VideoToSRT label who is speaking?", answer: "No. You can manually edit text, including names or labels, but the product does not automatically label speakers." },
       { question: "Can I summarize audio?", answer: "No. VideoToSRT focuses on transcription, cleanup, and SRT, VTT, or TXT export, not summaries." },
       { question: "Can I upload an audio URL?", answer: "No. The current product starts from local video or audio uploads, not public URL ingestion." },
-      { question: "How long are uploaded source files retained?", answer: "Uploaded source files are retained no longer than 7 days where storage retention applies." },
+      { question: "How long are uploaded source files retained?", answer: "Uploaded media is used for the transcription workflow. A daily retention job deletes uploaded media under uploads/ from R2 after it is older than 7 days. Local editor drafts remain in your browser until you clear them." },
       { question: "Do I need to sign in?", answer: "Google sign-in is required for AI transcription, account export, checkout, and paid usage. Local upload, preview, and manual editing can start before sign-in." }
     ],
     cta: {
@@ -606,7 +606,7 @@ export const landingPages = {
       { question: "Can I create styled or dynamic captions?", answer: "No. VideoToSRT currently focuses on plain SRT, VTT, and TXT export, not styled or dynamic caption output." },
       { question: "Can I convert from a public URL?", answer: "No. The current product starts from local video or audio uploads, not public URL ingestion." },
       { question: "What are the plan limits?", answer: "Free includes 60 minutes per month and 60 minutes per file; Pro includes 600 and 180; Studio includes 3000 and 360." },
-      { question: "How long are uploaded source files retained?", answer: "Uploaded source files are retained no longer than 7 days where storage retention applies." }
+      { question: "How long are uploaded source files retained?", answer: "Uploaded media is used for the transcription workflow. A daily retention job deletes uploaded media under uploads/ from R2 after it is older than 7 days. Local editor drafts remain in your browser until you clear them." }
     ],
     cta: {
       heading: "Convert Video to VTT",

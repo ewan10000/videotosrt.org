@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Menu, X } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { HomeUploadButton } from "@/components/home-upload-button";
 import { LoginModal } from "@/components/modals/login-modal";
@@ -22,6 +23,7 @@ export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" | "
   const [user, setUser] = useState<ApiUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [logoutError, setLogoutError] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const vipPlan = getUserVipPlan(user);
   const extraCreditLabel = getExtraCreditLabel(user);
 
@@ -78,13 +80,25 @@ export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" | "
     <nav className="sticky top-0 z-40 border-b border-soft/20 bg-bg/95">
       <div className="site-container flex min-h-[72px] items-center justify-between gap-6">
         <Brand />
-        <div className="hidden items-center gap-7 md:flex" aria-label="Primary navigation">
+        <div className="hidden items-center gap-7 lg:flex" aria-label="Primary navigation">
           <Link className="nav-link" href="/#features">Features</Link>
           <Link className="nav-link" href="/editor">Editor</Link>
+          <Link className="nav-link" href="/tools">Tools</Link>
           <Link className={active === "pricing" ? "text-text nav-link" : "nav-link"} href="/pricing">Pricing</Link>
           <Link className={active === "faq" ? "text-text nav-link" : "nav-link"} href="/faq">FAQ</Link>
         </div>
         <div className="flex items-center gap-2.5">
+          <Button
+            variant="secondary"
+            size="icon"
+            className="lg:hidden"
+            type="button"
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </Button>
           {user ? (
             <>
               <div className="hidden min-w-0 items-center gap-2 sm:flex">
@@ -111,9 +125,28 @@ export function SiteNav({ active }: { active?: "home" | "pricing" | "editor" | "
               description="Use Google to continue to VideoToSRT account features."
             />
           )}
-          <HomeUploadButton className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px" />
+          <HomeUploadButton className="hidden min-h-[42px] items-center justify-center gap-2 rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px sm:inline-flex" />
         </div>
       </div>
+      {menuOpen ? (
+        <div className="site-container border-t border-line py-3 lg:hidden">
+          <div className="grid gap-2" aria-label="Mobile navigation">
+            {[
+              ["Features", "/#features"],
+              ["Editor", "/editor"],
+              ["Tools", "/tools"],
+              ["Pricing", "/pricing"],
+              ["FAQ", "/faq"],
+              ["Contact", "/contact"]
+            ].map(([label, href]) => (
+              <Link key={href} className="rounded border border-line bg-panel px-3 py-2 text-sm font-bold text-soft" href={href} onClick={() => setMenuOpen(false)}>
+                {label}
+              </Link>
+            ))}
+            <HomeUploadButton className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px" />
+          </div>
+        </div>
+      ) : null}
       {logoutError ? (
         <div className="site-container pb-3">
           <p className="mb-0 flex items-center justify-end gap-3 text-sm font-semibold text-red-300">

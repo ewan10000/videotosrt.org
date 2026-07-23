@@ -4,6 +4,7 @@ import type * as React from "react";
 import { Chrome } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authLoginUrl } from "@/lib/api";
+import { trackConversionEvent } from "@/lib/conversion-events";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ export function LoginModal({
   }
 
   function startLogin() {
+    trackConversionEvent("sign_in_started", { source: "login_modal" });
     window.location.href = authLoginUrl("google", window.location.href);
   }
 
@@ -51,7 +53,10 @@ export function LoginModal({
           </Button>
         </div>
         <p className="mb-0 text-xs leading-5 text-soft">
-          By continuing you agree to the VideoToSRT Terms and Privacy Policy.
+          By continuing you agree to the{" "}
+          <a className="font-semibold text-cyan underline underline-offset-2" href="/terms-of-service">VideoToSRT Terms</a>
+          {" "}and{" "}
+          <a className="font-semibold text-cyan underline underline-offset-2" href="/privacy-policy">Privacy Policy</a>.
         </p>
       </DialogContent>
     </Dialog>

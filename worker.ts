@@ -6,6 +6,7 @@ const UPSTREAM_API_BASE = "https://api.videotosrt.org/api";
 const SITE_URL = "https://videotosrt.org";
 
 type Env = {
+  DB?: D1DatabaseLike;
   PAYPAL_CLIENT_ID?: string;
   PAYPAL_CLIENT_SECRET?: string;
   PAYPAL_ENVIRONMENT?: "live" | "sandbox";
@@ -13,6 +14,17 @@ type Env = {
   PAYPAL_PRO_MONTHLY_PLAN_ID?: string;
   PAYPAL_STUDIO_MONTHLY_PLAN_ID?: string;
   PAYPAL_WEBHOOK_FORWARD_URL?: string;
+};
+
+type D1DatabaseLike = {
+  prepare(query: string): D1PreparedStatementLike;
+};
+
+type D1PreparedStatementLike = {
+  all<T = unknown>(): Promise<{ results?: T[] }>;
+  bind(...values: unknown[]): D1PreparedStatementLike;
+  first<T = unknown>(): Promise<T | null>;
+  run(): Promise<unknown>;
 };
 
 type CheckoutRequest = {
@@ -387,6 +399,7 @@ export default {
       url.pathname === "/api/checkout/paypal/credits" ||
       url.pathname === "/api/checkout/paypal/credits/capture" ||
       url.pathname === "/api/checkout/paypal/sync" ||
+      url.pathname === "/api/events" ||
       url.pathname === "/api/webhooks/paypal"
     ) {
       return withStaticAssetCaching(request, await openNextWorker.fetch(request, env, ctx));

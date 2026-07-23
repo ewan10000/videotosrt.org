@@ -31,8 +31,9 @@ export default function PrivacyPolicyPage() {
             ["What we collect", "We collect account details you provide, uploaded media, generated transcripts, subtitle edits, export settings, and basic operational logs needed to run VideoToSRT."],
             ["How we use data", "We use data to process uploads, generate subtitles, save drafts, manage usage limits, provide support, prevent abuse, and improve reliability."],
             ["Anonymous projects", "The product is designed for upload and editing before sign-in. Anonymous session data may be retained temporarily so you can complete the workflow."],
-            ["Media retention", "MVP project media and anonymous session data are intended for short-lived processing and cleanup. Paid account retention settings may vary by plan."],
-            ["Third-party services", "VideoToSRT may use infrastructure, transcription, storage, authentication, and payment providers to deliver the service."],
+            ["Product analytics", "VideoToSRT stores a persistent anonymous browser ID in localStorage to count product events such as page views, uploads, transcription status, export starts, download initiation, checkout intent, and checkout status. Event details are limited to the page path, referrer host, event name, anonymous browser ID, and allowlisted fields such as plan, billing period, file type, rounded file size, duration, row count, status, reason, source, and export format. Detailed product events are retained for 30 days; daily aggregate event counts may be retained longer."],
+            ["Media retention", "Uploaded media is used for the transcription workflow. A daily retention job deletes uploaded media under uploads/ from R2 after it is older than 7 days. Local drafts remain in your browser until you clear them."],
+            ["Third-party services", "VideoToSRT uses Google for sign-in, PayPal for checkout, and Cloudflare infrastructure for the web app and database storage used by this frontend."],
             ["Contact", "Questions or deletion requests can be sent to support@videotosrt.org."]
           ].map(([title, body]) => (
             <section key={title} className="border-b border-line py-7">

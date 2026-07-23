@@ -9,13 +9,9 @@ const targets = [
   { path: "/audio-to-text", h2: 5, faq: 8 },
   { path: "/video-to-vtt", h2: 5, faq: 8 },
   { path: "/srt-editor", h2: 5, faq: 8 },
-  { path: "/burn-subtitles", h2: 5, faq: 8, howTo: false },
-  { path: "/short-form-subtitles", h2: 5, faq: 8, howTo: false },
+  { path: "/tools", h2: 7, faq: 0, howTo: false },
   { path: "/podcast-transcription", h2: 5, faq: 8 },
-  { path: "/course-captions", h2: 5, faq: 8 },
-  { path: "/subtitle-translator", h2: 5, faq: 8, howTo: false },
-  { path: "/ass-subtitle-editor", h2: 4, faq: 6, howTo: false },
-  { path: "/public-url-subtitles", h2: 4, faq: 6, howTo: false }
+  { path: "/course-captions", h2: 5, faq: 8 }
 ];
 
 const root = process.cwd();
@@ -113,7 +109,7 @@ for (const target of targets) {
   const checks = [
     ["one H1", h1Count === 1, h1Count],
     [`at least ${target.h2} H2`, h2Count >= target.h2, h2Count],
-    [`at least ${target.faq} FAQ schema questions`, faqCount >= target.faq, faqCount],
+    [target.faq > 0 ? `at least ${target.faq} FAQ schema questions` : "no FAQ schema requirement", faqCount >= target.faq, faqCount],
     ["at least 3 contextual internal links", uniqueInternalLinks >= 3, uniqueInternalLinks],
     ["valid JSON-LD", jsonLdOk, scripts.length],
     ["BreadcrumbList schema", hasBreadcrumb, hasBreadcrumb],

@@ -46,7 +46,7 @@ const config: Config = {
       },
       fontFamily: {
         mono: ["var(--font-jetbrains)", "ui-monospace", "SFMono-Regular", "monospace"],
-        sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"]
+        sans: ["system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"]
       }
     }
   },

@@ -11,6 +11,7 @@ export function Footer() {
         <div className="flex flex-wrap gap-4 text-sm font-semibold text-soft">
           <Link href="/pricing">Pricing</Link>
           <Link href="/editor">Editor</Link>
+          <Link href="/tools">Tools</Link>
           <Link href="/privacy-policy">Privacy</Link>
           <Link href="/terms-of-service">Terms</Link>
           <Link href="/dmca">DMCA</Link>

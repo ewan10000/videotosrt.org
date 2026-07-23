@@ -5,6 +5,7 @@ import { join } from "node:path";
 const activeCopyFiles = [
   "app/page.tsx",
   "app/faq/page.tsx",
+  "app/tools/page.tsx",
   "app/pricing/page.tsx",
   "app/layout.tsx",
   "components/sections/home-sections.tsx",
@@ -27,6 +28,8 @@ const forbidden = [
   /1GB|2GB/i,
   /money-back guarantee/i,
   /send you the file/i,
+  /MVP/i,
+  /Whisper-powered/i,
 ];
 
 for (const file of activeCopyFiles) {
@@ -37,6 +40,8 @@ for (const file of activeCopyFiles) {
 }
 
 const homeSections = readFileSync("components/sections/home-sections.tsx", "utf8");
+const retentionCopyPattern = /daily retention job deletes uploaded media under uploads\/ from R2 after it is older than 7 days/i;
+const browserDraftPattern = /Local (?:editor )?drafts remain in your browser until you clear them/i;
 const heroStart = homeSections.indexOf("export function HeroSection()");
 const heroEnd = homeSections.indexOf("function UploadPanel()", heroStart);
 assert.notEqual(heroStart, -1, "homepage hero exists");
@@ -46,9 +51,10 @@ assert.equal(/25\s*MB|25MB/i.test(heroBlock), false, "hero must not present 25 M
 assert.match(heroBlock, /Free includes 60 minutes per month and 60 minutes per file/);
 assert.match(heroBlock, /Google sign-in is required for AI transcription, account export, checkout, and paid usage/);
 
-assert.equal(/Technical Upload Guard/i.test(homeSections), false, "homepage features must not promote a technical upload guard");
 assert.match(homeSections, /Plan limits are duration based: Free 60, Pro 180, and Studio 360 minutes per file/);
-assert.match(homeSections, /25 MB technical payload guard today/, "FAQ may disclose the temporary technical guard secondarily");
+assert.match(homeSections, /25 MB technical upload guard|25 MB technical guard/, "homepage discloses the technical guard near upload/transcription copy");
+assert.match(homeSections, retentionCopyPattern, "homepage states verified 7-day uploaded media retention");
+assert.match(homeSections, browserDraftPattern, "homepage notes local drafts stay in the browser");
 
 for (const name of ["John", "Sarah", "Mike", "Lisa"]) {
   assert.equal(new RegExp(`\\b${name}\\b`).test(homeSections), false, `homepage must not contain fabricated testimonial name ${name}`);
@@ -69,6 +75,7 @@ assert.match(uploadBlock, /peer-focus-visible:outline/, "upload dropzone has vis
 
 const metadata = readFileSync("lib/metadata.ts", "utf8");
 assert.match(metadata, /logo: `\$\{siteUrl\}\/apple-touch-icon\.png`/);
+assert.equal(/priceCurrency:\s*["']USD["'][^}\]]*url:\s*`\$\{siteUrl\}\/pricing`/.test(metadata), false, "SoftwareApplication JSON-LD must not emit a paid Offer without a price");
 
 const jsonLd = readFileSync("components/seo/json-ld.tsx", "utf8");
 assert.match(jsonLd, /export function serializeJsonLd/);
@@ -101,6 +108,8 @@ const dangerousHtmlFiles = walk(".").filter((file) => {
 assert.deepEqual(dangerousHtmlFiles, ["components/seo/json-ld.tsx"]);
 
 const landing = readFileSync("lib/seo-landing-pages.ts", "utf8");
+assert.match(landing, retentionCopyPattern, "landing pages state verified 7-day uploaded media retention");
+assert.match(landing, browserDraftPattern, "landing pages note local drafts stay in the browser");
 function withoutTruthfulUnsupportedDisclaimers(text) {
   return text
     .replace(/[^.?!]*(?:does not|do not|not currently|not part of|not available|No\.)[^.?!]*[.?!]/gi, " ")
@@ -158,12 +167,14 @@ const sitemap = readFileSync("app/sitemap.ts", "utf8");
 for (const route of ["/audio-to-srt", "/mp4-to-srt", "/video-to-text", "/audio-to-text", "/video-to-vtt"]) {
   assert.match(sitemap, new RegExp(`"${route}"`), `sitemap contains ${route}`);
 }
+assert.match(sitemap, /"\/tools"/, "sitemap contains tools page");
 for (const route of ["burn-subtitles", "short-form-subtitles", "subtitle-translator", "ass-subtitle-editor", "public-url-subtitles"]) {
   const start = landing.indexOf(`"${route}": {`);
   assert.notEqual(start, -1, `${route} exists`);
   const end = landing.indexOf("\n  },", start);
   const block = landing.slice(start, end);
   assert.match(block, /unavailableProduct: true/, `${route} is marked unavailable/noindex`);
+  assert.equal(new RegExp(`"${route}"`).test(sitemap), false, `sitemap excludes unavailable ${route}`);
 }
 assert.match(landing, /!page\.unavailableProduct && page\.howToName/);
 assert.match(landing, /page\.unavailableProduct \? \{ index: false, follow: true \}/);
@@ -194,6 +205,8 @@ assert.equal(/subscription_status:\s*["']ACTIVE["']/.test(pricingClient), false,
 assert.equal(/active locally/i.test(pricingClient), false, "pricing client must not claim local VIP activation");
 assert.match(pricingClient, /syncPaypalSubscription/);
 assert.match(pricingClient, /Payment returned without a subscription ID/);
+assert.match(pricingClient, /authLoginUrl\("google", "\/pricing"\)/, "unauthenticated paid CTAs start Google sign-in with pricing return");
+assert.match(pricingClient, /checkout_intent/, "pricing tracks checkout intent");
 
 const checkoutSuccessStart = pricingClient.indexOf('if (checkoutState === "success")');
 assert.notEqual(checkoutSuccessStart, -1, "pricing client handles successful checkout returns");
@@ -218,5 +231,61 @@ const mergeStart = plansSource.indexOf("export function mergeStoredMembership");
 assert.notEqual(mergeStart, -1, "mergeStoredMembership exists");
 const mergeBlock = plansSource.slice(mergeStart);
 assert.equal(/plan:\s*storedUser\.plan/.test(mergeBlock), false, "stored membership merge must not restore a locally cached paid plan");
+
+const eventsRoute = readFileSync("app/api/events/route.ts", "utf8");
+assert.match(eventsRoute, /CREATE TABLE IF NOT EXISTS conversion_events/);
+assert.match(eventsRoute, /conversion_event_daily/);
+assert.match(eventsRoute, /Too many events/);
+assert.match(eventsRoute, /isSameOriginRequest/, "events route validates same-origin requests");
+assert.match(eventsRoute, /eventsSchemaReadyPromise/, "events route initializes schema once per isolate");
+assert.match(eventsRoute, /checkAndIncrementRateLimit/, "events route rate limit is checked before accepting events");
+assert.match(eventsRoute, /conversion-rate-v1/, "events route derives a one-way rotating rate key");
+assert.match(eventsRoute, /DELETE FROM conversion_events WHERE created_at < datetime\('now', '-30 days'\)/, "events route cleans detailed events after 30 days");
+assert.match(eventsRoute, /ctx\.waitUntil\(cleanup\)/, "events route schedules cleanup with request execution context");
+assert.equal(/createRateLimitKey\([^)]*anonymousId/.test(eventsRoute), false, "events route must not use anonymousId for rate limiting");
+assert.equal(/raw_ip|ip_address|cf-connecting-ip|x-forwarded-for/i.test(eventsRoute), false, "events route must not store raw IP fields");
+assert.match(eventsRoute, /download_initiated/);
+assert.equal(/export_completed/.test(eventsRoute), false, "server event allowlist must not claim export completion");
+
+const middlewareSource = readFileSync("middleware.ts", "utf8");
+assert.match(middlewareSource, /"\/api\/events"/, "middleware must route /api/events locally");
+const workerSource = readFileSync("worker.ts", "utf8");
+assert.match(workerSource, /url\.pathname === "\/api\/events"/, "worker must route /api/events locally");
+
+const layoutSource = readFileSync("app/layout.tsx", "utf8");
+assert.match(layoutSource, /<ConversionTracker \/>/, "layout must render conversion tracker");
+const conversionTrackerSource = readFileSync("components/conversion-tracker.tsx", "utf8");
+assert.match(conversionTrackerSource, /usePathname/, "conversion tracker must observe App Router navigation");
+assert.match(conversionTrackerSource, /trackedNavigationRef/, "conversion tracker must dedupe per navigation");
+assert.match(conversionTrackerSource, /landing_page_view/);
+assert.match(conversionTrackerSource, /pricing_viewed/);
+assert.match(conversionTrackerSource, /editor_opened/);
+
+assert.match(pricingClient, /isPendingCheckoutIntent/, "pending checkout intent is runtime validated");
+assert.match(pricingClient, /getValidApprovalUrl/, "checkout requires a valid approval URL");
+const resumeStart = pricingClient.indexOf("const intent = nextUser ? readPendingCheckoutIntent() : null");
+const resumeEnd = pricingClient.indexOf("const params = new URLSearchParams", resumeStart);
+assert.equal(/removeItem\(PENDING_CHECKOUT_INTENT_KEY\)/.test(pricingClient.slice(resumeStart, resumeEnd)), false, "pending checkout intent must not be removed before checkout creation");
+const approvalStart = pricingClient.indexOf("const url = getValidApprovalUrl(data)");
+assert.notEqual(approvalStart, -1, "checkout validates approval URL");
+const approvalBlock = pricingClient.slice(approvalStart, pricingClient.indexOf("window.location.href = url", approvalStart));
+assert.match(approvalBlock, /removeItem\(PENDING_CHECKOUT_INTENT_KEY\)/, "pending checkout intent is cleared only after approval URL validation");
+
+const conversionEventsSource = readFileSync("lib/conversion-events.ts", "utf8");
+assert.match(conversionEventsSource, /download_initiated/);
+assert.equal(/export_completed/.test(conversionEventsSource), false, "client event enum must not claim export completion");
+const exportModalSource = readFileSync("components/modals/export-modal.tsx", "utf8");
+assert.match(exportModalSource, /export_started/);
+assert.match(exportModalSource, /download_initiated/);
+assert.equal(/export_completed/.test(exportModalSource), false, "export modal must not claim export completion");
+const editorClientSource = readFileSync("components/sections/editor-client.tsx", "utf8");
+assert.match(editorClientSource, /errorType: "technical_size_guard"/, "25 MB AI guard is tracked as transcription failure, not upload rejection");
+assert.match(editorClientSource, /\) : hasProject && !rows\.length && !isTranscribing \? \(/, "empty editor state must not render duplicate Generate CTAs");
+assert.match(editorClientSource, /max-w-full overflow-x-hidden bg-bg text-text min-\[760px\]:hidden/, "mobile editor shell must prevent page-level horizontal overflow");
+assert.match(editorClientSource, /min-\[360px\]:grid-cols-2/, "mobile editor actions must collapse to one column and grow to two columns");
+assert.match(editorClientSource, /className="w-full px-3"/, "mobile generate CTA must fit the viewport and wrap instead of clipping");
+assert.match(editorClientSource, /<div className="min-h-0 overflow-auto">\s*<table className="w-full min-w-\[520px\]/, "subtitle table horizontal scroll must stay inside the table container");
+const homeUploadSource = readFileSync("components/home-upload-button.tsx", "utf8");
+assert.equal(/file\.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES \? "file_rejected" : "file_selected"/.test(homeUploadSource), false, "large home uploads are still accepted for local editing");
 
 console.log("frontend product truth tests passed");

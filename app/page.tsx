@@ -6,7 +6,9 @@ import {
   FinalCtaSection,
   HeroSection,
   PricingTeaserSection,
+  SampleProofSection,
   StatusSection,
+  ToolsDiscoverySection,
   UseCasesSection,
   WorkflowSection
 } from "@/components/sections/home-sections";
@@ -31,7 +33,9 @@ const homeJsonLd = createPageJsonLd({
       applicationCategory: "VideoApplication",
       operatingSystem: "Web",
       url: "https://videotosrt.org",
-      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }
+      offers: [
+        { "@type": "Offer", availability: "https://schema.org/InStock", price: "0", priceCurrency: "USD" }
+      ]
     },
     {
       "@type": "FAQPage",
@@ -51,7 +55,9 @@ export default function HomePage() {
       <SiteNav active="home" />
       <main>
         <HeroSection />
+        <ToolsDiscoverySection />
         <WorkflowSection />
+        <SampleProofSection />
         <EditorPreviewSection />
         <FeaturesSection />
         <UseCasesSection />
