@@ -53,7 +53,7 @@ assert.match(heroBlock, /Free includes 60 minutes per month and 60 minutes per f
 assert.match(heroBlock, /Google sign-in is required for AI transcription, account export, checkout, and paid usage/);
 
 assert.match(homeSections, /Plan limits are duration based: Free 60, Pro 180, and Studio 360 minutes per file/);
-assert.match(homeSections, /1 GB technical file-size limit/, "homepage discloses the technical file-size limit near upload/transcription copy");
+assert.match(homeSections, /1 GiB technical file-size limit/, "homepage discloses the technical file-size limit near upload/transcription copy");
 assert.match(homeSections, retentionCopyPattern, "homepage states verified 7-day uploaded media retention");
 assert.match(homeSections, browserDraftPattern, "homepage notes local drafts stay in the browser");
 
@@ -250,6 +250,17 @@ assert.equal(/export_completed/.test(eventsRoute), false, "server event allowlis
 
 const middlewareSource = readFileSync("middleware.ts", "utf8");
 assert.match(middlewareSource, /"\/api\/events"/, "middleware must route /api/events locally");
+const cspMatch = middlewareSource.match(/"Content-Security-Policy": "([^"]+)"/);
+assert.ok(cspMatch, "middleware must define a CSP header");
+const cspDirectives = Object.fromEntries(cspMatch[1].split(";").map((directive) => {
+  const tokens = directive.trim().split(/\s+/);
+  return [tokens[0], tokens.slice(1)];
+}));
+assert.ok(cspDirectives["connect-src"].includes("https://*.r2.cloudflarestorage.com"), "CSP connect-src allows narrow Cloudflare R2 presigned upload hosts");
+assert.ok(cspDirectives["script-src"].includes("https://static.cloudflareinsights.com"), "CSP script-src allows Cloudflare Web Analytics beacon script");
+assert.ok(cspDirectives["connect-src"].includes("https://cloudflareinsights.com"), "CSP connect-src allows Cloudflare Web Analytics beacon endpoint");
+assert.ok(cspDirectives["connect-src"].includes("https://api-m.sandbox.paypal.com"), "CSP keeps PayPal sandbox API allowance");
+assert.ok(cspDirectives["connect-src"].includes("https://api-m.paypal.com"), "CSP keeps PayPal production API allowance");
 const workerSource = readFileSync("worker.ts", "utf8");
 assert.match(workerSource, /url\.pathname === "\/api\/events"/, "worker must route /api/events locally");
 
@@ -264,6 +275,10 @@ assert.match(conversionTrackerSource, /editor_opened/);
 
 assert.match(pricingClient, /isPendingCheckoutIntent/, "pending checkout intent is runtime validated");
 assert.match(pricingClient, /getValidApprovalUrl/, "checkout requires a valid approval URL");
+assert.match(pricingClient, /authLoginUrl\("google", "\/pricing"\)/, "logged-out paid CTAs use Google-only OAuth with pricing return");
+assert.equal(/authLoginUrl\("(github|email|password)"/i.test(pricingClient), false, "pricing must not introduce non-Google auth providers");
+assert.match(pricingClient, /checkoutInFlightRef/, "pricing checkout creation is guarded against duplicate clicks");
+assert.match(pricingClient, /authRedirectStartedRef/, "pricing auth redirect is guarded against duplicate clicks");
 const resumeStart = pricingClient.indexOf("const intent = nextUser ? readPendingCheckoutIntent() : null");
 const resumeEnd = pricingClient.indexOf("const params = new URLSearchParams", resumeStart);
 assert.equal(/removeItem\(PENDING_CHECKOUT_INTENT_KEY\)/.test(pricingClient.slice(resumeStart, resumeEnd)), false, "pending checkout intent must not be removed before checkout creation");
@@ -271,9 +286,29 @@ const approvalStart = pricingClient.indexOf("const url = getValidApprovalUrl(dat
 assert.notEqual(approvalStart, -1, "checkout validates approval URL");
 const approvalBlock = pricingClient.slice(approvalStart, pricingClient.indexOf("window.location.href = url", approvalStart));
 assert.match(approvalBlock, /removeItem\(PENDING_CHECKOUT_INTENT_KEY\)/, "pending checkout intent is cleared only after approval URL validation");
+const planCheckoutStart = pricingClient.indexOf("async function runCheckout");
+const creditsCheckoutStart = pricingClient.indexOf("async function runCreditsCheckout");
+const redirectStart = pricingClient.indexOf("function redirectToGoogleForCheckout");
+const planCheckoutBlock = pricingClient.slice(planCheckoutStart, creditsCheckoutStart);
+const creditsCheckoutBlock = pricingClient.slice(creditsCheckoutStart, redirectStart);
+assert.equal(/catch \(error\)[\s\S]*removeItem\(PENDING_CHECKOUT_INTENT_KEY\)/.test(planCheckoutBlock), false, "plan checkout creation failure must keep pending checkout intent for retry after reload");
+assert.equal(/catch \(error\)[\s\S]*removeItem\(PENDING_CHECKOUT_INTENT_KEY\)/.test(creditsCheckoutBlock), false, "credits checkout creation failure must keep pending checkout intent for retry after reload");
 
 const conversionEventsSource = readFileSync("lib/conversion-events.ts", "utf8");
 assert.match(conversionEventsSource, /download_initiated/);
+for (const eventName of [
+  "upload_resume_file_missing",
+  "upload_presign_succeeded",
+  "upload_presign_failed",
+  "upload_r2_put_succeeded",
+  "upload_r2_put_failed",
+  "upload_verification_succeeded",
+  "upload_verification_failed",
+  "transcription_job_created"
+]) {
+  assert.match(conversionEventsSource, new RegExp(`"${eventName}"`), `client event enum includes ${eventName}`);
+  assert.match(eventsRoute, new RegExp(`"${eventName}"`), `server event allowlist includes ${eventName}`);
+}
 assert.equal(/export_completed/.test(conversionEventsSource), false, "client event enum must not claim export completion");
 const exportModalSource = readFileSync("components/modals/export-modal.tsx", "utf8");
 assert.match(exportModalSource, /export_started/);
@@ -283,8 +318,14 @@ const editorClientSource = readFileSync("components/sections/editor-client.tsx",
 assert.match(editorClientSource, /errorType: "technical_size_guard"/, "1 GB AI guard is tracked as transcription failure, not upload rejection");
 assert.match(editorClientSource, /file\.size <= 0/, "editor rejects empty files before upload");
 assert.match(editorClientSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES/, "editor uses the shared technical upload limit");
+assert.match(editorClientSource, /upload_resume_file_missing/, "editor tracks missing restored file after OAuth");
+assert.match(editorClientSource, /Select the media file again/, "editor gives clear reselect-file UX after OAuth restore failure");
 assert.equal(/api\.upload\(file\)/.test(editorClientSource), false, "production browser transcription path must not use Worker multipart /upload");
-assert.match(editorClientSource, /api\.uploadDirectToR2\(file\)/, "production browser transcription path uploads directly to R2");
+assert.match(editorClientSource, /api\.uploadDirectToR2\(file,\s*\{\s*onEvent: trackConversionEvent\s*\}\)/, "production browser transcription path uploads directly to R2 and injects browser telemetry");
+const pollSourceStart = editorClientSource.indexOf("async function pollTranscriptionJob");
+const pollSourceEnd = editorClientSource.indexOf("async function handleFile", pollSourceStart);
+const pollSource = editorClientSource.slice(pollSourceStart, pollSourceEnd);
+assert.ok(pollSource.indexOf("if (jobHasFailed(payload))") < pollSource.indexOf("if (srt)"), "failed terminal jobs are checked before srt_content success handling");
 assert.match(editorClientSource, /\) : hasProject && !rows\.length && !isTranscribing \? \(/, "empty editor state must not render duplicate Generate CTAs");
 assert.match(editorClientSource, /max-w-full overflow-x-hidden bg-bg text-text min-\[760px\]:hidden/, "mobile editor shell must prevent page-level horizontal overflow");
 assert.match(editorClientSource, /min-\[360px\]:grid-cols-2/, "mobile editor actions must collapse to one column and grow to two columns");
@@ -298,6 +339,13 @@ assert.match(limitsSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES\s*=\s*1\s*\*\s*
 
 const apiSource = readFileSync("lib/api.ts", "utf8");
 assert.match(apiSource, /\/upload\/presign/, "frontend requests backend presigned upload URLs");
+assert.equal(/@\/lib\/conversion-events/.test(apiSource), false, "shared API client must not import browser-only conversion tracking");
+assert.match(apiSource, /upload_presign_succeeded/, "direct upload tracks presign success");
+assert.match(apiSource, /upload_presign_failed/, "direct upload tracks presign failure");
+assert.match(apiSource, /upload_r2_put_succeeded/, "direct upload tracks R2 PUT success");
+assert.match(apiSource, /upload_r2_put_failed/, "direct upload tracks R2 PUT failure");
+assert.match(apiSource, /upload_verification_succeeded/, "direct upload tracks upload verification success");
+assert.match(apiSource, /upload_verification_failed/, "direct upload tracks upload verification failure");
 assert.match(apiSource, /method:\s*["']PUT["']/, "frontend uploads media to R2 with direct PUT");
 assert.match(apiSource, /body:\s*file/, "frontend streams the File as the direct PUT body");
 assert.match(apiSource, /\/upload\/url/, "frontend asks backend for an owned upload URL after direct PUT");

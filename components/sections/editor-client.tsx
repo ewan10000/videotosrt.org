@@ -61,7 +61,7 @@ function formatFileSize(bytes: number | null) {
     return "Size unknown";
   }
 
-  const units = ["B", "KB", "MB", "GB"];
+  const units = ["B", "KiB", "MiB", "GiB"];
   let value = bytes;
   let unitIndex = 0;
 
@@ -250,6 +250,7 @@ export function EditorClient() {
   const [status, setStatus] = useState("No active project");
   const [readError, setReadError] = useState("");
   const [needsLoginForTranscription, setNeedsLoginForTranscription] = useState(false);
+  const [fileRestoreMissing, setFileRestoreMissing] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [subtitlePage, setSubtitlePage] = useState(0);
   const [orderEdits, setOrderEdits] = useState<Record<number, string>>({});
@@ -288,6 +289,14 @@ export function EditorClient() {
 
     authRefreshRef.current = request;
     return request;
+  }
+
+  function markRestoredUploadMissing() {
+    setNeedsLoginForTranscription(false);
+    setFileRestoreMissing(true);
+    setIsTranscribing(false);
+    setStatus("You're signed in. The media file could not be restored after sign-in. Select the media file again to generate subtitles.");
+    trackConversionEvent("upload_resume_file_missing", { source: "editor" });
   }
 
   useEffect(() => {
@@ -388,13 +397,14 @@ export function EditorClient() {
           getPendingUpload(upload.id)
             .then((pendingUpload) => {
               if (pendingUpload?.file) {
+                setFileRestoreMissing(false);
                 void handleFile(pendingUpload.file, { autoTranscribe: true });
                 void deletePendingUpload(upload.id!);
               } else {
-                setStatus("Could not restore the uploaded file. Please upload it again.");
+                markRestoredUploadMissing();
               }
             })
-            .catch(() => setStatus("Could not restore the uploaded file. Please upload it again."))
+            .catch(() => markRestoredUploadMissing())
             .finally(() => window.sessionStorage.removeItem(UPLOAD_META_KEY));
         }
       } catch {
@@ -409,7 +419,7 @@ export function EditorClient() {
         if (job.id) {
           setStatus(`Resuming transcription for ${job.filename || "last upload"}...`);
           setIsTranscribing(true);
-          void pollTranscriptionJob(job.id);
+          void pollTranscriptionJob(job.id, { restored: true });
         }
       } catch {
         window.localStorage.removeItem(EDITOR_JOB_KEY);
@@ -461,7 +471,7 @@ export function EditorClient() {
         source: "editor_transcribe"
       });
       setStatus(
-        `Automatic transcription currently supports files up to 1 GB. This file is ${formatFileSize(file.size)}. Please upload a shorter or compressed audio/video file.`
+        `Automatic transcription currently supports files up to 1 GiB (1,073,741,824 bytes). This file is ${formatFileSize(file.size)}. Please upload a shorter or compressed audio/video file.`
       );
       return;
     }
@@ -483,7 +493,7 @@ export function EditorClient() {
     });
 
     try {
-      const upload = await api.uploadDirectToR2(file);
+      const upload = await api.uploadDirectToR2(file, { onEvent: trackConversionEvent });
       const audioUrl = extractUploadUrl(upload);
 
       if (!audioUrl) {
@@ -531,6 +541,7 @@ export function EditorClient() {
         return;
       }
 
+      trackConversionEvent("transcription_job_created", { source: "editor" });
       window.localStorage.setItem(EDITOR_JOB_KEY, JSON.stringify({ id: jobId, filename: file.name }));
       await pollTranscriptionJob(jobId);
     } catch (error) {
@@ -551,16 +562,44 @@ export function EditorClient() {
     }
   }
 
-  async function pollTranscriptionJob(jobId: string) {
+  async function pollTranscriptionJob(jobId: string, options: { restored?: boolean } = {}) {
     let failedPolls = 0;
+    const pollSource = options.restored ? "editor_restored_poll" : "editor_poll";
 
     for (let attempt = 0; attempt < MAX_JOB_POLL_ATTEMPTS; attempt += 1) {
       const pollDelay = attempt === 0 ? 800 : attempt < 30 ? JOB_FAST_POLL_INTERVAL_MS : JOB_SLOW_POLL_INTERVAL_MS;
       await new Promise((resolve) => window.setTimeout(resolve, pollDelay));
-      const job = await api.job(jobId);
+      let job: ApiJob;
+      try {
+        job = await api.job(jobId);
+      } catch {
+        failedPolls += 1;
+        if (failedPolls >= 4) {
+          setStatus(options.restored
+            ? "Could not check the restored transcription job. Refresh or try generating subtitles again."
+            : "Could not check the transcription job. Please try generating subtitles again.");
+          setIsTranscribing(false);
+          trackConversionEvent("transcription_failed", { errorType: "poll_request", source: pollSource });
+          return;
+        }
+        setStatus(`Checking transcription again after a network error... attempt ${failedPolls}`);
+        continue;
+      }
+
       const payload = unwrapJob(job);
       const srt = getJobSrt(payload);
       const jobStatus = payload.status ?? "processing";
+
+      if (jobHasFailed(payload)) {
+        const message = getJobMessage(payload);
+        window.localStorage.removeItem(EDITOR_JOB_KEY);
+        setStatus(message ? `Transcription failed: ${message}` : "Transcription failed on the server. Please try a shorter audio/video file.");
+        setIsTranscribing(false);
+        trackConversionEvent("transcription_failed", { errorType: "job_failed", source: pollSource });
+        return;
+      }
+
+      failedPolls = 0;
 
       if (srt) {
         const providerError = getProviderErrorMessage(srt);
@@ -568,7 +607,7 @@ export function EditorClient() {
           window.localStorage.removeItem(EDITOR_JOB_KEY);
           setStatus(providerError);
           setIsTranscribing(false);
-          trackConversionEvent("transcription_failed", { errorType: "provider", source: "editor_poll" });
+          trackConversionEvent("transcription_failed", { errorType: "provider", source: pollSource });
           return;
         }
 
@@ -581,33 +620,16 @@ export function EditorClient() {
         setIsTranscribing(false);
         trackConversionEvent(parsedRows.length ? "transcription_completed" : "transcription_failed", {
           rowCount: parsedRows.length,
-          source: "editor_poll"
+          source: pollSource
         });
         return;
       }
-
-      if (jobHasFailed(payload)) {
-        failedPolls += 1;
-        if (failedPolls < 4) {
-          setStatus(`Transcription retrying after server error... attempt ${failedPolls}`);
-          continue;
-        }
-
-        const message = getJobMessage(payload);
-        window.localStorage.removeItem(EDITOR_JOB_KEY);
-        setStatus(message ? `Transcription failed: ${message}` : "Transcription failed on the server. Please try a shorter audio/video file.");
-        setIsTranscribing(false);
-        trackConversionEvent("transcription_failed", { errorType: "job_failed", source: "editor_poll" });
-        return;
-      }
-
-      failedPolls = 0;
 
       if (jobIsFinishedWithoutText(payload)) {
         window.localStorage.removeItem(EDITOR_JOB_KEY);
         setStatus("Transcription completed, but the server returned an empty subtitle file.");
         setIsTranscribing(false);
-        trackConversionEvent("transcription_failed", { errorType: "empty_result", source: "editor_poll" });
+        trackConversionEvent("transcription_failed", { errorType: "empty_result", source: pollSource });
         return;
       }
 
@@ -619,7 +641,7 @@ export function EditorClient() {
 
     setStatus("Transcription is still processing. Keep this page open or refresh later; the editor will keep checking this job.");
     setIsTranscribing(false);
-    trackConversionEvent("transcription_failed", { errorType: "timeout", source: "editor_poll" });
+    trackConversionEvent("transcription_failed", { errorType: "timeout", source: pollSource });
   }
 
   async function handleFile(file: File, options: { autoTranscribe?: boolean } = {}) {
@@ -652,6 +674,7 @@ export function EditorClient() {
 
       objectUrlRef.current = objectUrl;
       currentFileRef.current = file;
+      setFileRestoreMissing(false);
       setMediaUrl(objectUrl);
       setFilename(file.name);
       setFileSize(file.size);
@@ -1006,9 +1029,15 @@ export function EditorClient() {
                   <p className="text-sm font-semibold text-soft">
                     {hasProject
                       ? `${formatFileSize(fileSize)} · Select the file again here to preview it in the browser.`
-                      : "Start with local MP4, MOV, WebM, MP3, M4A, or WAV. AI transcription requires Google sign-in and has a 1 GB technical file-size limit."}
+                      : "Start with local MP4, MOV, WebM, MP3, M4A, or WAV. AI transcription requires Google sign-in and has a 1 GiB technical file-size limit."}
                   </p>
                 </button>
+              ) : null}
+              {fileRestoreMissing ? (
+                <div className="absolute bottom-4 left-4 right-4 z-10 flex items-center justify-between gap-3 rounded border border-cyan/40 bg-panel/95 px-4 py-3 text-sm font-semibold text-cyan">
+                  <span>Select the media file again to continue after sign-in.</span>
+                  <Button variant="primary" size="sm" type="button" onClick={openFilePicker}>Select file</Button>
+                </div>
               ) : null}
               {readError ? (
                 <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3 rounded border border-red-400/30 bg-panel/95 px-3 py-2 text-sm font-semibold text-red-300" role="alert">
@@ -1239,7 +1268,7 @@ export function EditorClient() {
             </div>
             <Button variant="secondary" size="sm" className="shrink-0" type="button" onClick={openFilePicker}>Upload</Button>
           </div>
-          <p className="mb-0 mt-2 break-words text-xs font-semibold leading-5 text-soft">Local audio/video upload. AI transcription requires Google sign-in and a file under 1 GB; minute quotas still apply.</p>
+          <p className="mb-0 mt-2 break-words text-xs font-semibold leading-5 text-soft">Local audio/video upload. AI transcription requires Google sign-in and a file no larger than 1 GiB; minute quotas still apply.</p>
         </header>
         <main className="grid min-w-0 max-w-full gap-4 p-3">
           <h1 className="sr-only">VideoToSRT Subtitle Editor</h1>
@@ -1279,6 +1308,12 @@ export function EditorClient() {
               </div>
             </div>
             {readError ? <p className="mt-3 break-words rounded border border-red-400/30 bg-red-500/10 p-3 text-sm font-semibold leading-6 text-red-300">{readError}</p> : null}
+            {fileRestoreMissing ? (
+              <div className="mt-3 grid gap-3 rounded border border-cyan/40 bg-cyan/10 p-3 text-sm font-semibold leading-6 text-cyan">
+                <span>Select the media file again to continue after sign-in.</span>
+                <Button variant="primary" className="w-full px-3" type="button" onClick={openFilePicker}>Select file</Button>
+              </div>
+            ) : null}
             <p className="mb-0 mt-3 break-words text-sm font-semibold leading-6 text-soft" aria-live="polite">{status}</p>
           </section>
           <section className="grid min-w-0 gap-3" aria-label="Subtitle rows">

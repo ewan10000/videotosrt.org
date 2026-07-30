@@ -155,7 +155,10 @@ export function PricingClient() {
   const [pendingCredits, setPendingCredits] = useState<"2h" | "5h" | "20h" | null>(null);
   const [checkoutError, setCheckoutError] = useState("");
   const [checkoutNotice, setCheckoutNotice] = useState("");
+  const [authRedirectTarget, setAuthRedirectTarget] = useState<"plan" | "credits" | null>(null);
   const resumedCheckoutIntentRef = useRef(false);
+  const checkoutInFlightRef = useRef(false);
+  const authRedirectStartedRef = useRef(false);
   const vipPlan = getUserVipPlan(user);
 
   useEffect(() => {
@@ -253,7 +256,7 @@ export function PricingClient() {
           .captureCredits(orderId)
           .then((data) => {
             window.localStorage.setItem(captureKey, "done");
-            trackConversionEvent("checkout_completed", { credits: credits ?? "unknown", source: "paypal_credits" });
+            trackConversionEvent("checkout_completed", { credits: isCredits(credits) ? credits : undefined, source: "paypal_credits" });
             const currentUser = getLocalUser();
             const nextUser = data.user ?? (currentUser
               ? { ...currentUser, extra_credit_hours: (currentUser.extra_credit_hours ?? 0) + (data.hours ?? 0) }
@@ -266,7 +269,7 @@ export function PricingClient() {
           })
           .catch((error) => {
             window.localStorage.removeItem(captureKey);
-            trackConversionEvent("checkout_failed", { credits: credits ?? "unknown", source: "paypal_credits_capture" });
+            trackConversionEvent("checkout_failed", { credits: isCredits(credits) ? credits : undefined, source: "paypal_credits_capture" });
             setCheckoutNotice(error instanceof Error ? error.message : "Payment completed, but credits sync failed. Please try refreshing.");
           });
       }
@@ -283,9 +286,10 @@ export function PricingClient() {
   }, []);
 
   async function runCheckout(plan: "pro" | "studio", selectedBilling: "monthly" | "yearly") {
-    if (loadingPlan || loadingCredits) {
+    if (checkoutInFlightRef.current || loadingPlan || loadingCredits) {
       return;
     }
+    checkoutInFlightRef.current = true;
     setLoadingPlan(plan);
     setCheckoutError("");
     trackConversionEvent("checkout_started", { billing: selectedBilling, plan, source: "pricing" });
@@ -310,13 +314,15 @@ export function PricingClient() {
       setCheckoutError(error instanceof Error ? error.message : "Could not start checkout. Please try again.");
     } finally {
       setLoadingPlan(null);
+      checkoutInFlightRef.current = false;
     }
   }
 
   async function runCreditsCheckout(credits: "2h" | "5h" | "20h") {
-    if (loadingCredits || loadingPlan) {
+    if (checkoutInFlightRef.current || loadingCredits || loadingPlan) {
       return;
     }
+    checkoutInFlightRef.current = true;
     setLoadingCredits(credits);
     setCheckoutError("");
     trackConversionEvent("checkout_started", { credits, source: "pricing_credits" });
@@ -335,11 +341,22 @@ export function PricingClient() {
       setCheckoutError(error instanceof Error ? error.message : "Could not start credits checkout. Please try again.");
     } finally {
       setLoadingCredits(null);
+      checkoutInFlightRef.current = false;
     }
   }
 
+  function redirectToGoogleForCheckout(kind: "plan" | "credits") {
+    if (authRedirectStartedRef.current) {
+      return;
+    }
+
+    authRedirectStartedRef.current = true;
+    setAuthRedirectTarget(kind);
+    window.location.assign(authLoginUrl("google", "/pricing"));
+  }
+
   function startCheckout(plan: "pro" | "studio", selectedBilling = billing) {
-    if (loadingPlan || loadingCredits) {
+    if (loadingPlan || loadingCredits || authRedirectStartedRef.current) {
       return;
     }
     trackConversionEvent("checkout_intent", { billing: selectedBilling, plan, source: "pricing" });
@@ -354,7 +371,7 @@ export function PricingClient() {
       } satisfies PendingCheckoutIntent));
       setCheckoutNotice(`Redirecting to Google sign-in. ${plan === "pro" ? "Pro" : "Studio"} ${selectedBilling} checkout will resume automatically.`);
       trackConversionEvent("sign_in_started", { source: "pricing_checkout" });
-      window.location.href = authLoginUrl("google", "/pricing");
+      redirectToGoogleForCheckout("plan");
       return;
     }
 
@@ -362,7 +379,7 @@ export function PricingClient() {
   }
 
   function startCreditsCheckout(credits: "2h" | "5h" | "20h") {
-    if (loadingPlan || loadingCredits) {
+    if (loadingPlan || loadingCredits || authRedirectStartedRef.current) {
       return;
     }
     trackConversionEvent("checkout_intent", { credits, source: "pricing_credits" });
@@ -376,7 +393,7 @@ export function PricingClient() {
       } satisfies PendingCheckoutIntent));
       setCheckoutNotice(`Redirecting to Google sign-in. ${credits} extra-hours checkout will resume automatically.`);
       trackConversionEvent("sign_in_started", { source: "pricing_credits" });
-      window.location.href = authLoginUrl("google", "/pricing");
+      redirectToGoogleForCheckout("credits");
       return;
     }
 
@@ -397,7 +414,7 @@ export function PricingClient() {
             <span className="eyebrow"><span className="dot" /> Simple subtitle pricing</span>
             <h1 className="mb-4 mt-5 max-w-[760px] text-[clamp(42px,6vw,68px)] font-extrabold leading-[1]">Simple Pricing. No Surprises.</h1>
             <p className="mb-0 max-w-[720px] text-lg leading-[1.7] text-muted">
-              Start free. Upgrade when you need more transcription minutes. A 1 GB technical file-size limit applies while minute quotas remain duration based.
+              Start free. Upgrade when you need more transcription minutes. A 1 GiB technical file-size limit (1,073,741,824 bytes) applies while minute quotas remain duration based.
             </p>
           </div>
           <div className="rounded border border-line bg-panel p-2">
@@ -476,17 +493,19 @@ export function PricingClient() {
                 </ul>
                 {plan.plan === "free" ? (
                   <Link className="inline-flex min-h-[42px] w-full items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold" href="/#upload">
-                    Start free upload - 1 GB AI limit
+                    Start free upload - 1 GiB AI limit
                   </Link>
                 ) : (
                   <Button
                     variant={plan.featured ? "primary" : "secondary"}
                     className="w-full"
                     type="button"
-                    disabled={loadingPlan !== null}
+                    disabled={loadingPlan !== null || authRedirectTarget !== null}
                     onClick={() => startCheckout(plan.plan)}
                   >
-                    {loadingPlan === plan.plan
+                    {authRedirectTarget === "plan" && pendingPlan === plan.plan
+                      ? "Opening Google sign-in..."
+                      : loadingPlan === plan.plan
                       ? "Opening checkout..."
                       : `Start ${plan.name}`}
                   </Button>
@@ -509,10 +528,12 @@ export function PricingClient() {
                       ? "min-w-[128px] shadow-[0_12px_30px_rgba(99,102,241,.22)]"
                       : "min-w-[128px] border-cyan/50 bg-cyan/10 text-cyan shadow-[0_10px_24px_rgba(34,211,238,.12)]"}
                     type="button"
-                    disabled={loadingCredits !== null}
+                    disabled={loadingCredits !== null || authRedirectTarget !== null}
                     onClick={() => startCreditsCheckout(item.credits)}
                   >
-                    {loadingCredits === item.credits ? "Opening..." : item.label}
+                    {authRedirectTarget === "credits" && pendingCredits === item.credits
+                      ? "Opening Google sign-in..."
+                      : loadingCredits === item.credits ? "Opening..." : item.label}
                   </Button>
                 ))}
               </div>
@@ -520,7 +541,7 @@ export function PricingClient() {
           </div>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {[
-              ["Technical limit", "AI transcription currently accepts local audio/video uploads up to 1 GB. Minute quotas are separate duration limits, so a long high-bitrate file may need compression before transcription."],
+              ["Technical limit", "AI transcription currently accepts local audio/video uploads no larger than 1 GiB (1,073,741,824 bytes). Minute quotas are separate duration limits, so a long high-bitrate file may need compression before transcription."],
               ["Billing provider", "Subscriptions and extra-hour purchases open PayPal checkout after Google sign-in so the purchase can attach to your account."],
               ["Cancellation and support", "Cancel subscription billing in PayPal or contact support@videotosrt.org. Refunds are not promised here and are handled case by case through support and the payment provider process."]
             ].map(([title, body]) => (

@@ -99,6 +99,20 @@ type PresignUploadResponse = {
   url?: string;
 };
 
+type ApiUploadEventProperties = Record<string, boolean | number | string | null | undefined>;
+
+type UploadDirectToR2EventName =
+  | "upload_presign_succeeded"
+  | "upload_presign_failed"
+  | "upload_r2_put_succeeded"
+  | "upload_r2_put_failed"
+  | "upload_verification_succeeded"
+  | "upload_verification_failed";
+
+type UploadDirectToR2Options = {
+  onEvent?: (name: UploadDirectToR2EventName, properties?: ApiUploadEventProperties) => void;
+};
+
 export type ApiUserResponse =
   | ApiUser
   | {
@@ -202,14 +216,26 @@ export const api = {
     body.set("file", file);
     return apiFetch<UploadResponse>("/upload", { method: "POST", body, timeoutMs: 120000 });
   },
-  uploadDirectToR2: async (file: File) => {
+  uploadDirectToR2: async (file: File, options: UploadDirectToR2Options = {}) => {
     const contentType = file.type || "application/octet-stream";
-    const presign = await apiFetch<PresignUploadResponse>(
-      `/upload/presign?filename=${encodeURIComponent(file.name || "upload")}&contentType=${encodeURIComponent(contentType)}&size=${encodeURIComponent(String(file.size))}`,
-    );
+    const trackUploadEvent = (name: UploadDirectToR2EventName, properties: ApiUploadEventProperties = {}) => {
+      options.onEvent?.(name, properties);
+    };
+    let presign: PresignUploadResponse;
+    try {
+      presign = await apiFetch<PresignUploadResponse>(
+        `/upload/presign?filename=${encodeURIComponent(file.name || "upload")}&contentType=${encodeURIComponent(contentType)}&size=${encodeURIComponent(String(file.size))}`,
+      );
+      trackUploadEvent("upload_presign_succeeded", { fileSize: file.size, source: "direct_upload" });
+    } catch (error) {
+      trackUploadEvent("upload_presign_failed", { errorType: "presign_failed", fileSize: file.size, source: "direct_upload" });
+      throw error;
+    }
+
     const presigned = presign.data ?? presign;
 
     if (!presigned.url || !presigned.key) {
+      trackUploadEvent("upload_presign_failed", { errorType: "presign_failed", fileSize: file.size, source: "direct_upload" });
       throw new Error("Upload could not start because the storage URL was not returned.");
     }
 
@@ -228,18 +254,30 @@ export const api = {
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
+        trackUploadEvent("upload_r2_put_failed", { errorType: "r2_put_failed", fileSize: file.size, source: "direct_upload" });
         throw new Error("Upload to storage timed out. Please check your connection and try again.");
       }
+      trackUploadEvent("upload_r2_put_failed", { errorType: "r2_put_failed", fileSize: file.size, source: "direct_upload" });
       throw new Error("Upload to storage failed. Please check your connection and try again.");
     } finally {
       globalThis.clearTimeout(timeout);
     }
 
     if (!response.ok) {
+      trackUploadEvent("upload_r2_put_failed", { errorType: "r2_put_failed", fileSize: file.size, source: "direct_upload", status: "failed" });
       throw new Error(`Upload to storage failed with status ${response.status}. Please try again.`);
     }
 
-    return apiFetch<UploadResponse>(`/upload/url?key=${encodeURIComponent(presigned.key)}`);
+    trackUploadEvent("upload_r2_put_succeeded", { fileSize: file.size, source: "direct_upload", status: "completed" });
+
+    try {
+      const upload = await apiFetch<UploadResponse>(`/upload/url?key=${encodeURIComponent(presigned.key)}`);
+      trackUploadEvent("upload_verification_succeeded", { fileSize: file.size, source: "direct_upload" });
+      return upload;
+    } catch (error) {
+      trackUploadEvent("upload_verification_failed", { errorType: "upload_verification_failed", fileSize: file.size, source: "direct_upload" });
+      throw error;
+    }
   },
   transcribe: (payload: { filename: string; audio_url: string; duration_seconds: number }) =>
     apiFetch<ApiJob>("/transcribe", { method: "POST", body: payload }),
