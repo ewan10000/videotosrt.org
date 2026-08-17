@@ -494,7 +494,7 @@ export function PricingClient() {
                 </ul>
                 {plan.plan === "free" ? (
                   <Link className="inline-flex min-h-[42px] w-full items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold" href="/#upload">
-                    Start free upload - 100 MB AI limit
+                    Start free upload - 300 MB AI limit
                   </Link>
                 ) : (
                   <Button

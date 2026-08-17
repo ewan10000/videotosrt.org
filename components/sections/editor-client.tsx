@@ -6,10 +6,11 @@ import { ChevronLeft, ChevronRight, FileVideo, Pause, Play, Plus, Save, Trash2 }
 import { Brand } from "@/components/brand";
 import { ExportModal } from "@/components/modals/export-modal";
 import { Button } from "@/components/ui/button";
+import { preprocessFileIntoAudioChunks } from "@/lib/audio-preprocess";
 import { api, authLoginUrl, type ApiJob, type ApiUser, type UploadResponse } from "@/lib/api";
 import { getLocalUser, normalizeUser, onAuthChange, setLocalUser } from "@/lib/auth";
 import { trackConversionEvent } from "@/lib/conversion-events";
-import { getPlanLimits, TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES, TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL, TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE } from "@/lib/limits";
+import { getPlanLimits, PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES, TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES, TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL, TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE } from "@/lib/limits";
 import { getExtraCreditLabel, getUserVipPlan, getVipBadgeClass, getVipLabel, mergeStoredMembership } from "@/lib/plans";
 import { getPendingUpload, deletePendingUpload, savePendingUpload } from "@/lib/upload-transfer";
 
@@ -491,8 +492,41 @@ export function EditorClient() {
     });
 
     try {
-      const upload = await api.uploadDirectToR2(file, { onEvent: trackConversionEvent });
-      const audioUrl = extractUploadUrl(upload);
+      let audioUrl = "";
+      let chunks: Array<{ audio_url: string; duration_seconds: number; file_size_bytes: number }> | undefined;
+
+      if (file.size > PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES) {
+        setStatus("Preparing audio chunks locally for this large file...");
+        const preparedChunks = await preprocessFileIntoAudioChunks(file, (progress) => {
+          if (progress.phase === "decoding") {
+            setStatus("Reading audio locally for large-file transcription...");
+          } else if (progress.phase === "resampling") {
+            setStatus("Preparing browser audio for provider-compatible chunks...");
+          } else {
+            setStatus(`Encoding local audio chunk ${Math.min(progress.completedChunks + 1, progress.totalChunks)} of ${progress.totalChunks}...`);
+          }
+        });
+
+        chunks = [];
+        for (let index = 0; index < preparedChunks.length; index += 1) {
+          const chunk = preparedChunks[index];
+          setStatus(`Uploading prepared audio chunk ${index + 1} of ${preparedChunks.length}...`);
+          const upload = await api.uploadDirectToR2(chunk.file, { onEvent: trackConversionEvent });
+          const chunkUrl = extractUploadUrl(upload);
+          if (!chunkUrl) {
+            throw new Error("A prepared audio chunk uploaded, but no media URL was returned.");
+          }
+          audioUrl ||= chunkUrl;
+          chunks.push({
+            audio_url: chunkUrl,
+            duration_seconds: chunk.durationSeconds,
+            file_size_bytes: chunk.fileSizeBytes
+          });
+        }
+      } else {
+        const upload = await api.uploadDirectToR2(file, { onEvent: trackConversionEvent });
+        audioUrl = extractUploadUrl(upload);
+      }
 
       if (!audioUrl) {
         setStatus("Upload completed, but no media URL was returned.");
@@ -504,9 +538,13 @@ export function EditorClient() {
       setStatus("Starting transcription...");
       const initialJob = await api.transcribe({
         audio_url: audioUrl,
+        ...(chunks ? { chunks } : {}),
         duration_seconds: mediaDuration,
         file_size_bytes: file.size,
-        filename: file.name
+        filename: file.name,
+        idempotency_key: typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`
       });
       const immediateSrt = getJobSrt(initialJob);
 

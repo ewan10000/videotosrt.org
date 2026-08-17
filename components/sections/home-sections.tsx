@@ -17,7 +17,7 @@ const features = [
   ["60", "Free Minutes", "Free accounts include 60 transcription minutes per month and up to 60 minutes per file."],
   ["AI", "AI Transcription", "Generate an editable draft after Google sign-in, then review every line."],
   ["180", "Per-file Duration", "Plan limits are duration based: Free 60, Pro 180, and Studio 360 minutes per file."],
-  ["100 MB", "Technical Limit", `AI transcription currently has a ${TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} technical file-size limit in addition to minute quotas.`]
+  ["300 MB", "Technical Limit", `AI transcription has a ${TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} technical file-size limit in addition to minute quotas. Files over 100 MB are prepared locally before upload.`]
 ];
 
 const faqs = [
@@ -394,7 +394,7 @@ export function FinalCtaSection() {
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px" href="/#upload">
-            Start free upload - 100 MB AI limit
+            Start free upload - 300 MB AI limit
           </Link>
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold text-text transition hover:-translate-y-px" href="/pricing">
             See Pricing

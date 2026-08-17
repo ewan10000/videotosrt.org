@@ -93,9 +93,15 @@ export type UploadResponse = {
 
 export type TranscribePayload = {
   audio_url: string;
+  chunks?: Array<{
+    audio_url: string;
+    duration_seconds: number;
+    file_size_bytes: number;
+  }>;
   duration_seconds: number;
   file_size_bytes: number;
   filename: string;
+  idempotency_key?: string;
 };
 
 type PresignUploadResponse = {
@@ -120,6 +126,8 @@ type UploadDirectToR2EventName =
 type UploadDirectToR2Options = {
   onEvent?: (name: UploadDirectToR2EventName, properties?: ApiUploadEventProperties) => void;
 };
+
+type Uploadable = Blob & { name?: string };
 
 export type ApiUserResponse =
   | ApiUser
@@ -227,15 +235,16 @@ export const api = {
     body.set("file", file);
     return apiFetch<UploadResponse>("/upload", { method: "POST", body, timeoutMs: 120000 });
   },
-  uploadDirectToR2: async (file: File, options: UploadDirectToR2Options = {}) => {
+  uploadDirectToR2: async (file: Uploadable, options: UploadDirectToR2Options = {}) => {
     const contentType = file.type || "application/octet-stream";
+    const filename = file.name || "upload";
     const trackUploadEvent = (name: UploadDirectToR2EventName, properties: ApiUploadEventProperties = {}) => {
       options.onEvent?.(name, properties);
     };
     let presign: PresignUploadResponse;
     try {
       presign = await apiFetch<PresignUploadResponse>(
-        `/upload/presign?filename=${encodeURIComponent(file.name || "upload")}&contentType=${encodeURIComponent(contentType)}&size=${encodeURIComponent(String(file.size))}`,
+        `/upload/presign?filename=${encodeURIComponent(filename)}&contentType=${encodeURIComponent(contentType)}&size=${encodeURIComponent(String(file.size))}`,
       );
       trackUploadEvent("upload_presign_succeeded", { fileSize: file.size, source: "direct_upload" });
     } catch (error) {

@@ -323,12 +323,15 @@ const transcribeFileStart = editorClientSource.indexOf("async function transcrib
 const transcribeFileEnd = editorClientSource.indexOf("async function pollTranscriptionJob", transcribeFileStart);
 const transcribeFileSource = editorClientSource.slice(transcribeFileStart, transcribeFileEnd);
 assert.notEqual(transcribeFileStart, -1, "editor has a transcribeFile function");
-assert.match(transcribeFileSource, /file\.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES/, "editor rejects only files above the exact provider byte limit");
-assert.equal(/file\.size >= TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES/.test(transcribeFileSource), false, "editor allows files exactly at 100,000,000 bytes");
+assert.match(transcribeFileSource, /file\.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES/, "editor rejects only files above the exact app byte limit");
+assert.equal(/file\.size >= TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES/.test(transcribeFileSource), false, "editor allows files exactly at 300,000,000 bytes");
 assert.ok(transcribeFileSource.indexOf("file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES") < transcribeFileSource.indexOf("refreshAuthUser"), "oversized files are rejected before auth refresh");
-assert.ok(transcribeFileSource.indexOf("file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES") < transcribeFileSource.indexOf("api.uploadDirectToR2"), "oversized files are rejected before direct upload");
+assert.ok(transcribeFileSource.indexOf("file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES") < transcribeFileSource.indexOf("api.uploadDirectToR2"), "files above the app cap are rejected before direct upload");
 assert.ok(transcribeFileSource.indexOf("file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES") < transcribeFileSource.indexOf("api.transcribe"), "oversized files are rejected before transcription API call");
-assert.match(transcribeFileSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE/, "oversized AI transcription guard uses shared clear provider-limit copy");
+assert.match(transcribeFileSource, /PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES/, "editor routes files above the provider URL cap through local chunk preprocessing");
+assert.match(transcribeFileSource, /preprocessFileIntoAudioChunks/, "editor preprocesses large media locally before chunk upload");
+assert.match(transcribeFileSource, /chunks:\s*Array<\{ audio_url: string; duration_seconds: number; file_size_bytes: number \}>/, "editor submits ordered chunk metadata for large transcription jobs");
+assert.match(transcribeFileSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE/, "oversized AI transcription guard uses shared clear app-limit copy");
 assert.match(transcribeFileSource, /file_size_bytes:\s*file\.size/, "editor includes file_size_bytes in every transcription payload");
 assert.match(editorClientSource, /upload_resume_file_missing/, "editor tracks missing restored file after OAuth");
 assert.match(editorClientSource, /Select the media file again/, "editor gives clear reselect-file UX after OAuth restore failure");
@@ -347,8 +350,9 @@ const homeUploadSource = readFileSync("components/home-upload-button.tsx", "utf8
 assert.equal(/file\.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES \? "file_rejected" : "file_selected"/.test(homeUploadSource), false, "large home uploads are still accepted for local editing");
 
 const limitsSource = readFileSync("lib/limits.ts", "utf8");
-assert.match(limitsSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES\s*=\s*100_000_000/, "frontend technical upload limit is exactly 100,000,000 bytes");
-assert.match(limitsSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL\s*=\s*"100 MB \(100,000,000 bytes\)"/, "frontend exposes the reusable provider-size label");
+assert.match(limitsSource, /PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES\s*=\s*100_000_000/, "frontend preserves the 100,000,000 byte provider URL concept");
+assert.match(limitsSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES\s*=\s*300_000_000/, "frontend technical upload limit is exactly 300,000,000 bytes");
+assert.match(limitsSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL\s*=\s*"300 MB \(300,000,000 bytes\)"/, "frontend exposes the reusable 300 MB app-size label");
 
 const apiSource = readFileSync("lib/api.ts", "utf8");
 assert.match(apiSource, /\/upload\/presign/, "frontend requests backend presigned upload URLs");
