@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { transcribeWithGroq } from "./lib/ai";
+import { segmentsToSrt, transcribeSegmentsWithGroq, transcribeWithGroq, type TranscriptionSegment } from "./lib/ai";
 import { robotsTxt, withNoindexHeaders } from "./lib/crawler";
 import { refundJobMinutes } from "./lib/credits";
 import { appOrigin, nowIso } from "./lib/env";
@@ -149,7 +149,9 @@ async function handleTranscription(message: TranscriptionQueueMessage, env: Bind
       .bind(now, message.jobId, message.userId)
       .run();
 
-    const srt = await transcribeWithGroq(env, message.audioUrl, message.filename, message.fileSizeBytes);
+    const srt = message.chunks?.length
+      ? await transcribeChunksWithGroq(env, message)
+      : await transcribeWithGroq(env, message.audioUrl, message.filename, message.fileSizeBytes);
     await env.DB.prepare(
       `UPDATE transcription_jobs
        SET status = 'completed', srt_content = ?, updated_at = ?
@@ -169,6 +171,27 @@ async function handleTranscription(message: TranscriptionQueueMessage, env: Bind
     console.error("[Transcription Error] job:", message.jobId, "error:", messageText, "stack:", error instanceof Error ? error.stack : "");
     throw new Error(messageText);
   }
+}
+
+async function transcribeChunksWithGroq(env: Bindings, message: TranscriptionQueueMessage) {
+  const chunks = message.chunks ?? [];
+  const mergedSegments: TranscriptionSegment[] = [];
+  let offsetSeconds = 0;
+
+  for (let index = 0; index < chunks.length; index += 1) {
+    const chunk = chunks[index];
+    const segments = await transcribeSegmentsWithGroq(env, chunk.audioUrl, `${message.jobId}-chunk-${index + 1}.wav`, chunk.fileSizeBytes);
+    for (const segment of segments) {
+      mergedSegments.push({
+        start: offsetSeconds + segment.start,
+        end: offsetSeconds + segment.end,
+        text: segment.text,
+      });
+    }
+    offsetSeconds += chunk.durationSeconds;
+  }
+
+  return segmentsToSrt(mergedSegments);
 }
 
 export default {

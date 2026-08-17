@@ -6,6 +6,9 @@ import { getPlanQuota, normalizePlan } from "../lib/plans";
 import { fail, ok } from "../lib/response";
 import { requireUser } from "../lib/session";
 import {
+  APPLICATION_SIZE_ERROR_CODE,
+  APPLICATION_SIZE_ERROR_MESSAGE,
+  APPLICATION_TRANSCRIPTION_SIZE_LIMIT_BYTES,
   parseFileSizeBytes,
   PROVIDER_COMPATIBLE_TRANSCRIPTION_SIZE_LIMIT_BYTES,
   PROVIDER_SIZE_ERROR_CODE,
@@ -24,6 +27,54 @@ function canParseUrl(value: string) {
   }
 }
 
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function idempotentJobId(userId: string, key: string) {
+  const digest = await sha256Hex(`${userId}:${key}`);
+  return `job_${digest.slice(0, 40)}`;
+}
+
+function normalizeIdempotencyKey(value: unknown) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") return null;
+  const key = value.trim();
+  return /^[A-Za-z0-9._:-]{8,160}$/.test(key) ? key : null;
+}
+
+function parseTranscriptionChunks(value: unknown) {
+  if (value === undefined || value === null) return { ok: true as const, chunks: undefined };
+  if (!Array.isArray(value) || value.length === 0 || value.length > 20) {
+    return { ok: false as const };
+  }
+
+  const chunks: NonNullable<TranscriptionQueueMessage["chunks"]> = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") return { ok: false as const };
+    const candidate = item as { audio_url?: unknown; duration_seconds?: unknown; file_size_bytes?: unknown };
+    if (typeof candidate.audio_url !== "string" || !canParseUrl(candidate.audio_url)) return { ok: false as const };
+    const durationSeconds = parseDurationSeconds(candidate.duration_seconds);
+    const fileSizeBytes = parseFileSizeBytes(candidate.file_size_bytes);
+    if (durationSeconds === null || fileSizeBytes === null) return { ok: false as const };
+    if (fileSizeBytes > PROVIDER_COMPATIBLE_TRANSCRIPTION_SIZE_LIMIT_BYTES) return { ok: false as const };
+    chunks.push({ audioUrl: candidate.audio_url, durationSeconds, fileSizeBytes });
+  }
+
+  return { ok: true as const, chunks };
+}
+
+function chunkDurationMatchesSourceDuration(
+  chunks: NonNullable<TranscriptionQueueMessage["chunks"]>,
+  durationSeconds: number,
+) {
+  const chunkDurationSeconds = chunks.reduce((total, chunk) => total + chunk.durationSeconds, 0);
+  const roundingToleranceSeconds = chunks.length;
+  const metadataToleranceSeconds = Math.max(5, Math.ceil(durationSeconds * 0.01));
+  return Math.abs(chunkDurationSeconds - durationSeconds) <= roundingToleranceSeconds + metadataToleranceSeconds;
+}
+
 transcribeRoutes.post("/transcribe", async (c) => {
   const user = requireUser(c);
   if (!user) return fail(c, 401, "UNAUTHORIZED", "Authentication required");
@@ -33,6 +84,8 @@ transcribeRoutes.post("/transcribe", async (c) => {
     audio_url?: string;
     duration_seconds?: number;
     file_size_bytes?: number;
+    idempotency_key?: unknown;
+    chunks?: unknown;
   }>();
 
   if (!body.audio_url || !canParseUrl(body.audio_url)) {
@@ -49,7 +102,24 @@ transcribeRoutes.post("/transcribe", async (c) => {
     return fail(c, 400, "INVALID_FILE_SIZE", "file_size_bytes must be a positive safe integer");
   }
 
-  if (fileSizeBytes > PROVIDER_COMPATIBLE_TRANSCRIPTION_SIZE_LIMIT_BYTES) {
+  if (fileSizeBytes > APPLICATION_TRANSCRIPTION_SIZE_LIMIT_BYTES) {
+    return fail(c, 413, APPLICATION_SIZE_ERROR_CODE, APPLICATION_SIZE_ERROR_MESSAGE);
+  }
+
+  const chunkResult = parseTranscriptionChunks(body.chunks);
+  if (!chunkResult.ok) {
+    return fail(c, 400, "INVALID_TRANSCRIPTION_CHUNKS", "chunks must be ordered audio URLs no larger than 100,000,000 bytes each");
+  }
+
+  if (chunkResult.chunks && fileSizeBytes <= PROVIDER_COMPATIBLE_TRANSCRIPTION_SIZE_LIMIT_BYTES) {
+    return fail(c, 400, "UNEXPECTED_TRANSCRIPTION_CHUNKS", "chunks are only accepted for files over 100,000,000 bytes");
+  }
+
+  if (chunkResult.chunks && !chunkDurationMatchesSourceDuration(chunkResult.chunks, durationSeconds)) {
+    return fail(c, 400, "INVALID_TRANSCRIPTION_CHUNK_DURATION", "chunk durations must match the source media duration");
+  }
+
+  if (fileSizeBytes > PROVIDER_COMPATIBLE_TRANSCRIPTION_SIZE_LIMIT_BYTES && !chunkResult.chunks) {
     return fail(c, 413, PROVIDER_SIZE_ERROR_CODE, PROVIDER_SIZE_ERROR_MESSAGE);
   }
 
@@ -66,7 +136,17 @@ transcribeRoutes.post("/transcribe", async (c) => {
   }
 
   const minutes = Math.ceil(durationSeconds / 60);
-  const id = createId("job");
+  const idempotencyKey = normalizeIdempotencyKey(body.idempotency_key);
+  const id = idempotencyKey ? await idempotentJobId(user.id, idempotencyKey) : createId("job");
+  if (idempotencyKey) {
+    const existing = await c.env.DB.prepare("SELECT * FROM transcription_jobs WHERE id = ? AND user_id = ?")
+      .bind(id, user.id)
+      .first<TranscriptionJob>();
+    if (existing) {
+      return ok(c, { id: existing.id, job_id: existing.id, status: existing.status, minutes_charged: minutes }, 202);
+    }
+  }
+
   const now = nowIso();
   const charged = await consumeMinutes(c.env, user.id, minutes, `Transcription: ${filename}`, plan);
   if (!charged) return fail(c, 402, "INSUFFICIENT_CREDITS", "Usage limit exceeded");
@@ -87,6 +167,7 @@ transcribeRoutes.post("/transcribe", async (c) => {
       filename,
       durationSeconds,
       fileSizeBytes,
+      ...(chunkResult.chunks ? { chunks: chunkResult.chunks } : {}),
       createdAt: now,
     };
     await c.env.AI_QUEUE.send(message);

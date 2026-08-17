@@ -70,5 +70,10 @@ export type TranscriptionQueueMessage = {
   filename: string;
   durationSeconds: number;
   fileSizeBytes: number;
+  chunks?: Array<{
+    audioUrl: string;
+    durationSeconds: number;
+    fileSizeBytes: number;
+  }>;
   createdAt?: string;
 };

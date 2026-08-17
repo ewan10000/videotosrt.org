@@ -9,6 +9,12 @@ type GroqVerboseTranscription = {
   }>;
 };
 
+export type TranscriptionSegment = {
+  start: number;
+  end: number;
+  text: string;
+};
+
 export class TranscriptionProviderError extends Error {
   constructor(
     public readonly status: number,
@@ -21,6 +27,10 @@ export class TranscriptionProviderError extends Error {
 }
 
 export async function transcribeWithGroq(env: Bindings, audioUrl: string, filename: string, fileSizeBytes: number) {
+  return segmentsToSrt(await transcribeSegmentsWithGroq(env, audioUrl, filename, fileSizeBytes));
+}
+
+export async function transcribeSegmentsWithGroq(env: Bindings, audioUrl: string, filename: string, fileSizeBytes: number) {
   const form = new FormData();
   form.set("model", "whisper-large-v3-turbo");
   form.set("response_format", "verbose_json");
@@ -57,12 +67,27 @@ export async function transcribeWithGroq(env: Bindings, audioUrl: string, filena
     throw new TranscriptionProviderError(response.status, `Groq Whisper request failed with status ${response.status}`);
   }
 
-  return verboseJsonToSrt(JSON.parse(text) as GroqVerboseTranscription);
+  return verboseJsonToSegments(JSON.parse(text) as GroqVerboseTranscription);
 }
 
-function verboseJsonToSrt(transcription: GroqVerboseTranscription) {
+export function segmentsToSrt(segments: TranscriptionSegment[]) {
+  if (segments.length === 0) {
+    throw new Error("Groq Whisper response did not include timestamped segments");
+  }
+
+  const cues = segments.map((segment, index) => {
+    const start = formatSrtTimestamp(segment.start);
+    const end = formatSrtTimestamp(Math.max(segment.end, segment.start));
+    const text = segment.text.trim().replace(/\r\n?/g, "\n");
+    return `${index + 1}\n${start} --> ${end}\n${text}`;
+  });
+
+  return `${cues.join("\n\n")}\n`;
+}
+
+function verboseJsonToSegments(transcription: GroqVerboseTranscription) {
   const segments = transcription.segments ?? [];
-  const cues: string[] = [];
+  const parsedSegments: TranscriptionSegment[] = [];
 
   for (const segment of segments) {
     if (
@@ -74,18 +99,15 @@ function verboseJsonToSrt(transcription: GroqVerboseTranscription) {
       continue;
     }
 
-    const start = formatSrtTimestamp(segment.start);
-    const end = formatSrtTimestamp(Math.max(segment.end, segment.start));
     const text = segment.text.trim().replace(/\r\n?/g, "\n");
-
-    cues.push(`${cues.length + 1}\n${start} --> ${end}\n${text}`);
+    parsedSegments.push({ start: segment.start, end: Math.max(segment.end, segment.start), text });
   }
 
-  if (cues.length === 0) {
+  if (parsedSegments.length === 0) {
     throw new Error("Groq Whisper response did not include timestamped segments");
   }
 
-  return `${cues.join("\n\n")}\n`;
+  return parsedSegments;
 }
 
 function formatSrtTimestamp(seconds: number) {
