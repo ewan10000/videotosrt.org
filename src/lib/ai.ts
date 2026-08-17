@@ -1,4 +1,5 @@
 import type { Bindings } from "../types";
+import { GROQ_MULTIPART_ATTACHMENT_SIZE_LIMIT_BYTES } from "./transcription-limits";
 
 type GroqVerboseTranscription = {
   segments?: Array<{
@@ -8,17 +9,34 @@ type GroqVerboseTranscription = {
   }>;
 };
 
-export async function transcribeWithGroq(env: Bindings, audioUrl: string, filename: string) {
-  const audioResponse = await fetch(audioUrl);
-  if (!audioResponse.ok) {
-    throw new Error(`Failed to fetch audio URL: ${audioResponse.status}`);
+export class TranscriptionProviderError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly providerFailure = true,
+  ) {
+    super(message);
+    this.name = "TranscriptionProviderError";
   }
+}
 
-  const audioBlob = await audioResponse.blob();
+export async function transcribeWithGroq(env: Bindings, audioUrl: string, filename: string, fileSizeBytes: number) {
   const form = new FormData();
   form.set("model", "whisper-large-v3-turbo");
   form.set("response_format", "verbose_json");
-  form.set("file", new File([audioBlob], filename || "audio", { type: audioBlob.type || "application/octet-stream" }));
+
+  let audioBlob: Blob | null = null;
+  if (fileSizeBytes <= GROQ_MULTIPART_ATTACHMENT_SIZE_LIMIT_BYTES) {
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      throw new Error(`Failed to fetch audio URL: ${audioResponse.status}`);
+    }
+
+    audioBlob = await audioResponse.blob();
+    form.set("file", new File([audioBlob], filename || "audio", { type: audioBlob.type || "application/octet-stream" }));
+  } else {
+    form.set("url", audioUrl);
+  }
 
   const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
     method: "POST",
@@ -31,15 +49,12 @@ export async function transcribeWithGroq(env: Bindings, audioUrl: string, filena
   const text = await response.text();
   if (!response.ok) {
     console.error("[Groq API Error]", {
+      provider: "groq",
       status: response.status,
       statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries()),
-      body: text,
-      filename,
-      audioBlobType: audioBlob.type,
-      audioBlobSize: audioBlob.size,
+      payloadMode: audioBlob ? "multipart" : "url",
     });
-    throw new Error(`Groq Whisper request failed: ${response.status} ${text.slice(0, 300)}`);
+    throw new TranscriptionProviderError(response.status, `Groq Whisper request failed with status ${response.status}`);
   }
 
   return verboseJsonToSrt(JSON.parse(text) as GroqVerboseTranscription);

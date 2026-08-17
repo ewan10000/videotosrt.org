@@ -5,6 +5,12 @@ import { createId, nowIso } from "../lib/env";
 import { getPlanQuota, normalizePlan } from "../lib/plans";
 import { fail, ok } from "../lib/response";
 import { requireUser } from "../lib/session";
+import {
+  parseFileSizeBytes,
+  PROVIDER_COMPATIBLE_TRANSCRIPTION_SIZE_LIMIT_BYTES,
+  PROVIDER_SIZE_ERROR_CODE,
+  PROVIDER_SIZE_ERROR_MESSAGE,
+} from "../lib/transcription-limits";
 import type { HonoAppEnv, TranscriptionJob, TranscriptionQueueMessage } from "../types";
 
 export const transcribeRoutes = new Hono<HonoAppEnv>();
@@ -26,6 +32,7 @@ transcribeRoutes.post("/transcribe", async (c) => {
     filename?: string;
     audio_url?: string;
     duration_seconds?: number;
+    file_size_bytes?: number;
   }>();
 
   if (!body.audio_url || !canParseUrl(body.audio_url)) {
@@ -35,6 +42,15 @@ transcribeRoutes.post("/transcribe", async (c) => {
   const durationSeconds = parseDurationSeconds(body.duration_seconds);
   if (durationSeconds === null) {
     return fail(c, 400, "INVALID_DURATION", "duration_seconds must be a positive number");
+  }
+
+  const fileSizeBytes = parseFileSizeBytes(body.file_size_bytes);
+  if (fileSizeBytes === null) {
+    return fail(c, 400, "INVALID_FILE_SIZE", "file_size_bytes must be a positive safe integer");
+  }
+
+  if (fileSizeBytes > PROVIDER_COMPATIBLE_TRANSCRIPTION_SIZE_LIMIT_BYTES) {
+    return fail(c, 413, PROVIDER_SIZE_ERROR_CODE, PROVIDER_SIZE_ERROR_MESSAGE);
   }
 
   const filename = body.filename?.trim() || "audio";
@@ -70,6 +86,7 @@ transcribeRoutes.post("/transcribe", async (c) => {
       audioUrl: body.audio_url,
       filename,
       durationSeconds,
+      fileSizeBytes,
       createdAt: now,
     };
     await c.env.AI_QUEUE.send(message);

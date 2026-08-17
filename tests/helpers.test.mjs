@@ -5,6 +5,8 @@ const retention = await import("../dist/lib/retention.js");
 const duration = await import("../dist/lib/duration.js");
 const refund = await import("../dist/lib/refund.js");
 const queue = await import("../dist/lib/queue.js");
+const limits = await import("../dist/lib/transcription-limits.js");
+const ai = await import("../dist/lib/ai.js");
 const schema = await import("../dist/lib/schema.js");
 const crawler = await import("../dist/lib/crawler.js");
 const session = await import("../dist/lib/session.js");
@@ -39,6 +41,8 @@ assert.equal(queue.MAX_PROVIDER_ATTEMPTS, 3);
 assert.equal(queue.shouldCallTranscriptionProvider(1), true);
 assert.equal(queue.shouldCallTranscriptionProvider(3), true);
 assert.equal(queue.shouldCallTranscriptionProvider(4), false);
+assert.equal(limits.PROVIDER_COMPATIBLE_TRANSCRIPTION_SIZE_LIMIT_BYTES, 100000000);
+assert.equal(limits.GROQ_MULTIPART_ATTACHMENT_SIZE_LIMIT_BYTES, 25000000);
 assert.equal(crawler.X_ROBOTS_TAG, "noindex,nofollow");
 assert.equal(crawler.robotsTxt(), "User-agent: *\nAllow: /\n");
 
@@ -168,6 +172,10 @@ assert.deepEqual(failedRaceStatements, [
 function createRequestTestEnv(options = {}) {
   const queries = [];
   const users = [...(options.users ?? [])];
+  const jobs = [];
+  const queueMessages = [];
+  const creditTransactions = [];
+  const usage = new Map();
   return {
     SITE_NAME: "VideoToSRT",
     APP_ORIGIN: "https://videotosrt.org",
@@ -177,6 +185,13 @@ function createRequestTestEnv(options = {}) {
     GOOGLE_REDIRECT_URI: "https://api.videotosrt.org/api/auth/callback/google",
     SHIPANY_BRIDGE_SECRET: "shipany-secret",
     DB: {
+      batch: async (statements) => {
+        const results = [];
+        for (const statement of statements) {
+          results.push(await statement.run());
+        }
+        return results;
+      },
       prepare(sql) {
         let bindings = [];
         queries.push(sql);
@@ -186,6 +201,83 @@ function createRequestTestEnv(options = {}) {
             return this;
           },
           run: async () => {
+            if (sql.startsWith("INSERT OR IGNORE INTO usage_records")) {
+              const key = `${bindings[1]}:${bindings[2]}`;
+              if (!usage.has(key)) {
+                usage.set(key, {
+                  userId: bindings[1],
+                  month: bindings[2],
+                  minutesUsed: bindings[3] ?? 0,
+                  minutesLimit: bindings[4] ?? 0,
+                });
+              }
+              return { meta: { changes: 1 } };
+            }
+            if (sql.startsWith("UPDATE usage_records")) {
+              const key = `${bindings[2]}:${bindings[3]}`;
+              const record = usage.get(key) ?? { userId: bindings[2], month: bindings[3], minutesUsed: 0, minutesLimit: 60 };
+              if (sql.includes("MAX(minutes_used -")) {
+                record.minutesUsed = Math.max(record.minutesUsed - bindings[0], 0);
+                usage.set(key, record);
+                return { meta: { changes: 1 } };
+              }
+              if (sql.includes("minutes_used = minutes_used +")) {
+                const minutes = bindings[0];
+                if (record.minutesUsed + minutes > record.minutesLimit) {
+                  return { meta: { changes: 0 } };
+                }
+                record.minutesUsed += minutes;
+                usage.set(key, record);
+                return { meta: { changes: 1 } };
+              }
+              record.minutesLimit = Math.max(record.minutesLimit, bindings[0]);
+              usage.set(key, record);
+              return { meta: { changes: 1 } };
+            }
+            if (sql.startsWith("INSERT OR IGNORE INTO credit_transactions")) {
+              if (creditTransactions.some((entry) => entry.id === bindings[0])) {
+                return { meta: { changes: 0 } };
+              }
+              creditTransactions.push({ id: bindings[0], userId: bindings[1], amount: bindings[2], description: bindings[3] });
+              return { meta: { changes: 1 } };
+            }
+            if (sql.startsWith("INSERT INTO credit_transactions")) {
+              creditTransactions.push({ id: bindings[0], userId: bindings[1], amount: bindings[2], description: bindings[3] });
+              return { meta: { changes: 1 } };
+            }
+            if (sql.startsWith("INSERT INTO transcription_jobs")) {
+              jobs.push({
+                id: bindings[0],
+                user_id: bindings[1],
+                status: "queued",
+                filename: bindings[2],
+                audio_url: bindings[3],
+                duration_seconds: bindings[4],
+                created_at: bindings[5],
+                updated_at: bindings[6],
+              });
+              return { meta: { changes: 1 } };
+            }
+            if (sql.startsWith("UPDATE transcription_jobs")) {
+              const jobIdBinding = sql.includes("status = 'processing'") ? bindings[1] : bindings[2];
+              const userIdBinding = sql.includes("status = 'processing'") ? bindings[2] : bindings[3];
+              const job = jobs.find((entry) => entry.id === jobIdBinding && entry.user_id === userIdBinding);
+              if (job) {
+                if (sql.includes("status = 'processing'")) {
+                  job.status = "processing";
+                  job.updated_at = bindings[0];
+                } else if (sql.includes("status = 'completed'")) {
+                  job.status = "completed";
+                  job.srt_content = bindings[0];
+                  job.updated_at = bindings[1];
+                } else {
+                  job.status = "failed";
+                  job.srt_content = bindings[0];
+                  job.updated_at = bindings[1];
+                }
+              }
+              return { meta: { changes: job ? 1 : 0 } };
+            }
             if (sql.startsWith("INSERT INTO users")) {
               users.push({
                 id: bindings[0],
@@ -219,9 +311,17 @@ function createRequestTestEnv(options = {}) {
             if (sql === "SELECT * FROM users WHERE id = ?") {
               return users.find((entry) => entry.id === bindings[0]) ?? null;
             }
+            if (sql.includes("FROM transcription_jobs") && sql.includes("WHERE id = ?")) {
+              return jobs.find((entry) => entry.id === bindings[0]) ?? null;
+            }
             return null;
           },
         };
+      },
+    },
+    AI_QUEUE: {
+      async send(message) {
+        queueMessages.push(message);
       },
     },
     ASSETS: {
@@ -230,6 +330,10 @@ function createRequestTestEnv(options = {}) {
       }),
     },
     __queries: queries,
+    __jobs: jobs,
+    __queueMessages: queueMessages,
+    __creditTransactions: creditTransactions,
+    __usage: usage,
     R2_ACCOUNT_ID: "test-account",
     R2_BUCKET_NAME: "test-bucket",
     R2_ENDPOINT: "https://test-account.r2.cloudflarestorage.com",
@@ -364,6 +468,252 @@ try {
   assert.equal((await malformedBearerMeResponse.json()).data.user, null);
 } finally {
   globalThis.fetch = originalFetch;
+}
+
+const transcribeUser = {
+  id: "user_transcribe",
+  email: "transcribe@example.test",
+  name: "Transcribe User",
+  avatar: "",
+  provider: "google",
+  provider_id: "google-transcribe",
+  plan: "pro",
+  created_at: "2026-07-16T00:00:00.000Z",
+  updated_at: "2026-07-16T00:00:00.000Z",
+};
+const transcribeEnv = createRequestTestEnv({ users: [transcribeUser] });
+const transcribeToken = await session.createSignedToken(
+  { userId: transcribeUser.id, exp: Math.floor(Date.now() / 1000) + 60 },
+  transcribeEnv.SESSION_SECRET,
+);
+const transcribeHeaders = {
+  Authorization: `Bearer ${transcribeToken}`,
+  "Content-Type": "application/json",
+};
+
+async function postTranscribe(body, env = transcribeEnv) {
+  return fetchWorker("/api/transcribe", {
+    method: "POST",
+    headers: transcribeHeaders,
+    body: JSON.stringify(body),
+  }, env);
+}
+
+for (const invalidSize of [undefined, null, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, "1000"]) {
+  const response = await postTranscribe({
+    filename: "clip.mp4",
+    audio_url: "https://r2.example.test/clip.mp4",
+    duration_seconds: 120,
+    ...(invalidSize !== undefined ? { file_size_bytes: invalidSize } : {}),
+  });
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, "INVALID_FILE_SIZE");
+}
+assert.equal(transcribeEnv.__creditTransactions.length, 0);
+assert.equal(transcribeEnv.__jobs.length, 0);
+assert.equal(transcribeEnv.__queueMessages.length, 0);
+
+const oversizedTranscribeResponse = await postTranscribe({
+  filename: "large.mp4",
+  audio_url: "https://r2.example.test/large.mp4",
+  duration_seconds: 251,
+  file_size_bytes: 100000001,
+});
+assert.equal(oversizedTranscribeResponse.status, 413);
+const oversizedTranscribePayload = await oversizedTranscribeResponse.json();
+assert.equal(oversizedTranscribePayload.error.code, "PROVIDER_FILE_SIZE_LIMIT");
+assert.equal(oversizedTranscribePayload.error.message, "Transcription provider supports files up to 100,000,000 bytes");
+assert.equal(transcribeEnv.__creditTransactions.length, 0);
+assert.equal(transcribeEnv.__jobs.length, 0);
+assert.equal(transcribeEnv.__queueMessages.length, 0);
+
+const acceptedTranscribeResponse = await postTranscribe({
+  filename: "accepted.mp4",
+  audio_url: "https://r2.example.test/accepted.mp4",
+  duration_seconds: 120,
+  file_size_bytes: 100000000,
+});
+assert.equal(acceptedTranscribeResponse.status, 202);
+assert.equal(transcribeEnv.__creditTransactions.length, 1);
+assert.equal(transcribeEnv.__jobs.length, 1);
+assert.equal(transcribeEnv.__queueMessages.length, 1);
+assert.equal(transcribeEnv.__queueMessages[0].fileSizeBytes, 100000000);
+
+function okGroqJson() {
+  return JSON.stringify({ segments: [{ start: 0, end: 1.25, text: " hello " }] });
+}
+
+const originalFetchForAi = globalThis.fetch;
+const smallFetchCalls = [];
+globalThis.fetch = async (input, init) => {
+  const url = typeof input === "string" ? input : input.url;
+  smallFetchCalls.push({ url, init });
+  if (url === "https://r2.example.test/small.mp4") {
+    return new Response(new Blob(["small-audio"], { type: "video/mp4" }));
+  }
+  assert.equal(url, "https://api.groq.com/openai/v1/audio/transcriptions");
+  const form = init.body;
+  assert.equal(form.get("model"), "whisper-large-v3-turbo");
+  assert.equal(form.get("response_format"), "verbose_json");
+  assert.ok(form.get("file") instanceof File);
+  assert.equal(form.get("url"), null);
+  return new Response(okGroqJson());
+};
+try {
+  const srt = await ai.transcribeWithGroq({ GROQ_API_KEY: "groq-key" }, "https://r2.example.test/small.mp4", "small.mp4", 25000000);
+  assert.match(srt, /hello/);
+  assert.equal(smallFetchCalls.length, 2);
+} finally {
+  globalThis.fetch = originalFetchForAi;
+}
+
+const urlModeFetchCalls = [];
+globalThis.fetch = async (input, init) => {
+  const url = typeof input === "string" ? input : input.url;
+  urlModeFetchCalls.push({ url, init });
+  assert.equal(url, "https://api.groq.com/openai/v1/audio/transcriptions");
+  const form = init.body;
+  assert.equal(form.get("model"), "whisper-large-v3-turbo");
+  assert.equal(form.get("response_format"), "verbose_json");
+  assert.equal(form.get("url"), "https://r2.example.test/medium.mp4");
+  assert.equal(form.get("file"), null);
+  return new Response(okGroqJson());
+};
+try {
+  const srt = await ai.transcribeWithGroq({ GROQ_API_KEY: "groq-key" }, "https://r2.example.test/medium.mp4", "medium.mp4", 25000001);
+  assert.match(srt, /hello/);
+  assert.equal(urlModeFetchCalls.length, 1);
+} finally {
+  globalThis.fetch = originalFetchForAi;
+}
+
+const originalConsoleError = console.error;
+const groqErrorLogs = [];
+globalThis.fetch = async (input, init) => {
+  const url = typeof input === "string" ? input : input.url;
+  assert.equal(url, "https://api.groq.com/openai/v1/audio/transcriptions");
+  const form = init.body;
+  assert.equal(form.get("url"), "https://r2.example.test/signed.mp4?X-Amz-Signature=secret");
+  return new Response(
+    "provider echoed https://r2.example.test/signed.mp4?X-Amz-Signature=secret signed.mp4",
+    { status: 413, statusText: "Payload Too Large" },
+  );
+};
+console.error = (...args) => {
+  groqErrorLogs.push(args);
+};
+try {
+  await assert.rejects(
+    ai.transcribeWithGroq(
+      { GROQ_API_KEY: "groq-key" },
+      "https://r2.example.test/signed.mp4?X-Amz-Signature=secret",
+      "signed.mp4",
+      25000001,
+    ),
+    ai.TranscriptionProviderError,
+  );
+  assert.equal(groqErrorLogs.length, 1);
+  assert.equal(groqErrorLogs[0][0], "[Groq API Error]");
+  assert.deepEqual(groqErrorLogs[0][1], {
+    provider: "groq",
+    status: 413,
+    statusText: "Payload Too Large",
+    payloadMode: "url",
+  });
+  assert.equal(JSON.stringify(groqErrorLogs).includes("X-Amz-Signature"), false);
+  assert.equal(JSON.stringify(groqErrorLogs).includes("signed.mp4"), false);
+} finally {
+  globalThis.fetch = originalFetchForAi;
+  console.error = originalConsoleError;
+}
+
+assert.equal(worker.isNonRetriableProviderError(new ai.TranscriptionProviderError(400, "bad request", true)), true);
+assert.equal(worker.isNonRetriableProviderError(new ai.TranscriptionProviderError(404, "not found", true)), true);
+assert.equal(worker.isNonRetriableProviderError(new ai.TranscriptionProviderError(408, "timeout", true)), false);
+assert.equal(worker.isNonRetriableProviderError(new ai.TranscriptionProviderError(409, "conflict", true)), false);
+assert.equal(worker.isNonRetriableProviderError(new ai.TranscriptionProviderError(429, "rate limit", true)), false);
+assert.equal(worker.isNonRetriableProviderError(new ai.TranscriptionProviderError(500, "server error", true)), false);
+assert.equal(worker.sanitizeProviderFailureReason(new ai.TranscriptionProviderError(400, "bad file https://signed.example.test/video.mp4?secret=1 Bearer abc", true)), "Transcription provider rejected the file with status 400.");
+
+function queueMessage(body, attempts = 1) {
+  let ackCount = 0;
+  let retryCount = 0;
+  return {
+    id: body.jobId,
+    attempts,
+    body,
+    ack: () => {
+      ackCount += 1;
+    },
+    retry: () => {
+      retryCount += 1;
+    },
+    counts: () => ({ ackCount, retryCount }),
+  };
+}
+
+const nonRetryEnv = createRequestTestEnv({ users: [transcribeUser] });
+nonRetryEnv.GROQ_API_KEY = "groq-key";
+nonRetryEnv.__jobs.push({
+  id: "job_nonretry",
+  user_id: transcribeUser.id,
+  status: "queued",
+  filename: "bad.mp4",
+  audio_url: "https://r2.example.test/bad.mp4",
+  duration_seconds: 120,
+  created_at: "2026-07-16T00:00:00.000Z",
+  updated_at: "2026-07-16T00:00:00.000Z",
+});
+const nonRetryQueueMessage = queueMessage({
+  jobId: "job_nonretry",
+  userId: transcribeUser.id,
+  audioUrl: "https://r2.example.test/bad.mp4",
+  filename: "bad.mp4",
+  durationSeconds: 120,
+  fileSizeBytes: 25000001,
+  createdAt: "2026-07-16T00:00:00.000Z",
+});
+globalThis.fetch = async () => new Response("provider says signed URL https://r2.example.test/bad.mp4?secret=1 failed", { status: 400 });
+try {
+  await worker.default.queue({ messages: [nonRetryQueueMessage] }, nonRetryEnv);
+  assert.deepEqual(nonRetryQueueMessage.counts(), { ackCount: 1, retryCount: 0 });
+  assert.equal(nonRetryEnv.__jobs[0].status, "failed");
+  assert.equal(nonRetryEnv.__jobs[0].srt_content, "Transcription provider rejected the file with status 400.");
+  assert.equal(nonRetryEnv.__jobs[0].srt_content.includes("r2.example"), false);
+  assert.equal(nonRetryEnv.__creditTransactions.length, 1);
+} finally {
+  globalThis.fetch = originalFetchForAi;
+}
+
+const retryEnv = createRequestTestEnv({ users: [transcribeUser] });
+retryEnv.GROQ_API_KEY = "groq-key";
+retryEnv.__jobs.push({
+  id: "job_retry",
+  user_id: transcribeUser.id,
+  status: "queued",
+  filename: "rate-limited.mp4",
+  audio_url: "https://r2.example.test/rate-limited.mp4",
+  duration_seconds: 120,
+  created_at: "2026-07-16T00:00:00.000Z",
+  updated_at: "2026-07-16T00:00:00.000Z",
+});
+const retryQueueMessage = queueMessage({
+  jobId: "job_retry",
+  userId: transcribeUser.id,
+  audioUrl: "https://r2.example.test/rate-limited.mp4",
+  filename: "rate-limited.mp4",
+  durationSeconds: 120,
+  fileSizeBytes: 25000001,
+  createdAt: "2026-07-16T00:00:00.000Z",
+});
+globalThis.fetch = async () => new Response("rate limited", { status: 429 });
+try {
+  await worker.default.queue({ messages: [retryQueueMessage] }, retryEnv);
+  assert.deepEqual(retryQueueMessage.counts(), { ackCount: 0, retryCount: 1 });
+  assert.equal(retryEnv.__jobs[0].status, "processing");
+  assert.equal(retryEnv.__creditTransactions.length, 0);
+} finally {
+  globalThis.fetch = originalFetchForAi;
 }
 
 const uploadUser = {

@@ -109,6 +109,22 @@ async function finalizeFailedTranscription(env: Bindings, message: Transcription
   await refundStoredJobCharge(env, message.jobId, message, job);
 }
 
+export function isNonRetriableProviderError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const candidate = error as Error & { status?: unknown; providerFailure?: unknown };
+  if (candidate.providerFailure !== true || typeof candidate.status !== "number") return false;
+  if (candidate.status === 408 || candidate.status === 409 || candidate.status === 429) return false;
+  return candidate.status >= 400 && candidate.status < 500;
+}
+
+export function sanitizeProviderFailureReason(error: unknown) {
+  const status = error instanceof Error ? (error as Error & { status?: unknown }).status : undefined;
+  if (typeof status === "number") {
+    return `Transcription provider rejected the file with status ${status}.`;
+  }
+  return "Transcription provider rejected the file.";
+}
+
 async function handleTranscription(message: TranscriptionQueueMessage, env: Bindings, callProvider: boolean) {
   const storedJob = await getStoredJob(env, message.jobId);
   if (storedJob?.status === "completed") return;
@@ -133,7 +149,7 @@ async function handleTranscription(message: TranscriptionQueueMessage, env: Bind
       .bind(now, message.jobId, message.userId)
       .run();
 
-    const srt = await transcribeWithGroq(env, message.audioUrl, message.filename);
+    const srt = await transcribeWithGroq(env, message.audioUrl, message.filename, message.fileSizeBytes);
     await env.DB.prepare(
       `UPDATE transcription_jobs
        SET status = 'completed', srt_content = ?, updated_at = ?
@@ -142,6 +158,13 @@ async function handleTranscription(message: TranscriptionQueueMessage, env: Bind
       .bind(srt, nowIso(), message.jobId, message.userId)
       .run();
   } catch (error) {
+    if (isNonRetriableProviderError(error)) {
+      const reason = sanitizeProviderFailureReason(error);
+      console.error("[Transcription Non-Retriable Provider Error] job:", message.jobId, "reason:", reason);
+      await finalizeFailedTranscription(env, message, reason);
+      return;
+    }
+
     const messageText = error instanceof Error ? error.message : "Transcription failed";
     console.error("[Transcription Error] job:", message.jobId, "error:", messageText, "stack:", error instanceof Error ? error.stack : "");
     throw new Error(messageText);
