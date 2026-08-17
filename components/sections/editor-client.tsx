@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { api, authLoginUrl, type ApiJob, type ApiUser, type UploadResponse } from "@/lib/api";
 import { getLocalUser, normalizeUser, onAuthChange, setLocalUser } from "@/lib/auth";
 import { trackConversionEvent } from "@/lib/conversion-events";
-import { getPlanLimits, TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES } from "@/lib/limits";
+import { getPlanLimits, TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES, TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL, TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE } from "@/lib/limits";
 import { getExtraCreditLabel, getUserVipPlan, getVipBadgeClass, getVipLabel, mergeStoredMembership } from "@/lib/plans";
 import { getPendingUpload, deletePendingUpload, savePendingUpload } from "@/lib/upload-transfer";
 
@@ -464,15 +464,13 @@ export function EditorClient() {
 
     if (file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES) {
       trackConversionEvent("transcription_failed", {
-        errorType: "technical_size_guard",
+        errorType: "provider_size_guard",
         fileSize: file.size,
         fileType: fileTypeLabel(file),
-        reason: "technical_size_guard",
+        reason: "provider_size_guard",
         source: "editor_transcribe"
       });
-      setStatus(
-        `Automatic transcription currently supports files up to 1 GiB (1,073,741,824 bytes). This file is ${formatFileSize(file.size)}. Please upload a shorter or compressed audio/video file.`
-      );
+      setStatus(`${TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE} This file is ${formatFileSize(file.size)}.`);
       return;
     }
 
@@ -507,6 +505,7 @@ export function EditorClient() {
       const initialJob = await api.transcribe({
         audio_url: audioUrl,
         duration_seconds: mediaDuration,
+        file_size_bytes: file.size,
         filename: file.name
       });
       const immediateSrt = getJobSrt(initialJob);
@@ -1029,7 +1028,7 @@ export function EditorClient() {
                   <p className="text-sm font-semibold text-soft">
                     {hasProject
                       ? `${formatFileSize(fileSize)} · Select the file again here to preview it in the browser.`
-                      : "Start with local MP4, MOV, WebM, MP3, M4A, or WAV. AI transcription requires Google sign-in and has a 1 GiB technical file-size limit."}
+                      : `Start with local MP4, MOV, WebM, MP3, M4A, or WAV. AI transcription requires Google sign-in and has a ${TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} file-size limit.`}
                   </p>
                 </button>
               ) : null}
@@ -1268,7 +1267,7 @@ export function EditorClient() {
             </div>
             <Button variant="secondary" size="sm" className="shrink-0" type="button" onClick={openFilePicker}>Upload</Button>
           </div>
-          <p className="mb-0 mt-2 break-words text-xs font-semibold leading-5 text-soft">Local audio/video upload. AI transcription requires Google sign-in and a file no larger than 1 GiB; minute quotas still apply.</p>
+          <p className="mb-0 mt-2 break-words text-xs font-semibold leading-5 text-soft">Local audio/video upload. AI transcription requires Google sign-in and a file no larger than {TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL}; minute quotas still apply.</p>
         </header>
         <main className="grid min-w-0 max-w-full gap-4 p-3">
           <h1 className="sr-only">VideoToSRT Subtitle Editor</h1>

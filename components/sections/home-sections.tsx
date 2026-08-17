@@ -9,6 +9,7 @@ import { HomeUploadButton, useHomeUploadPicker } from "@/components/home-upload-
 import { ExportModal } from "@/components/modals/export-modal";
 import { Button } from "@/components/ui/button";
 import { UploadStatus } from "@/components/upload-status";
+import { TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL } from "@/lib/limits";
 
 const features = [
   ["ED", "Inline Editor", "Edit text and timestamps directly. No external tools, no format juggling."],
@@ -16,7 +17,7 @@ const features = [
   ["60", "Free Minutes", "Free accounts include 60 transcription minutes per month and up to 60 minutes per file."],
   ["AI", "AI Transcription", "Generate an editable draft after Google sign-in, then review every line."],
   ["180", "Per-file Duration", "Plan limits are duration based: Free 60, Pro 180, and Studio 360 minutes per file."],
-  ["1 GiB", "Technical Limit", "AI transcription currently has a 1 GiB technical file-size limit in addition to minute quotas."]
+  ["100 MB", "Technical Limit", `AI transcription currently has a ${TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} technical file-size limit in addition to minute quotas.`]
 ];
 
 const faqs = [
@@ -25,7 +26,7 @@ const faqs = [
   ["How accurate is transcription?", "Accuracy depends on audio quality, speakers, background noise, and vocabulary. Every line is editable inline before export."],
   ["Can I use exported subtitles commercially?", "Yes. Everything you export is yours. We don't watermark, we don't claim rights, we don't look at your content."],
   ["What happens to my video after upload?", "Uploaded media is used to run the transcription workflow. A daily retention job deletes uploaded media under uploads/ from R2 after it is older than 7 days. Local editor drafts remain in your browser until you clear them."],
-  ["Is there a file size limit?", "Plan limits are duration based: Free 60 minutes per file, Pro 180, Studio 360. Automatic transcription also has a 1 GiB technical file-size limit today."],
+  ["Is there a file size limit?", `Plan limits are duration based: Free 60 minutes per file, Pro 180, Studio 360. Automatic transcription also has a ${TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} technical file-size limit today.`],
   ["Can I edit an existing SRT file?", "Yes. Upload your SRT alongside the video, or paste it directly into the editor. Fix timing without touching code."],
   ["What's the difference between Free and Pro?", "Free includes 60 transcription minutes per month and 60 minutes per file. Pro includes 600 minutes per month and 180 minutes per file."],
   ["Does the pay-as-you-go credit expire?", "Never. Buy once, use whenever. No monthly pressure."],
@@ -136,7 +137,7 @@ function UploadPanel() {
             </div>
             <h2 className="mb-[9px] text-2xl font-extrabold leading-[1.2]">Drop your video here</h2>
             <p className="mx-auto mb-5 max-w-[410px] leading-[1.6] text-muted">
-              Drag in a local MP4, MOV, WebM, MP3, M4A, or WAV file. AI transcription requires Google sign-in and has a 1 GiB technical file-size limit; minute quotas still apply by plan.
+              Drag in a local MP4, MOV, WebM, MP3, M4A, or WAV file. AI transcription requires Google sign-in and has a {TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} technical file-size limit; minute quotas still apply by plan.
             </p>
           </div>
         </label>
@@ -231,7 +232,7 @@ export function EditorPreviewSection() {
       <div className="site-container">
         <div className="section-head">
           <h2>A Focused Editor for Subtitle Cleanup</h2>
-          <p>Everything you need. Nothing you don't. No tabs to hunt through.</p>
+          <p>Everything you need. Nothing you don&apos;t. No tabs to hunt through.</p>
         </div>
         <div className="overflow-hidden rounded border border-line bg-panel shadow-panel">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-panel-2 p-3">
@@ -288,7 +289,7 @@ export function FeaturesSection() {
     <section id="features" className="section-pad">
       <div className="site-container">
         <div className="section-head">
-          <h2>Everything You Need. Nothing You Don't.</h2>
+          <h2>Everything You Need. Nothing You Don&apos;t.</h2>
           <p>No bloat. No learning curve. Just the tools that get subtitles out the door.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -393,7 +394,7 @@ export function FinalCtaSection() {
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px" href="/#upload">
-            Start free upload - 1 GiB AI limit
+            Start free upload - 100 MB AI limit
           </Link>
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold text-text transition hover:-translate-y-px" href="/pricing">
             See Pricing
@@ -410,7 +411,7 @@ export function FaqSection() {
       <div className="site-container">
         <div className="section-head">
           <h2>Frequently Asked Questions</h2>
-          <p>The stuff you'd ask before committing.</p>
+          <p>The stuff you&apos;d ask before committing.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           {faqs.map(([q, a]) => (

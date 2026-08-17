@@ -84,11 +84,11 @@ const allowedPaths = new Set([
 const allowedStringProperties: Record<string, Set<string>> = {
   billing: new Set(["monthly", "yearly"]),
   credits: new Set(["2h", "5h", "20h"]),
-  errorType: new Set(["auth", "browser_decode_failed", "empty_file", "empty_result", "job_failed", "missing_job_id", "missing_upload_url", "poll_request", "presign_failed", "provider", "quota", "r2_put_failed", "request", "technical_size_guard", "timeout", "upload_verification_failed"]),
+  errorType: new Set(["auth", "browser_decode_failed", "empty_file", "empty_result", "job_failed", "missing_job_id", "missing_upload_url", "poll_request", "presign_failed", "provider", "provider_size_guard", "quota", "r2_put_failed", "request", "timeout", "upload_verification_failed"]),
   fileType: new Set(["audio", "video", "unknown"]),
   format: new Set(["srt", "txt", "vtt"]),
   plan: new Set(["free", "pro", "studio"]),
-  reason: new Set(["browser_decode_failed", "duration_plan_limit", "empty_file", "technical_size_guard"]),
+  reason: new Set(["browser_decode_failed", "duration_plan_limit", "empty_file", "provider_size_guard"]),
   source: new Set([
     "editor",
     "editor_poll",

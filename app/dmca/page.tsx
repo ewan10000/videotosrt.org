@@ -42,13 +42,13 @@ export default function DmcaPage() {
             <h2 className="mb-3 text-2xl font-extrabold">Required notice information</h2>
             <p className="leading-7 text-muted">Your notice should include all of the following:</p>
             <ul className="mb-0 grid gap-3 pl-5 text-muted marker:text-cyan">
-              <li className="list-disc leading-7">A physical or electronic signature of the copyright owner or a person authorized to act on the owner's behalf.</li>
+              <li className="list-disc leading-7">A physical or electronic signature of the copyright owner or a person authorized to act on the owner&apos;s behalf.</li>
               <li className="list-disc leading-7">A description of the copyrighted work claimed to have been infringed.</li>
               <li className="list-disc leading-7">The location of the original copyrighted work, such as a URL or other identifying information.</li>
               <li className="list-disc leading-7">The location of the allegedly infringing content on VideoToSRT, with enough detail for us to find it.</li>
               <li className="list-disc leading-7">Your name, mailing address, telephone number, and email address.</li>
               <li className="list-disc leading-7">A statement that you have a good-faith belief that the disputed use is not authorized by the copyright owner, its agent, or the law.</li>
-              <li className="list-disc leading-7">A statement, made under penalty of perjury, that the information in your notice is accurate and that you are the copyright owner or authorized to act on the owner's behalf.</li>
+              <li className="list-disc leading-7">A statement, made under penalty of perjury, that the information in your notice is accurate and that you are the copyright owner or authorized to act on the owner&apos;s behalf.</li>
             </ul>
           </section>
 
@@ -63,7 +63,7 @@ export default function DmcaPage() {
               <li className="list-disc leading-7">Identification of the content that was removed or disabled and where it appeared before removal.</li>
               <li className="list-disc leading-7">A statement under penalty of perjury that you have a good-faith belief the content was removed or disabled because of mistake or misidentification.</li>
               <li className="list-disc leading-7">Your name, address, telephone number, and a statement that you consent to the jurisdiction of the federal district court for your address, or if outside the United States, any judicial district where VideoToSRT may be found.</li>
-              <li className="list-disc leading-7">A statement that you will accept service of process from the person who submitted the original DMCA notice or that person's agent.</li>
+              <li className="list-disc leading-7">A statement that you will accept service of process from the person who submitted the original DMCA notice or that person&apos;s agent.</li>
             </ul>
             <p className="mb-0 mt-4 leading-7 text-muted">
               After receiving a valid counter-notification, we may restore the removed content unless the original complainant informs us that they have filed a court action seeking to restrain the allegedly infringing activity.

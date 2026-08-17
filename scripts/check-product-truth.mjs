@@ -53,7 +53,7 @@ assert.match(heroBlock, /Free includes 60 minutes per month and 60 minutes per f
 assert.match(heroBlock, /Google sign-in is required for AI transcription, account export, checkout, and paid usage/);
 
 assert.match(homeSections, /Plan limits are duration based: Free 60, Pro 180, and Studio 360 minutes per file/);
-assert.match(homeSections, /1 GiB technical file-size limit/, "homepage discloses the technical file-size limit near upload/transcription copy");
+assert.match(homeSections, /TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL\} technical file-size limit/, "homepage discloses the shared provider file-size limit near upload/transcription copy");
 assert.match(homeSections, retentionCopyPattern, "homepage states verified 7-day uploaded media retention");
 assert.match(homeSections, browserDraftPattern, "homepage notes local drafts stay in the browser");
 
@@ -315,9 +315,21 @@ assert.match(exportModalSource, /export_started/);
 assert.match(exportModalSource, /download_initiated/);
 assert.equal(/export_completed/.test(exportModalSource), false, "export modal must not claim export completion");
 const editorClientSource = readFileSync("components/sections/editor-client.tsx", "utf8");
-assert.match(editorClientSource, /errorType: "technical_size_guard"/, "1 GB AI guard is tracked as transcription failure, not upload rejection");
+assert.match(editorClientSource, /errorType: "provider_size_guard"/, "provider AI size guard is tracked as transcription failure, not upload rejection");
+assert.match(editorClientSource, /reason: "provider_size_guard"/, "provider AI size guard includes a stable reason");
 assert.match(editorClientSource, /file\.size <= 0/, "editor rejects empty files before upload");
 assert.match(editorClientSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES/, "editor uses the shared technical upload limit");
+const transcribeFileStart = editorClientSource.indexOf("async function transcribeFile");
+const transcribeFileEnd = editorClientSource.indexOf("async function pollTranscriptionJob", transcribeFileStart);
+const transcribeFileSource = editorClientSource.slice(transcribeFileStart, transcribeFileEnd);
+assert.notEqual(transcribeFileStart, -1, "editor has a transcribeFile function");
+assert.match(transcribeFileSource, /file\.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES/, "editor rejects only files above the exact provider byte limit");
+assert.equal(/file\.size >= TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES/.test(transcribeFileSource), false, "editor allows files exactly at 100,000,000 bytes");
+assert.ok(transcribeFileSource.indexOf("file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES") < transcribeFileSource.indexOf("refreshAuthUser"), "oversized files are rejected before auth refresh");
+assert.ok(transcribeFileSource.indexOf("file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES") < transcribeFileSource.indexOf("api.uploadDirectToR2"), "oversized files are rejected before direct upload");
+assert.ok(transcribeFileSource.indexOf("file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES") < transcribeFileSource.indexOf("api.transcribe"), "oversized files are rejected before transcription API call");
+assert.match(transcribeFileSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE/, "oversized AI transcription guard uses shared clear provider-limit copy");
+assert.match(transcribeFileSource, /file_size_bytes:\s*file\.size/, "editor includes file_size_bytes in every transcription payload");
 assert.match(editorClientSource, /upload_resume_file_missing/, "editor tracks missing restored file after OAuth");
 assert.match(editorClientSource, /Select the media file again/, "editor gives clear reselect-file UX after OAuth restore failure");
 assert.equal(/api\.upload\(file\)/.test(editorClientSource), false, "production browser transcription path must not use Worker multipart /upload");
@@ -335,10 +347,14 @@ const homeUploadSource = readFileSync("components/home-upload-button.tsx", "utf8
 assert.equal(/file\.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES \? "file_rejected" : "file_selected"/.test(homeUploadSource), false, "large home uploads are still accepted for local editing");
 
 const limitsSource = readFileSync("lib/limits.ts", "utf8");
-assert.match(limitsSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES\s*=\s*1\s*\*\s*1024\s*\*\s*1024\s*\*\s*1024/, "frontend technical upload limit is exactly 1 GiB");
+assert.match(limitsSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES\s*=\s*100_000_000/, "frontend technical upload limit is exactly 100,000,000 bytes");
+assert.match(limitsSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL\s*=\s*"100 MB \(100,000,000 bytes\)"/, "frontend exposes the reusable provider-size label");
 
 const apiSource = readFileSync("lib/api.ts", "utf8");
 assert.match(apiSource, /\/upload\/presign/, "frontend requests backend presigned upload URLs");
+assert.match(apiSource, /file_size_bytes:\s*number/, "transcribe payload type requires file_size_bytes");
+assert.match(apiSource, /PROVIDER_FILE_SIZE_LIMIT/, "backend provider-size error code is handled explicitly");
+assert.match(apiSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE/, "backend provider-size rejection surfaces the shared clear size message");
 assert.equal(/@\/lib\/conversion-events/.test(apiSource), false, "shared API client must not import browser-only conversion tracking");
 assert.match(apiSource, /upload_presign_succeeded/, "direct upload tracks presign success");
 assert.match(apiSource, /upload_presign_failed/, "direct upload tracks presign failure");
@@ -349,5 +365,7 @@ assert.match(apiSource, /upload_verification_failed/, "direct upload tracks uplo
 assert.match(apiSource, /method:\s*["']PUT["']/, "frontend uploads media to R2 with direct PUT");
 assert.match(apiSource, /body:\s*file/, "frontend streams the File as the direct PUT body");
 assert.match(apiSource, /\/upload\/url/, "frontend asks backend for an owned upload URL after direct PUT");
+
+assert.equal(/1 GiB|1,073,741,824/.test(`${homeSections}\n${editorClientSource}\n${readFileSync("components/sections/pricing-client.tsx", "utf8")}\n${readFileSync("components/sections/seo-landing.tsx", "utf8")}\n${readFileSync("components/home-upload-button.tsx", "utf8")}\n${readFileSync("app/faq/page.tsx", "utf8")}\n${readFileSync("app/tools/page.tsx", "utf8")}`), false, "user-facing automatic transcription copy must not claim a 1 GiB limit");
 
 console.log("frontend product truth tests passed");

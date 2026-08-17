@@ -6,7 +6,10 @@ export const PLAN_LIMITS: Record<PlanId, { maxFileMinutes: number; monthlyMinute
   studio: { monthlyMinutes: 3000, maxFileMinutes: 360 }
 };
 
-export const TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES = 1 * 1024 * 1024 * 1024;
+export const TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES = 100_000_000;
+export const TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL = "100 MB (100,000,000 bytes)";
+export const TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE =
+  `Automatic transcription currently supports files up to ${TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL}; compress/extract audio or choose a smaller file.`;
 
 export function getPlanLimits(plan: PlanId) {
   return PLAN_LIMITS[plan];

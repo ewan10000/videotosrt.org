@@ -4,7 +4,7 @@ import { useRef, type ChangeEvent } from "react";
 import { FolderUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { trackConversionEvent } from "@/lib/conversion-events";
-import { TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES } from "@/lib/limits";
+import { TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES, TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL } from "@/lib/limits";
 import { savePendingUpload } from "@/lib/upload-transfer";
 
 const acceptedMedia = "video/*,audio/*,.mp4,.mov,.m4a,.mp3,.wav,.webm";
@@ -27,7 +27,7 @@ export function useHomeUploadPicker() {
     trackConversionEvent("file_selected", {
       fileSize: file.size,
       fileType: fileTypeLabel(file),
-      reason: file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES ? "technical_size_guard" : undefined,
+      reason: file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES ? "provider_size_guard" : undefined,
       source: "home_upload"
     });
     try {
@@ -68,7 +68,7 @@ export function HomeUploadButton({ className }: { className?: string }) {
         onClick={openFilePicker}
       >
         <FolderUp className="h-4 w-4" />
-        Upload (1 GiB AI limit)
+        Upload ({TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} AI limit)
       </button>
       <input
         ref={inputRef}

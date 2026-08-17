@@ -1,4 +1,5 @@
 import { getSessionToken } from "@/lib/auth";
+import { TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE } from "@/lib/limits";
 
 export const API_BASE_URL = "/api";
 
@@ -88,6 +89,13 @@ export type UploadResponse = {
   file_url?: string;
   public_url?: string;
   url?: string;
+};
+
+export type TranscribePayload = {
+  audio_url: string;
+  duration_seconds: number;
+  file_size_bytes: number;
+  filename: string;
 };
 
 type PresignUploadResponse = {
@@ -192,6 +200,9 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
       typeof data === "object" && data && "error" in data && typeof data.error === "object" && data.error
         ? data.error as { code?: unknown; message?: unknown }
         : null;
+    if (nestedError?.code === "PROVIDER_FILE_SIZE_LIMIT" || (typeof data === "object" && data && "code" in data && data.code === "PROVIDER_FILE_SIZE_LIMIT")) {
+      throw new Error(TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE);
+    }
     const message =
       nestedError?.message
         ? String(nestedError.message)
@@ -279,7 +290,7 @@ export const api = {
       throw error;
     }
   },
-  transcribe: (payload: { filename: string; audio_url: string; duration_seconds: number }) =>
+  transcribe: (payload: TranscribePayload) =>
     apiFetch<ApiJob>("/transcribe", { method: "POST", body: payload }),
   job: (id: string) => apiFetch<ApiJob>(`/jobs/${encodeURIComponent(id)}`),
   checkout: (plan: "pro" | "studio", billing: "monthly" | "yearly") =>

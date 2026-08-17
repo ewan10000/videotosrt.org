@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { JsonLd } from "@/components/seo/json-ld";
 import { SiteNav } from "@/components/site-nav";
+import { TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL } from "@/lib/limits";
 import { createBreadcrumbJsonLd, createPageJsonLd, createPageMetadata } from "@/lib/metadata";
 
 const tools = [
@@ -38,7 +39,7 @@ export default function ToolsPage() {
             <span className="eyebrow"><span className="dot" /> Available tools</span>
             <h1 className="mb-4 mt-5 max-w-[760px] text-[clamp(42px,6vw,68px)] font-extrabold leading-[1]">Subtitle Tools You Can Use Today</h1>
             <p className="mb-0 max-w-[760px] text-lg leading-[1.7] text-muted">
-              These tools reflect current product abilities only: local media upload, AI transcription with Google sign-in, inline editing, and SRT, VTT, or TXT export. AI transcription has a 1 GiB technical file-size limit in addition to minute quotas.
+              These tools reflect current product abilities only: local media upload, AI transcription with Google sign-in, inline editing, and SRT, VTT, or TXT export. AI transcription has a {TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} technical file-size limit in addition to minute quotas.
             </p>
           </div>
         </header>

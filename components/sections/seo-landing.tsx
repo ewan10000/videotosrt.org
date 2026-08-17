@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL } from "@/lib/limits";
 
 export interface SeoLandingStep {
   title: string;
@@ -115,7 +116,7 @@ export function SeoLanding({
             ) : null}
             {cta.primary.href === "/#upload" ? (
               <p className="mb-0 w-full text-xs font-semibold text-soft lg:text-right">
-                Local media upload. AI transcription requires Google sign-in and a file no larger than 1 GiB; minute quotas still apply.
+                Local media upload. AI transcription requires Google sign-in and a file no larger than {TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL}; minute quotas still apply.
               </p>
             ) : null}
           </div>
