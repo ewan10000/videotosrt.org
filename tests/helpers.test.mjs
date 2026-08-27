@@ -42,7 +42,7 @@ assert.equal(queue.shouldCallTranscriptionProvider(1), true);
 assert.equal(queue.shouldCallTranscriptionProvider(3), true);
 assert.equal(queue.shouldCallTranscriptionProvider(4), false);
 assert.equal(limits.APPLICATION_TRANSCRIPTION_SIZE_LIMIT_BYTES, 300000000);
-assert.equal(limits.PROVIDER_COMPATIBLE_TRANSCRIPTION_SIZE_LIMIT_BYTES, 100000000);
+assert.equal(limits.PROVIDER_COMPATIBLE_TRANSCRIPTION_SIZE_LIMIT_BYTES, 25000000);
 assert.equal(limits.GROQ_MULTIPART_ATTACHMENT_SIZE_LIMIT_BYTES, 25000000);
 assert.equal(crawler.X_ROBOTS_TAG, "noindex,nofollow");
 assert.equal(crawler.robotsTxt(), "User-agent: *\nAllow: /\n");
@@ -177,6 +177,8 @@ function createRequestTestEnv(options = {}) {
   const queueMessages = [];
   const creditTransactions = [];
   const usage = new Map();
+  const r2Objects = new Map(options.r2Objects ?? []);
+  const r2HeadKeys = [];
   return {
     SITE_NAME: "VideoToSRT",
     APP_ORIGIN: "https://videotosrt.org",
@@ -335,12 +337,18 @@ function createRequestTestEnv(options = {}) {
     __queueMessages: queueMessages,
     __creditTransactions: creditTransactions,
     __usage: usage,
+    __r2Objects: r2Objects,
+    __r2HeadKeys: r2HeadKeys,
     R2_ACCOUNT_ID: "test-account",
     R2_BUCKET_NAME: "test-bucket",
     R2_ENDPOINT: "https://test-account.r2.cloudflarestorage.com",
     R2_ACCESS_KEY_ID: "test-access-key",
     R2_SECRET_ACCESS_KEY: "test-secret-key",
     R2: {
+      async head(key) {
+        r2HeadKeys.push(key);
+        return r2Objects.get(key) ?? null;
+      },
       put: async () => ({})
     },
     __users: users,
@@ -491,6 +499,26 @@ const transcribeHeaders = {
   Authorization: `Bearer ${transcribeToken}`,
   "Content-Type": "application/json",
 };
+const transcribeStorageBase = `${transcribeEnv.R2_ENDPOINT}/${transcribeEnv.R2_BUCKET_NAME}`;
+function ownedTranscribeKey(name) {
+  return `uploads/${transcribeUser.id}/${name}`;
+}
+
+function ownedTranscribeUrl(name, env = transcribeEnv) {
+  return `${env.R2_ENDPOINT}/${env.R2_BUCKET_NAME}/uploads/${transcribeUser.id}/${name}`;
+}
+
+function addTranscribeObject(name, size, metadata = {}) {
+  const key = ownedTranscribeKey(name);
+  transcribeEnv.__r2Objects.set(key, { key, size, ...metadata });
+  return ownedTranscribeUrl(name);
+}
+
+function addOwnedObject(env, userId, name, size, metadata = {}) {
+  const key = `uploads/${userId}/${name}`;
+  env.__r2Objects.set(key, { key, size, ...metadata });
+  return `${env.R2_ENDPOINT}/${env.R2_BUCKET_NAME}/${key}`;
+}
 
 async function postTranscribe(body, env = transcribeEnv) {
   return fetchWorker("/api/transcribe", {
@@ -503,7 +531,7 @@ async function postTranscribe(body, env = transcribeEnv) {
 for (const invalidSize of [undefined, null, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, "1000"]) {
   const response = await postTranscribe({
     filename: "clip.mp4",
-    audio_url: "https://r2.example.test/clip.mp4",
+    audio_url: ownedTranscribeUrl("clip.mp4"),
     duration_seconds: 120,
     ...(invalidSize !== undefined ? { file_size_bytes: invalidSize } : {}),
   });
@@ -516,38 +544,95 @@ assert.equal(transcribeEnv.__queueMessages.length, 0);
 
 const providerOversizedTranscribeResponse = await postTranscribe({
   filename: "large.mp4",
-  audio_url: "https://r2.example.test/large.mp4",
+  audio_url: addTranscribeObject("large.mp4", 25000001),
   duration_seconds: 251,
-  file_size_bytes: 100000001,
+  file_size_bytes: 25000001,
 });
 assert.equal(providerOversizedTranscribeResponse.status, 413);
 const providerOversizedTranscribePayload = await providerOversizedTranscribeResponse.json();
 assert.equal(providerOversizedTranscribePayload.error.code, "PROVIDER_FILE_SIZE_LIMIT");
-assert.equal(providerOversizedTranscribePayload.error.message, "Files over 100,000,000 bytes must be submitted as provider-compatible audio chunks");
+assert.equal(providerOversizedTranscribePayload.error.message, "Files over 25,000,000 bytes must be submitted as ordered provider-compatible audio chunks");
 assert.equal(transcribeEnv.__creditTransactions.length, 0);
 assert.equal(transcribeEnv.__jobs.length, 0);
 assert.equal(transcribeEnv.__queueMessages.length, 0);
 
 const acceptedTranscribeResponse = await postTranscribe({
   filename: "accepted.mp4",
-  audio_url: "https://r2.example.test/accepted.mp4",
+  audio_url: addTranscribeObject("accepted.mp4", 25000000),
   duration_seconds: 120,
-  file_size_bytes: 100000000,
+  file_size_bytes: 25000000,
 });
 assert.equal(acceptedTranscribeResponse.status, 202);
 assert.equal(transcribeEnv.__creditTransactions.length, 1);
 assert.equal(transcribeEnv.__jobs.length, 1);
 assert.equal(transcribeEnv.__queueMessages.length, 1);
-assert.equal(transcribeEnv.__queueMessages[0].fileSizeBytes, 100000000);
+assert.equal(transcribeEnv.__queueMessages[0].fileSizeBytes, 25000000);
+
+const rejectedTranscribeCases = [
+  ["ftp://test-account.r2.cloudflarestorage.com/test-bucket/uploads/user_transcribe/accepted.mp4", "INVALID_AUDIO_URL"],
+  ["http://test-account.r2.cloudflarestorage.com/test-bucket/uploads/user_transcribe/accepted.mp4", "INVALID_AUDIO_URL"],
+  ["https://user:pass@test-account.r2.cloudflarestorage.com/test-bucket/uploads/user_transcribe/accepted.mp4", "INVALID_AUDIO_URL"],
+  ["https://test-account.r2.cloudflarestorage.com/test-bucket/uploads/user_transcribe/accepted.mp4#frag", "INVALID_AUDIO_URL"],
+  ["https://evil.example.test/test-bucket/uploads/user_transcribe/accepted.mp4", "INVALID_AUDIO_URL"],
+  ["https://test-account.r2.cloudflarestorage.com/test-bucket/uploads/other_user/accepted.mp4", "INVALID_AUDIO_URL"],
+  ["https://test-account.r2.cloudflarestorage.com/test-bucket/uploads/user_transcribe/%2e%2e/accepted.mp4", "INVALID_AUDIO_URL"],
+  ["https://test-account.r2.cloudflarestorage.com/test-bucket/uploads/user_transcribe/%ZZ.mp4", "INVALID_AUDIO_URL"],
+];
+for (const [audioUrl, code] of rejectedTranscribeCases) {
+  const response = await postTranscribe({
+    filename: "accepted.mp4",
+    audio_url: audioUrl,
+    duration_seconds: 120,
+    file_size_bytes: 25000000,
+  });
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, code);
+}
+assert.equal(transcribeEnv.__creditTransactions.length, 1);
+assert.equal(transcribeEnv.__jobs.length, 1);
+assert.equal(transcribeEnv.__queueMessages.length, 1);
+
+const publicStorageEnv = createRequestTestEnv({ users: [transcribeUser] });
+publicStorageEnv.R2_PUBLIC_URL = "https://cdn.example.test/media";
+const publicKey = `uploads/${transcribeUser.id}/public.wav`;
+publicStorageEnv.__r2Objects.set(publicKey, { key: publicKey, size: 1000000, httpMetadata: { contentType: "audio/wav" } });
+const publicStorageResponse = await postTranscribe({
+  filename: "public.wav",
+  audio_url: "https://cdn.example.test/media/uploads/user_transcribe/public.wav",
+  duration_seconds: 60,
+  file_size_bytes: 1000000,
+}, publicStorageEnv);
+assert.equal(publicStorageResponse.status, 202);
+
+const missingObjectResponse = await postTranscribe({
+  filename: "missing.mp4",
+  audio_url: ownedTranscribeUrl("missing.mp4"),
+  duration_seconds: 60,
+  file_size_bytes: 1000,
+});
+assert.equal(missingObjectResponse.status, 404);
+assert.equal((await missingObjectResponse.json()).error.code, "TRANSCRIPTION_SOURCE_NOT_FOUND");
+
+const mismatchedSizeResponse = await postTranscribe({
+  filename: "wrong-size.mp4",
+  audio_url: addTranscribeObject("wrong-size.mp4", 999),
+  duration_seconds: 60,
+  file_size_bytes: 1000,
+});
+assert.equal(mismatchedSizeResponse.status, 400);
+assert.equal((await mismatchedSizeResponse.json()).error.code, "TRANSCRIPTION_SOURCE_SIZE_MISMATCH");
+assert.equal(transcribeEnv.__creditTransactions.length, 1);
+assert.equal(transcribeEnv.__jobs.length, 1);
+assert.equal(transcribeEnv.__queueMessages.length, 1);
 
 const acceptedLargeChunkedResponse = await postTranscribe({
   filename: "large.mp4",
-  audio_url: "https://r2.example.test/large-source.mp4",
+  audio_url: addTranscribeObject("chunk-1.wav", 25000000, { httpMetadata: { contentType: "audio/wav" } }),
   duration_seconds: 240,
   file_size_bytes: 300000000,
   chunks: [
-    { audio_url: "https://r2.example.test/chunk-1.wav", duration_seconds: 120, file_size_bytes: 64000000 },
-    { audio_url: "https://r2.example.test/chunk-2.wav", duration_seconds: 120, file_size_bytes: 64000000 },
+    { audio_url: ownedTranscribeUrl("chunk-1.wav"), duration_seconds: 120, file_size_bytes: 25000000 },
+    { audio_url: addTranscribeObject("chunk-2.wav", 25000000), duration_seconds: 120, file_size_bytes: 25000000 },
   ],
 });
 assert.equal(acceptedLargeChunkedResponse.status, 202);
@@ -556,17 +641,17 @@ assert.equal(transcribeEnv.__jobs.length, 2);
 assert.equal(transcribeEnv.__queueMessages.length, 2);
 assert.equal(transcribeEnv.__queueMessages[1].fileSizeBytes, 300000000);
 assert.deepEqual(transcribeEnv.__queueMessages[1].chunks, [
-  { audioUrl: "https://r2.example.test/chunk-1.wav", durationSeconds: 120, fileSizeBytes: 64000000 },
-  { audioUrl: "https://r2.example.test/chunk-2.wav", durationSeconds: 120, fileSizeBytes: 64000000 },
+  { audioUrl: ownedTranscribeUrl("chunk-1.wav"), durationSeconds: 120, fileSizeBytes: 25000000 },
+  { audioUrl: ownedTranscribeUrl("chunk-2.wav"), durationSeconds: 120, fileSizeBytes: 25000000 },
 ]);
 
 const tooLargeApplicationResponse = await postTranscribe({
   filename: "too-large.mp4",
-  audio_url: "https://r2.example.test/too-large.mp4",
+  audio_url: addTranscribeObject("too-large-chunk.wav", 12800000, { httpMetadata: { contentType: "audio/wav" } }),
   duration_seconds: 240,
   file_size_bytes: 300000001,
   chunks: [
-    { audio_url: "https://r2.example.test/chunk.wav", duration_seconds: 240, file_size_bytes: 12800000 },
+    { audio_url: ownedTranscribeUrl("too-large-chunk.wav"), duration_seconds: 240, file_size_bytes: 12800000 },
   ],
 });
 assert.equal(tooLargeApplicationResponse.status, 413);
@@ -579,11 +664,11 @@ assert.equal(transcribeEnv.__queueMessages.length, 2);
 
 const badChunkResponse = await postTranscribe({
   filename: "bad-chunks.mp4",
-  audio_url: "https://r2.example.test/bad-chunks.mp4",
+  audio_url: ownedTranscribeUrl("chunk-too-large.wav"),
   duration_seconds: 240,
   file_size_bytes: 150000000,
   chunks: [
-    { audio_url: "https://r2.example.test/chunk-too-large.wav", duration_seconds: 120, file_size_bytes: 100000001 },
+    { audio_url: ownedTranscribeUrl("chunk-too-large.wav"), duration_seconds: 120, file_size_bytes: 25000001 },
   ],
 });
 assert.equal(badChunkResponse.status, 400);
@@ -591,24 +676,123 @@ assert.equal((await badChunkResponse.json()).error.code, "INVALID_TRANSCRIPTION_
 
 const unexpectedChunkResponse = await postTranscribe({
   filename: "small-with-chunks.mp4",
-  audio_url: "https://r2.example.test/small-with-chunks.mp4",
+  audio_url: addTranscribeObject("small-with-chunks.wav", 1600000, { httpMetadata: { contentType: "audio/wav" } }),
   duration_seconds: 60,
-  file_size_bytes: 100000000,
+  file_size_bytes: 25000000,
   chunks: [
-    { audio_url: "https://r2.example.test/chunk.wav", duration_seconds: 60, file_size_bytes: 1600000 },
+    { audio_url: ownedTranscribeUrl("small-with-chunks.wav"), duration_seconds: 60, file_size_bytes: 1600000 },
   ],
 });
 assert.equal(unexpectedChunkResponse.status, 400);
 assert.equal((await unexpectedChunkResponse.json()).error.code, "UNEXPECTED_TRANSCRIPTION_CHUNKS");
 
+const smallMovDirectResponse = await postTranscribe({
+  filename: "spoofed.mp4",
+  audio_url: addTranscribeObject("clip.mov", 20000000),
+  duration_seconds: 60,
+  file_size_bytes: 20000000,
+});
+assert.equal(smallMovDirectResponse.status, 415);
+const smallMovDirectPayload = await smallMovDirectResponse.json();
+assert.equal(smallMovDirectPayload.error.code, "UNSUPPORTED_TRANSCRIPTION_SOURCE_FORMAT");
+assert.equal(smallMovDirectPayload.error.message, "MOV/QuickTime and unsupported source containers must be submitted as ordered provider-compatible audio chunks");
+assert.equal(transcribeEnv.__creditTransactions.length, 2);
+assert.equal(transcribeEnv.__jobs.length, 2);
+assert.equal(transcribeEnv.__queueMessages.length, 2);
+
+const smallMovChunkedResponse = await postTranscribe({
+  filename: "clip.MOV",
+  audio_url: addTranscribeObject("clip-chunk.wav", 18000000, { httpMetadata: { contentType: "audio/x-wav" } }),
+  duration_seconds: 60,
+  file_size_bytes: 20000000,
+  chunks: [
+    { audio_url: ownedTranscribeUrl("clip-chunk.wav"), duration_seconds: 60, file_size_bytes: 18000000 },
+  ],
+});
+assert.equal(smallMovChunkedResponse.status, 202);
+assert.equal(transcribeEnv.__creditTransactions.length, 3);
+assert.equal(transcribeEnv.__jobs.length, 3);
+assert.equal(transcribeEnv.__queueMessages.length, 3);
+assert.deepEqual(transcribeEnv.__queueMessages[2].chunks, [
+  { audioUrl: ownedTranscribeUrl("clip-chunk.wav"), durationSeconds: 60, fileSizeBytes: 18000000 },
+]);
+
+const chunkTopLevelMismatchResponse = await postTranscribe({
+  filename: "chunked.mp4",
+  audio_url: addTranscribeObject("top-level.wav", 12000000, { httpMetadata: { contentType: "audio/wav" } }),
+  duration_seconds: 120,
+  file_size_bytes: 100000000,
+  chunks: [
+    { audio_url: addTranscribeObject("actual-first.wav", 12000000, { httpMetadata: { contentType: "audio/wav" } }), duration_seconds: 120, file_size_bytes: 12000000 },
+  ],
+});
+assert.equal(chunkTopLevelMismatchResponse.status, 400);
+assert.equal((await chunkTopLevelMismatchResponse.json()).error.code, "INVALID_AUDIO_URL");
+
+const chunkMetadataResponse = await postTranscribe({
+  filename: "chunked.mp4",
+  audio_url: addTranscribeObject("not-audio.wav", 12000000, { httpMetadata: { contentType: "video/mp4" } }),
+  duration_seconds: 120,
+  file_size_bytes: 100000000,
+  chunks: [
+    { audio_url: ownedTranscribeUrl("not-audio.wav"), duration_seconds: 120, file_size_bytes: 12000000 },
+  ],
+});
+assert.equal(chunkMetadataResponse.status, 415);
+assert.equal((await chunkMetadataResponse.json()).error.code, "UNSUPPORTED_TRANSCRIPTION_CHUNK_FORMAT");
+
+const chunkExtensionResponse = await postTranscribe({
+  filename: "chunked.mp4",
+  audio_url: addTranscribeObject("not-wav.mp3", 12000000, { httpMetadata: { contentType: "audio/wav" } }),
+  duration_seconds: 120,
+  file_size_bytes: 100000000,
+  chunks: [
+    { audio_url: ownedTranscribeUrl("not-wav.mp3"), duration_seconds: 120, file_size_bytes: 12000000 },
+  ],
+});
+assert.equal(chunkExtensionResponse.status, 415);
+assert.equal((await chunkExtensionResponse.json()).error.code, "UNSUPPORTED_TRANSCRIPTION_CHUNK_FORMAT");
+
+const chunkCountEnv = createRequestTestEnv({ users: [{ ...transcribeUser, plan: "studio" }] });
+for (let index = 0; index < 64; index += 1) {
+  addOwnedObject(chunkCountEnv, transcribeUser.id, `chunk-${index + 1}.wav`, 5000000, { httpMetadata: { contentType: "audio/wav" } });
+}
+const chunk64Response = await postTranscribe({
+  filename: "six-hour.mp4",
+  audio_url: addOwnedObject(chunkCountEnv, transcribeUser.id, "chunk-1.wav", 5000000, { httpMetadata: { contentType: "audio/wav" } }),
+  duration_seconds: 21600,
+  file_size_bytes: 300000000,
+  chunks: Array.from({ length: 64 }, (_, index) => ({
+    audio_url: `${chunkCountEnv.R2_ENDPOINT}/${chunkCountEnv.R2_BUCKET_NAME}/uploads/${transcribeUser.id}/chunk-${index + 1}.wav`,
+    duration_seconds: 337.5,
+      file_size_bytes: 5000000,
+    })),
+}, chunkCountEnv);
+assert.equal(chunk64Response.status, 202);
+assert.equal(chunkCountEnv.__queueMessages[0].chunks.length, 64);
+
+const chunk65Response = await postTranscribe({
+  filename: "too-many-chunks.mp4",
+  audio_url: `${chunkCountEnv.R2_ENDPOINT}/${chunkCountEnv.R2_BUCKET_NAME}/uploads/${transcribeUser.id}/chunk-1.wav`,
+  duration_seconds: 21600,
+  file_size_bytes: 300000000,
+  chunks: Array.from({ length: 65 }, (_, index) => ({
+    audio_url: `${chunkCountEnv.R2_ENDPOINT}/${chunkCountEnv.R2_BUCKET_NAME}/uploads/${transcribeUser.id}/chunk-${index + 1}.wav`,
+    duration_seconds: 21600 / 65,
+      file_size_bytes: 5000000,
+    })),
+}, chunkCountEnv);
+assert.equal(chunk65Response.status, 400);
+assert.equal((await chunk65Response.json()).error.code, "INVALID_TRANSCRIPTION_CHUNKS");
+
 const mismatchedChunkDurationResponse = await postTranscribe({
   filename: "mismatched-chunks.mp4",
-  audio_url: "https://r2.example.test/mismatched-chunks.mp4",
+  audio_url: addTranscribeObject("mismatched-chunk-1.wav", 9600000, { httpMetadata: { contentType: "audio/wav" } }),
   duration_seconds: 60,
   file_size_bytes: 150000000,
   chunks: [
-    { audio_url: "https://r2.example.test/chunk-1.wav", duration_seconds: 300, file_size_bytes: 9600000 },
-    { audio_url: "https://r2.example.test/chunk-2.wav", duration_seconds: 300, file_size_bytes: 9600000 },
+    { audio_url: ownedTranscribeUrl("mismatched-chunk-1.wav"), duration_seconds: 300, file_size_bytes: 9600000 },
+    { audio_url: addTranscribeObject("mismatched-chunk-2.wav", 9600000, { httpMetadata: { contentType: "audio/wav" } }), duration_seconds: 300, file_size_bytes: 9600000 },
   ],
 });
 assert.equal(mismatchedChunkDurationResponse.status, 400);
@@ -617,18 +801,18 @@ assert.equal((await mismatchedChunkDurationResponse.json()).error.code, "INVALID
 const idempotentEnv = createRequestTestEnv({ users: [transcribeUser] });
 const firstIdempotentResponse = await postTranscribe({
   filename: "idempotent.mp4",
-  audio_url: "https://r2.example.test/idempotent.mp4",
+  audio_url: addOwnedObject(idempotentEnv, transcribeUser.id, "idempotent.mp4", 25000000),
   duration_seconds: 120,
-  file_size_bytes: 100000000,
+  file_size_bytes: 25000000,
   idempotency_key: "upload_retry_12345",
 }, idempotentEnv);
 assert.equal(firstIdempotentResponse.status, 202);
 const firstIdempotentPayload = await firstIdempotentResponse.json();
 const secondIdempotentResponse = await postTranscribe({
   filename: "idempotent.mp4",
-  audio_url: "https://r2.example.test/idempotent.mp4",
+  audio_url: addOwnedObject(idempotentEnv, transcribeUser.id, "idempotent.mp4", 25000000),
   duration_seconds: 120,
-  file_size_bytes: 100000000,
+  file_size_bytes: 25000000,
   idempotency_key: "upload_retry_12345",
 }, idempotentEnv);
 assert.equal(secondIdempotentResponse.status, 202);
@@ -648,6 +832,7 @@ globalThis.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : input.url;
   smallFetchCalls.push({ url, init });
   if (url === "https://r2.example.test/small.mp4") {
+    assert.equal(init?.redirect, "error");
     return new Response(new Blob(["small-audio"], { type: "video/mp4" }));
   }
   assert.equal(url, "https://api.groq.com/openai/v1/audio/transcriptions");
@@ -666,22 +851,49 @@ try {
   globalThis.fetch = originalFetchForAi;
 }
 
-const urlModeFetchCalls = [];
 globalThis.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : input.url;
-  urlModeFetchCalls.push({ url, init });
-  assert.equal(url, "https://api.groq.com/openai/v1/audio/transcriptions");
-  const form = init.body;
-  assert.equal(form.get("model"), "whisper-large-v3-turbo");
-  assert.equal(form.get("response_format"), "verbose_json");
-  assert.equal(form.get("url"), "https://r2.example.test/medium.mp4");
-  assert.equal(form.get("file"), null);
-  return new Response(okGroqJson());
+  assert.equal(url, "https://r2.example.test/stale.mp4");
+  assert.equal(init?.redirect, "error");
+  return new Response("small", { headers: { "content-length": "25000001" } });
 };
 try {
-  const srt = await ai.transcribeWithGroq({ GROQ_API_KEY: "groq-key" }, "https://r2.example.test/medium.mp4", "medium.mp4", 25000001);
-  assert.match(srt, /hello/);
-  assert.equal(urlModeFetchCalls.length, 1);
+  await assert.rejects(
+    ai.transcribeWithGroq({ GROQ_API_KEY: "groq-key" }, "https://r2.example.test/stale.mp4", "stale.mp4", 25000000),
+    /Fetched audio exceeds provider size limit/,
+  );
+} finally {
+  globalThis.fetch = originalFetchForAi;
+}
+
+globalThis.fetch = async (input) => {
+  const url = typeof input === "string" ? input : input.url;
+  if (url === "https://r2.example.test/raced.mp4") {
+    return new Response(new Blob([new Uint8Array(25000001)], { type: "video/mp4" }));
+  }
+  throw new Error("oversized fetched audio must not be sent to provider");
+};
+try {
+  await assert.rejects(
+    ai.transcribeWithGroq({ GROQ_API_KEY: "groq-key" }, "https://r2.example.test/raced.mp4", "raced.mp4", 25000000),
+    /Fetched audio exceeds provider size limit/,
+  );
+} finally {
+  globalThis.fetch = originalFetchForAi;
+}
+
+const overLimitDirectFetchCalls = [];
+globalThis.fetch = async (input, init) => {
+  const url = typeof input === "string" ? input : input.url;
+  overLimitDirectFetchCalls.push({ url, init });
+  throw new Error("direct over-limit Groq requests must be blocked before fetch");
+};
+try {
+  await assert.rejects(
+    ai.transcribeWithGroq({ GROQ_API_KEY: "groq-key" }, "https://r2.example.test/medium.mp4", "medium.mp4", 25000001),
+    /Files over 25,000,000 bytes/,
+  );
+  assert.equal(overLimitDirectFetchCalls.length, 0);
 } finally {
   globalThis.fetch = originalFetchForAi;
 }
@@ -690,11 +902,14 @@ const originalConsoleError = console.error;
 const groqErrorLogs = [];
 globalThis.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : input.url;
+  if (url === "https://r2.example.test/signed.mp4?X-Amz-Signature=secret") {
+    return new Response(new Blob(["small-audio"], { type: "video/mp4" }));
+  }
   assert.equal(url, "https://api.groq.com/openai/v1/audio/transcriptions");
   const form = init.body;
-  assert.equal(form.get("url"), "https://r2.example.test/signed.mp4?X-Amz-Signature=secret");
+  assert.ok(form.get("file") instanceof File);
   return new Response(
-    "provider echoed https://r2.example.test/signed.mp4?X-Amz-Signature=secret signed.mp4",
+    JSON.stringify({ error: { code: "invalid_request_error", message: "file signed.mp4 from https://r2.example.test/signed.mp4?X-Amz-Signature=secret is too large for plan " + "x".repeat(300) } }),
     { status: 413, statusText: "Payload Too Large" },
   );
 };
@@ -707,20 +922,66 @@ try {
       { GROQ_API_KEY: "groq-key" },
       "https://r2.example.test/signed.mp4?X-Amz-Signature=secret",
       "signed.mp4",
-      25000001,
+      25000000,
     ),
     ai.TranscriptionProviderError,
   );
   assert.equal(groqErrorLogs.length, 1);
   assert.equal(groqErrorLogs[0][0], "[Groq API Error]");
-  assert.deepEqual(groqErrorLogs[0][1], {
+  assert.deepEqual(
+    {
+      ...groqErrorLogs[0][1],
+      providerMessage: groqErrorLogs[0][1].providerMessage.replace(/x+$/, "x"),
+    },
+    {
     provider: "groq",
     status: 413,
     statusText: "Payload Too Large",
-    payloadMode: "url",
-  });
+    payloadMode: "multipart",
+    providerCode: "invalid_request_error",
+    providerMessage: "file [redacted-file] from [redacted-url] is too large for plan x",
+    },
+  );
   assert.equal(JSON.stringify(groqErrorLogs).includes("X-Amz-Signature"), false);
   assert.equal(JSON.stringify(groqErrorLogs).includes("signed.mp4"), false);
+  assert.equal(groqErrorLogs[0][1].providerMessage.length <= 180, true);
+} finally {
+  globalThis.fetch = originalFetchForAi;
+  console.error = originalConsoleError;
+}
+
+const groqAdversarialLogs = [];
+globalThis.fetch = async (input) => {
+  const url = typeof input === "string" ? input : input.url;
+  if (url === "https://r2.example.test/adversarial.wav") {
+    return new Response(new Blob(["small-audio"], { type: "audio/wav" }));
+  }
+  return new Response(
+    JSON.stringify({
+      error: {
+        code: "invalid/request secret",
+        message: "unsupported token=abc123 Basic dXNlcjpwYXNz Cookie: sid=user@example.test email user@example.test path /tmp/private/audio.wav file adversarial.wav",
+      },
+    }),
+    { status: 400 },
+  );
+};
+console.error = (...args) => {
+  groqAdversarialLogs.push(args);
+};
+try {
+  await assert.rejects(
+    ai.transcribeWithGroq({ GROQ_API_KEY: "groq-key" }, "https://r2.example.test/adversarial.wav", "adversarial.wav", 1000),
+    ai.TranscriptionProviderError,
+  );
+  const serializedLog = JSON.stringify(groqAdversarialLogs);
+  assert.equal(serializedLog.includes("abc123"), false);
+  assert.equal(serializedLog.includes("dXNlcjpwYXNz"), false);
+  assert.equal(serializedLog.includes("sid="), false);
+  assert.equal(serializedLog.includes("user@example.test"), false);
+  assert.equal(serializedLog.includes("/tmp/private"), false);
+  assert.equal(serializedLog.includes("adversarial.wav"), false);
+  assert.equal(groqAdversarialLogs[0][1].providerCode, "invalid_request_secret");
 } finally {
   globalThis.fetch = originalFetchForAi;
   console.error = originalConsoleError;
@@ -732,7 +993,43 @@ assert.equal(worker.isNonRetriableProviderError(new ai.TranscriptionProviderErro
 assert.equal(worker.isNonRetriableProviderError(new ai.TranscriptionProviderError(409, "conflict", true)), false);
 assert.equal(worker.isNonRetriableProviderError(new ai.TranscriptionProviderError(429, "rate limit", true)), false);
 assert.equal(worker.isNonRetriableProviderError(new ai.TranscriptionProviderError(500, "server error", true)), false);
-assert.equal(worker.sanitizeProviderFailureReason(new ai.TranscriptionProviderError(400, "bad file https://signed.example.test/video.mp4?secret=1 Bearer abc", true)), "Transcription provider rejected the file with status 400.");
+assert.equal(worker.sanitizeProviderFailureReason(new ai.TranscriptionProviderError(400, "bad file https://signed.example.test/video.mp4?secret=1 Bearer abc", true)), "Transcription provider rejected the file.");
+assert.equal(
+  worker.sanitizeProviderFailureReason(
+    new ai.TranscriptionProviderError(400, "Groq Whisper request failed with status 400", true, {
+      providerCode: "invalid_request_error",
+      providerMessage: "file [redacted-file] from [redacted-url] is unsupported",
+    }),
+  ),
+  "Transcription provider rejected the file: unsupported format (invalid_request_error).",
+);
+assert.equal(
+  worker.sanitizeProviderFailureReason(
+    new ai.TranscriptionProviderError(413, "Groq Whisper request failed with status 413", true, {
+      providerCode: "invalid_request_error",
+      providerMessage: "too large token=abc Basic dXNlcjpwYXNz cookie=sid email user@example.test /tmp/private.mov arbitrary-secret",
+    }),
+  ),
+  "Transcription provider rejected the file: file too large (invalid_request_error).",
+);
+assert.equal(
+  worker.sanitizeProviderFailureReason(
+    new ai.TranscriptionProviderError(400, "Groq Whisper request failed with status 400", true, {
+      providerCode: "bad-request",
+      providerMessage: "invalid audio content at https://r2.example.test/path.wav?token=secret for user@example.test",
+    }),
+  ),
+  "Transcription provider rejected the file: invalid media (bad-request).",
+);
+assert.equal(
+  worker.sanitizeProviderFailureReason(
+    new ai.TranscriptionProviderError(400, "Groq Whisper request failed with status 400", true, {
+      providerCode: "bad-request",
+      providerMessage: "raw arbitrary secret should not persist: sk-live-token",
+    }),
+  ),
+  "Transcription provider rejected the file (bad-request).",
+);
 
 function queueMessage(body, attempts = 1) {
   let ackCount = 0;
@@ -769,15 +1066,27 @@ const nonRetryQueueMessage = queueMessage({
   audioUrl: "https://r2.example.test/bad.mp4",
   filename: "bad.mp4",
   durationSeconds: 120,
-  fileSizeBytes: 25000001,
+  fileSizeBytes: 25000000,
   createdAt: "2026-07-16T00:00:00.000Z",
 });
-globalThis.fetch = async () => new Response("provider says signed URL https://r2.example.test/bad.mp4?secret=1 failed", { status: 400 });
+globalThis.fetch = async (input) => {
+  const url = typeof input === "string" ? input : input.url;
+  if (url === "https://r2.example.test/bad.mp4") {
+    return new Response(new Blob(["bad-audio"], { type: "video/mp4" }));
+  }
+  return new Response(
+    JSON.stringify({ error: { code: "invalid_request_error", message: "provider says signed URL https://r2.example.test/bad.mp4?secret=1 failed" } }),
+    { status: 400 },
+  );
+};
 try {
   await worker.default.queue({ messages: [nonRetryQueueMessage] }, nonRetryEnv);
   assert.deepEqual(nonRetryQueueMessage.counts(), { ackCount: 1, retryCount: 0 });
   assert.equal(nonRetryEnv.__jobs[0].status, "failed");
-  assert.equal(nonRetryEnv.__jobs[0].srt_content, "Transcription provider rejected the file with status 400.");
+  assert.equal(
+    nonRetryEnv.__jobs[0].srt_content,
+    "Transcription provider rejected the file (invalid_request_error).",
+  );
   assert.equal(nonRetryEnv.__jobs[0].srt_content.includes("r2.example"), false);
   assert.equal(nonRetryEnv.__creditTransactions.length, 1);
 } finally {
@@ -802,10 +1111,16 @@ const retryQueueMessage = queueMessage({
   audioUrl: "https://r2.example.test/rate-limited.mp4",
   filename: "rate-limited.mp4",
   durationSeconds: 120,
-  fileSizeBytes: 25000001,
+  fileSizeBytes: 25000000,
   createdAt: "2026-07-16T00:00:00.000Z",
 });
-globalThis.fetch = async () => new Response("rate limited", { status: 429 });
+globalThis.fetch = async (input) => {
+  const url = typeof input === "string" ? input : input.url;
+  if (url === "https://r2.example.test/rate-limited.mp4") {
+    return new Response(new Blob(["rate-limited-audio"], { type: "video/mp4" }));
+  }
+  return new Response("rate limited", { status: 429 });
+};
 try {
   await worker.default.queue({ messages: [retryQueueMessage] }, retryEnv);
   assert.deepEqual(retryQueueMessage.counts(), { ackCount: 0, retryCount: 1 });
@@ -835,25 +1150,29 @@ const chunkedQueueMessage = queueMessage({
   durationSeconds: 240,
   fileSizeBytes: 150000000,
   chunks: [
-    { audioUrl: "https://r2.example.test/chunk-a.wav", durationSeconds: 120, fileSizeBytes: 64000000 },
-    { audioUrl: "https://r2.example.test/chunk-b.wav", durationSeconds: 120, fileSizeBytes: 64000000 },
+    { audioUrl: "https://r2.example.test/chunk-a.wav", durationSeconds: 120, fileSizeBytes: 25000000 },
+    { audioUrl: "https://r2.example.test/chunk-b.wav", durationSeconds: 120, fileSizeBytes: 25000000 },
   ],
   createdAt: "2026-07-16T00:00:00.000Z",
 });
 const chunkedProviderUrls = [];
+let chunkedProviderCallCount = 0;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : input.url;
+  if (url === "https://r2.example.test/chunk-a.wav" || url === "https://r2.example.test/chunk-b.wav") {
+    return new Response(new Blob([url], { type: "audio/wav" }));
+  }
   chunkedProviderUrls.push(url);
   assert.equal(url, "https://api.groq.com/openai/v1/audio/transcriptions");
-  const form = init.body;
-  const chunkUrl = form.get("url");
-  if (chunkUrl === "https://r2.example.test/chunk-a.wav") {
+  assert.ok(init.body.get("file") instanceof File);
+  chunkedProviderCallCount += 1;
+  if (chunkedProviderCallCount === 1) {
     return new Response(JSON.stringify({ segments: [{ start: 1, end: 3, text: " first " }] }));
   }
-  if (chunkUrl === "https://r2.example.test/chunk-b.wav") {
+  if (chunkedProviderCallCount === 2) {
     return new Response(JSON.stringify({ segments: [{ start: 2, end: 5, text: " second " }] }));
   }
-  throw new Error("unexpected chunk URL");
+  throw new Error("unexpected provider call");
 };
 try {
   await worker.default.queue({ messages: [chunkedQueueMessage] }, chunkedEnv);
@@ -889,14 +1208,21 @@ const chunkFailureQueueMessage = queueMessage({
   durationSeconds: 240,
   fileSizeBytes: 150000000,
   chunks: [
-    { audioUrl: "https://r2.example.test/chunk-a.wav", durationSeconds: 120, fileSizeBytes: 64000000 },
-    { audioUrl: "https://r2.example.test/chunk-b.wav?X-Amz-Signature=secret", durationSeconds: 120, fileSizeBytes: 64000000 },
+    { audioUrl: "https://r2.example.test/chunk-a.wav", durationSeconds: 120, fileSizeBytes: 25000000 },
+    { audioUrl: "https://r2.example.test/chunk-b.wav?X-Amz-Signature=secret", durationSeconds: 120, fileSizeBytes: 25000000 },
   ],
   createdAt: "2026-07-16T00:00:00.000Z",
 });
-globalThis.fetch = async (_input, init) => {
-  const chunkUrl = init.body.get("url");
-  if (chunkUrl === "https://r2.example.test/chunk-a.wav") {
+let chunkFailureProviderCallCount = 0;
+globalThis.fetch = async (input, init) => {
+  const url = typeof input === "string" ? input : input.url;
+  if (url === "https://r2.example.test/chunk-a.wav" || url === "https://r2.example.test/chunk-b.wav?X-Amz-Signature=secret") {
+    return new Response(new Blob([url], { type: "audio/wav" }));
+  }
+  assert.equal(url, "https://api.groq.com/openai/v1/audio/transcriptions");
+  assert.ok(init.body.get("file") instanceof File);
+  chunkFailureProviderCallCount += 1;
+  if (chunkFailureProviderCallCount === 1) {
     return new Response(JSON.stringify({ segments: [{ start: 1, end: 3, text: " first " }] }));
   }
   return new Response("provider echoed https://r2.example.test/chunk-b.wav?X-Amz-Signature=secret", { status: 400 });
@@ -905,7 +1231,7 @@ try {
   await worker.default.queue({ messages: [chunkFailureQueueMessage] }, chunkFailureEnv);
   assert.deepEqual(chunkFailureQueueMessage.counts(), { ackCount: 1, retryCount: 0 });
   assert.equal(chunkFailureEnv.__jobs[0].status, "failed");
-  assert.equal(chunkFailureEnv.__jobs[0].srt_content, "Transcription provider rejected the file with status 400.");
+  assert.equal(chunkFailureEnv.__jobs[0].srt_content, "Transcription provider rejected the file.");
   assert.equal(chunkFailureEnv.__jobs[0].srt_content.includes("X-Amz-Signature"), false);
   assert.equal(chunkFailureEnv.__creditTransactions.length, 1);
 } finally {

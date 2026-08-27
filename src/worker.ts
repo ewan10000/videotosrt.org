@@ -119,10 +119,37 @@ export function isNonRetriableProviderError(error: unknown) {
 
 export function sanitizeProviderFailureReason(error: unknown) {
   const status = error instanceof Error ? (error as Error & { status?: unknown }).status : undefined;
+  const details = error instanceof Error
+    ? (error as Error & { details?: { providerCode?: unknown; providerMessage?: unknown } }).details
+    : undefined;
   if (typeof status === "number") {
-    return `Transcription provider rejected the file with status ${status}.`;
+    const providerCode = safeProviderCode(details?.providerCode);
+    const category = providerFailureCategory(status, typeof details?.providerMessage === "string" ? details.providerMessage : "", providerCode);
+    const codeSuffix = providerCode ? ` (${providerCode})` : "";
+    if (category) return `Transcription provider rejected the file: ${category}${codeSuffix}.`;
+    return `Transcription provider rejected the file${codeSuffix}.`;
   }
   return "Transcription provider rejected the file.";
+}
+
+function safeProviderCode(value: unknown) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  return /^[A-Za-z0-9_.:-]{1,64}$/.test(trimmed) ? trimmed : "";
+}
+
+function providerFailureCategory(status: number, providerMessage: string, providerCode: string) {
+  const normalized = `${providerCode} ${providerMessage}`.toLowerCase();
+  if (status === 413 || /\b(too large|file size|payload too large|request entity too large|maximum size|max size|exceeds?.{0,24}(limit|size))\b/.test(normalized)) {
+    return "file too large";
+  }
+  if (/\b(unsupported|not supported|format|codec|container|mime|media type)\b/.test(normalized)) {
+    return "unsupported format";
+  }
+  if (/\b(invalid audio|invalid media|invalid file|corrupt|corrupted|decode|decoding|malformed|empty audio|no audio)\b/.test(normalized)) {
+    return "invalid media";
+  }
+  return "";
 }
 
 async function handleTranscription(message: TranscriptionQueueMessage, env: Bindings, callProvider: boolean) {
