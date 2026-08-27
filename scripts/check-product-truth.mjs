@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import {
+  ACCEPTED_TRANSCRIPTION_MEDIA_INPUTS,
+  isMovQuickTimeSource,
+  isSupportedDirectTranscriptionSource,
+  shouldPreprocessForTranscription,
+  TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES,
+} from "../lib/limits.ts";
+import {
+  MAX_TRANSCRIPTION_AUDIO_CHUNKS,
+  planMonoPcm16WavChunks,
+  TARGET_CHUNK_BYTES,
+} from "../lib/audio-preprocess-plan.ts";
 
 const activeCopyFiles = [
   "app/page.tsx",
@@ -53,7 +65,7 @@ assert.match(heroBlock, /Free includes 60 minutes per month and 60 minutes per f
 assert.match(heroBlock, /Google sign-in is required for AI transcription, account export, checkout, and paid usage/);
 
 assert.match(homeSections, /Plan limits are duration based: Free 60, Pro 180, and Studio 360 minutes per file/);
-assert.match(homeSections, /TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL\} technical file-size limit/, "homepage discloses the shared provider file-size limit near upload/transcription copy");
+assert.match(homeSections, /supports source files up to \{TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL\}/, "homepage discloses the shared application source cap near upload/transcription copy");
 assert.match(homeSections, retentionCopyPattern, "homepage states verified 7-day uploaded media retention");
 assert.match(homeSections, browserDraftPattern, "homepage notes local drafts stay in the browser");
 
@@ -315,6 +327,9 @@ assert.match(exportModalSource, /export_started/);
 assert.match(exportModalSource, /download_initiated/);
 assert.equal(/export_completed/.test(exportModalSource), false, "export modal must not claim export completion");
 const editorClientSource = readFileSync("components/sections/editor-client.tsx", "utf8");
+const audioPreprocessSource = readFileSync("lib/audio-preprocess.ts", "utf8");
+const audioPreprocessPlanSource = readFileSync("lib/audio-preprocess-plan.ts", "utf8");
+const limitsSource = readFileSync("lib/limits.ts", "utf8");
 assert.match(editorClientSource, /errorType: "provider_size_guard"/, "provider AI size guard is tracked as transcription failure, not upload rejection");
 assert.match(editorClientSource, /reason: "provider_size_guard"/, "provider AI size guard includes a stable reason");
 assert.match(editorClientSource, /file\.size <= 0/, "editor rejects empty files before upload");
@@ -330,6 +345,9 @@ assert.ok(transcribeFileSource.indexOf("file.size > TECHNICAL_TRANSCRIPTION_UPLO
 assert.ok(transcribeFileSource.indexOf("file.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES") < transcribeFileSource.indexOf("api.transcribe"), "oversized files are rejected before transcription API call");
 assert.match(transcribeFileSource, /PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES/, "editor routes files above the provider URL cap through local chunk preprocessing");
 assert.match(transcribeFileSource, /preprocessFileIntoAudioChunks/, "editor preprocesses large media locally before chunk upload");
+assert.match(transcribeFileSource, /shouldPreprocessForTranscription\(file\)/, "editor uses shared provider compatibility helper for preprocessing decisions");
+assert.match(editorClientSource, /isMovQuickTimeSource/, "editor recognizes MOV/QuickTime as provider-incompatible for direct transcription");
+assert.match(limitsSource, /\.mov|\.qt|video\/quicktime/i, "shared source logic covers .mov, .qt, and video/quicktime inputs");
 assert.match(transcribeFileSource, /chunks:\s*Array<\{ audio_url: string; duration_seconds: number; file_size_bytes: number \}>/, "editor submits ordered chunk metadata for large transcription jobs");
 assert.match(transcribeFileSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE/, "oversized AI transcription guard uses shared clear app-limit copy");
 assert.match(transcribeFileSource, /file_size_bytes:\s*file\.size/, "editor includes file_size_bytes in every transcription payload");
@@ -349,10 +367,68 @@ assert.match(editorClientSource, /<div className="min-h-0 overflow-auto">\s*<tab
 const homeUploadSource = readFileSync("components/home-upload-button.tsx", "utf8");
 assert.equal(/file\.size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES \? "file_rejected" : "file_selected"/.test(homeUploadSource), false, "large home uploads are still accepted for local editing");
 
-const limitsSource = readFileSync("lib/limits.ts", "utf8");
-assert.match(limitsSource, /PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES\s*=\s*100_000_000/, "frontend preserves the 100,000,000 byte provider URL concept");
+const makeFileLike = (name, size, type = "") => ({ name, size, type });
+assert.equal(shouldPreprocessForTranscription(makeFileLike("direct.mp3", 25_000_000, "audio/mpeg")), false, "25,000,000-byte direct files upload without local preprocessing");
+assert.equal(shouldPreprocessForTranscription(makeFileLike("direct.mp3", 25_000_001, "audio/mpeg")), true, "25,000,001-byte direct files are locally preprocessed");
+assert.equal(makeFileLike("source.mp4", TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES).size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES, false, "300,000,000-byte source files are inside the app cap");
+assert.equal(makeFileLike("source.mp4", TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES + 1).size > TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES, true, "300,000,001-byte source files exceed the app cap");
+
+for (const file of [
+  makeFileLike("clip.MOV", 10, "video/mp4"),
+  makeFileLike("clip.Qt", 10, ""),
+  makeFileLike("clip.mp4", 10, "VIDEO/QUICKTIME"),
+]) {
+  assert.equal(isMovQuickTimeSource(file), true, `${file.name || file.type} is detected as MOV/QuickTime regardless of case`);
+  assert.equal(shouldPreprocessForTranscription(file), true, `${file.name || file.type} routes through local preprocessing`);
+}
+
+for (const extension of ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "wav", "webm"]) {
+  const file = makeFileLike(`audio.${extension.toUpperCase()}`, 25_000_000, "");
+  assert.equal(isSupportedDirectTranscriptionSource(file), true, `${extension} is direct-provider-supported`);
+  assert.equal(shouldPreprocessForTranscription(file), false, `${extension} at the provider boundary does not preprocess`);
+}
+
+for (const file of [makeFileLike("notes.txt", 100, "text/plain"), makeFileLike("untitled", 100, "")]) {
+  assert.equal(isSupportedDirectTranscriptionSource(file), false, `${file.name} is not direct-provider-supported`);
+  assert.equal(shouldPreprocessForTranscription(file), true, `${file.name} routes through local preprocessing`);
+}
+
+const acceptParts = ACCEPTED_TRANSCRIPTION_MEDIA_INPUTS.split(",");
+for (const accepted of ["video/*", "audio/*", ".flac", ".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".ogg", ".wav", ".webm", ".mov", ".qt"]) {
+  assert.ok(acceptParts.includes(accepted), `canonical file picker accept list includes ${accepted}`);
+}
+
+for (const [source, label] of [[editorClientSource, "editor"], [homeSections, "home dropzone"], [homeUploadSource, "home upload button"]]) {
+  assert.match(source, /ACCEPTED_TRANSCRIPTION_MEDIA_INPUTS/, `${label} reuses canonical transcription accept list`);
+}
+
+const oneSecondSamples = 16_000;
+const sixtyFiveChunkSamples = Math.floor((TARGET_CHUNK_BYTES - 44) / 2) * 64 + 1;
+const chunkPlan = planMonoPcm16WavChunks(oneSecondSamples * 3, 16_000);
+assert.deepEqual(chunkPlan.map((chunk) => chunk.index), [0], "short WAV chunk plan preserves ordering");
+assert.equal(chunkPlan[0].durationSeconds, 3, "chunk plan reports duration totals");
+assert.ok(chunkPlan.every((chunk) => chunk.fileSizeBytes <= TARGET_CHUNK_BYTES), "chunk plan keeps chunks within the 20,000,000-byte target budget");
+assert.ok(chunkPlan.every((chunk) => chunk.fileSizeBytes <= 25_000_000), "chunk plan keeps chunks below the 25,000,000-byte hard provider limit");
+assert.equal(planMonoPcm16WavChunks(Math.floor((TARGET_CHUNK_BYTES - 44) / 2) * MAX_TRANSCRIPTION_AUDIO_CHUNKS, 16_000).length, 64, "chunk planner accepts exactly 64 chunks");
+assert.throws(() => planMonoPcm16WavChunks(sixtyFiveChunkSamples, 16_000), /64 audio chunks/, "chunk planner rejects 65 chunks");
+
+assert.match(limitsSource, /PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES\s*=\s*25_000_000/, "frontend provider-compatible cap is exactly 25,000,000 bytes");
+assert.match(limitsSource, /PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_LABEL\s*=\s*"25 MB \(25,000,000 bytes\)"/, "frontend exposes the exact 25 MB provider-compatible label");
 assert.match(limitsSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES\s*=\s*300_000_000/, "frontend technical upload limit is exactly 300,000,000 bytes");
 assert.match(limitsSource, /TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL\s*=\s*"300 MB \(300,000,000 bytes\)"/, "frontend exposes the reusable 300 MB app-size label");
+assert.match(limitsSource, /SUPPORTED_DIRECT_TRANSCRIPTION_EXTENSIONS/, "frontend keeps a source-of-truth list for direct transcription extensions");
+assert.match(limitsSource, /flac[\s\S]*mp3[\s\S]*mp4[\s\S]*mpeg[\s\S]*mpga[\s\S]*m4a[\s\S]*ogg[\s\S]*wav[\s\S]*webm/, "direct transcription extensions match backend-supported direct formats");
+assert.match(limitsSource, /isMovQuickTimeSource/, "frontend exports a pure MOV/QuickTime detection helper");
+assert.match(limitsSource, /shouldPreprocessForTranscription/, "frontend exports a pure preprocessing decision helper");
+assert.match(limitsSource, /file\.size > PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES \|\| isMovQuickTimeSource\(file\)/, "preprocessing decision uses the provider cap and MOV/QuickTime helper");
+assert.match(limitsSource, /isSupportedDirectTranscriptionSource/, "frontend exports a pure direct source format validator");
+assert.match(limitsSource, /isMovQuickTimeSource\(file\)[\s\S]*return false/, "MOV/QuickTime is never treated as direct-provider-compatible");
+assert.match(audioPreprocessPlanSource, /TARGET_CHUNK_BYTES\s*=\s*20_000_000/, "browser WAV preprocessing targets 20,000,000 byte chunks for provider headroom");
+assert.match(audioPreprocessPlanSource, /MAX_TRANSCRIPTION_AUDIO_CHUNKS\s*=\s*64/, "browser preprocessing keeps chunk count compatible with backend max 64");
+assert.match(audioPreprocessPlanSource, /totalChunks > MAX_TRANSCRIPTION_AUDIO_CHUNKS/, "browser preprocessing fails before uploading more than 64 chunks");
+assert.match(audioPreprocessSource, /planMonoPcm16WavChunks/, "browser preprocessing uses the executable WAV chunk planner");
+assert.match(audioPreprocessSource, /wav\.size > PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES/, "browser preprocessing enforces every generated WAV chunk under provider cap");
+assert.match(audioPreprocessPlanSource, /64 audio chunks/, "too-many-chunks preprocessing failure gives actionable UX");
 
 const apiSource = readFileSync("lib/api.ts", "utf8");
 assert.match(apiSource, /\/upload\/presign/, "frontend requests backend presigned upload URLs");
@@ -371,5 +447,6 @@ assert.match(apiSource, /body:\s*file/, "frontend streams the File as the direct
 assert.match(apiSource, /\/upload\/url/, "frontend asks backend for an owned upload URL after direct PUT");
 
 assert.equal(/1 GiB|1,073,741,824/.test(`${homeSections}\n${editorClientSource}\n${readFileSync("components/sections/pricing-client.tsx", "utf8")}\n${readFileSync("components/sections/seo-landing.tsx", "utf8")}\n${readFileSync("components/home-upload-button.tsx", "utf8")}\n${readFileSync("app/faq/page.tsx", "utf8")}\n${readFileSync("app/tools/page.tsx", "utf8")}`), false, "user-facing automatic transcription copy must not claim a 1 GiB limit");
+assert.equal(/100\s?MB|100,000,000/.test(`${limitsSource}\n${homeSections}\n${editorClientSource}\n${audioPreprocessSource}\n${readFileSync("components/sections/pricing-client.tsx", "utf8")}\n${readFileSync("components/sections/seo-landing.tsx", "utf8")}\n${readFileSync("components/home-upload-button.tsx", "utf8")}\n${readFileSync("app/faq/page.tsx", "utf8")}\n${readFileSync("app/tools/page.tsx", "utf8")}`), false, "active transcription code and copy must not retain stale 100 MB provider-limit text");
 
 console.log("frontend product truth tests passed");

@@ -10,7 +10,7 @@ import { preprocessFileIntoAudioChunks } from "@/lib/audio-preprocess";
 import { api, authLoginUrl, type ApiJob, type ApiUser, type UploadResponse } from "@/lib/api";
 import { getLocalUser, normalizeUser, onAuthChange, setLocalUser } from "@/lib/auth";
 import { trackConversionEvent } from "@/lib/conversion-events";
-import { getPlanLimits, PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES, TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES, TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL, TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE } from "@/lib/limits";
+import { ACCEPTED_TRANSCRIPTION_MEDIA_INPUTS, getPlanLimits, isMovQuickTimeSource, PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES, shouldPreprocessForTranscription, TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES, TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL, TECHNICAL_TRANSCRIPTION_UPLOAD_MESSAGE } from "@/lib/limits";
 import { getExtraCreditLabel, getUserVipPlan, getVipBadgeClass, getVipLabel, mergeStoredMembership } from "@/lib/plans";
 import { getPendingUpload, deletePendingUpload, savePendingUpload } from "@/lib/upload-transfer";
 
@@ -31,7 +31,6 @@ const JOB_FAST_POLL_INTERVAL_MS = 2000;
 const JOB_SLOW_POLL_INTERVAL_MS = 5000;
 const SUBTITLES_PER_PAGE = 8;
 const CAPTION_POSITION_KEY = "videotosrt.editor.captionPosition";
-const acceptedMedia = "video/*,audio/*,.mp4,.mov,.m4a,.mp3,.wav,.webm";
 
 function readMediaDuration(url: string, type: string) {
   return new Promise<number>((resolve, reject) => {
@@ -494,14 +493,18 @@ export function EditorClient() {
     try {
       let audioUrl = "";
       let chunks: Array<{ audio_url: string; duration_seconds: number; file_size_bytes: number }> | undefined;
+      const quickTimeSource = isMovQuickTimeSource(file);
+      const requiresLocalPreparation = shouldPreprocessForTranscription(file);
 
-      if (file.size > PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES) {
-        setStatus("Preparing audio chunks locally for this large file...");
+      if (requiresLocalPreparation) {
+        setStatus(quickTimeSource || file.size > PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES
+          ? "Preparing provider-compatible audio chunks locally..."
+          : "Preparing this media locally before transcription...");
         const preparedChunks = await preprocessFileIntoAudioChunks(file, (progress) => {
           if (progress.phase === "decoding") {
-            setStatus("Reading audio locally for large-file transcription...");
+            setStatus("Reading audio locally for transcription...");
           } else if (progress.phase === "resampling") {
-            setStatus("Preparing browser audio for provider-compatible chunks...");
+            setStatus("Preparing browser audio as provider-compatible chunks...");
           } else {
             setStatus(`Encoding local audio chunk ${Math.min(progress.completedChunks + 1, progress.totalChunks)} of ${progress.totalChunks}...`);
           }
@@ -987,7 +990,7 @@ export function EditorClient() {
         className="sr-only"
         type="file"
         aria-label="Upload video or audio file"
-        accept={acceptedMedia}
+        accept={ACCEPTED_TRANSCRIPTION_MEDIA_INPUTS}
         onChange={(event) => {
           const file = event.target.files?.[0];
           if (file) {
@@ -1066,7 +1069,7 @@ export function EditorClient() {
                   <p className="text-sm font-semibold text-soft">
                     {hasProject
                       ? `${formatFileSize(fileSize)} · Select the file again here to preview it in the browser.`
-                      : `Start with local MP4, MOV, WebM, MP3, M4A, or WAV. AI transcription requires Google sign-in and has a ${TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} file-size limit.`}
+                      : `Start with FLAC, MP3, MP4, MPEG, MPGA, M4A, OGG, WAV, WebM, MOV, or QT. AI transcription requires Google sign-in and supports source files up to ${TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL}; files over 25,000,000 bytes or MOV/QuickTime/provider-incompatible formats are prepared locally as WAV chunks.`}
                   </p>
                 </button>
               ) : null}
@@ -1305,7 +1308,7 @@ export function EditorClient() {
             </div>
             <Button variant="secondary" size="sm" className="shrink-0" type="button" onClick={openFilePicker}>Upload</Button>
           </div>
-          <p className="mb-0 mt-2 break-words text-xs font-semibold leading-5 text-soft">Local audio/video upload. AI transcription requires Google sign-in and a file no larger than {TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL}; minute quotas still apply.</p>
+          <p className="mb-0 mt-2 break-words text-xs font-semibold leading-5 text-soft">Local audio/video upload. AI transcription requires Google sign-in and supports source files up to {TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL}; files over 25,000,000 bytes or MOV/QuickTime/provider-incompatible formats are prepared locally as WAV chunks.</p>
         </header>
         <main className="grid min-w-0 max-w-full gap-4 p-3">
           <h1 className="sr-only">VideoToSRT Subtitle Editor</h1>
@@ -1325,7 +1328,7 @@ export function EditorClient() {
                 <button className="grid min-w-0 max-w-full gap-2 p-5 text-center" type="button" onClick={openFilePicker}>
                   <FileVideo className="mx-auto h-8 w-8 text-cyan" />
                   <span className="text-lg font-extrabold">Upload media</span>
-                  <span className="break-words text-sm font-semibold leading-5 text-soft">MP4, MOV, WebM, MP3, M4A, or WAV</span>
+                  <span className="break-words text-sm font-semibold leading-5 text-soft">FLAC, MP3, MP4, MPEG, MPGA, M4A, OGG, WAV, WebM, MOV, or QT</span>
                 </button>
               )}
               {activeRow ? (

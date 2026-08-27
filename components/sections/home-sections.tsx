@@ -9,7 +9,7 @@ import { HomeUploadButton, useHomeUploadPicker } from "@/components/home-upload-
 import { ExportModal } from "@/components/modals/export-modal";
 import { Button } from "@/components/ui/button";
 import { UploadStatus } from "@/components/upload-status";
-import { TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL } from "@/lib/limits";
+import { ACCEPTED_TRANSCRIPTION_MEDIA_INPUTS, TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL } from "@/lib/limits";
 
 const features = [
   ["ED", "Inline Editor", "Edit text and timestamps directly. No external tools, no format juggling."],
@@ -17,7 +17,7 @@ const features = [
   ["60", "Free Minutes", "Free accounts include 60 transcription minutes per month and up to 60 minutes per file."],
   ["AI", "AI Transcription", "Generate an editable draft after Google sign-in, then review every line."],
   ["180", "Per-file Duration", "Plan limits are duration based: Free 60, Pro 180, and Studio 360 minutes per file."],
-  ["300 MB", "Technical Limit", `AI transcription has a ${TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} technical file-size limit in addition to minute quotas. Files over 100 MB are prepared locally before upload.`]
+  ["300 MB", "Source Cap", `Automatic transcription supports source files up to ${TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL}. Files over 25,000,000 bytes, MOV/QuickTime files, or provider-incompatible formats are prepared locally as WAV chunks.`]
 ];
 
 const faqs = [
@@ -26,7 +26,7 @@ const faqs = [
   ["How accurate is transcription?", "Accuracy depends on audio quality, speakers, background noise, and vocabulary. Every line is editable inline before export."],
   ["Can I use exported subtitles commercially?", "Yes. Everything you export is yours. We don't watermark, we don't claim rights, we don't look at your content."],
   ["What happens to my video after upload?", "Uploaded media is used to run the transcription workflow. A daily retention job deletes uploaded media under uploads/ from R2 after it is older than 7 days. Local editor drafts remain in your browser until you clear them."],
-  ["Is there a file size limit?", `Plan limits are duration based: Free 60 minutes per file, Pro 180, Studio 360. Automatic transcription also has a ${TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} technical file-size limit today.`],
+  ["Is there a file size limit?", `Plan limits are duration based: Free 60 minutes per file, Pro 180, Studio 360. Automatic transcription supports source files up to ${TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} today.`],
   ["Can I edit an existing SRT file?", "Yes. Upload your SRT alongside the video, or paste it directly into the editor. Fix timing without touching code."],
   ["What's the difference between Free and Pro?", "Free includes 60 transcription minutes per month and 60 minutes per file. Pro includes 600 minutes per month and 180 minutes per file."],
   ["Does the pay-as-you-go credit expire?", "Never. Buy once, use whenever. No monthly pressure."],
@@ -115,7 +115,7 @@ function UploadPanel() {
           tabIndex={-1}
           type="file"
           aria-label="Upload video or audio file"
-          accept="video/*,audio/*"
+          accept={ACCEPTED_TRANSCRIPTION_MEDIA_INPUTS}
           onChange={handleFileChange}
         />
         <label
@@ -137,7 +137,7 @@ function UploadPanel() {
             </div>
             <h2 className="mb-[9px] text-2xl font-extrabold leading-[1.2]">Drop your video here</h2>
             <p className="mx-auto mb-5 max-w-[410px] leading-[1.6] text-muted">
-              Drag in a local MP4, MOV, WebM, MP3, M4A, or WAV file. AI transcription requires Google sign-in and has a {TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} technical file-size limit; minute quotas still apply by plan.
+              Drag in FLAC, MP3, MP4, MPEG, MPGA, M4A, OGG, WAV, WebM, MOV, or QT. Automatic transcription requires Google sign-in and supports source files up to {TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL}; files over 25,000,000 bytes or MOV/QuickTime/provider-incompatible formats are prepared locally as WAV chunks.
             </p>
           </div>
         </label>
@@ -394,7 +394,7 @@ export function FinalCtaSection() {
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded bg-indigo px-4 text-sm font-bold text-text shadow-[0_12px_30px_rgba(99,102,241,.22)] transition hover:-translate-y-px" href="/#upload">
-            Start free upload - 300 MB AI limit
+            Start free upload - 300 MB source cap
           </Link>
           <Link className="inline-flex min-h-[42px] items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold text-text transition hover:-translate-y-px" href="/pricing">
             See Pricing

@@ -4,10 +4,8 @@ import { useRef, type ChangeEvent } from "react";
 import { FolderUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { trackConversionEvent } from "@/lib/conversion-events";
-import { TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES, TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL } from "@/lib/limits";
+import { ACCEPTED_TRANSCRIPTION_MEDIA_INPUTS, TECHNICAL_TRANSCRIPTION_UPLOAD_BYTES, TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL } from "@/lib/limits";
 import { savePendingUpload } from "@/lib/upload-transfer";
-
-const acceptedMedia = "video/*,audio/*,.mp4,.mov,.m4a,.mp3,.wav,.webm";
 
 function fileTypeLabel(file: File) {
   if (file.type.startsWith("audio/")) {
@@ -68,14 +66,14 @@ export function HomeUploadButton({ className }: { className?: string }) {
         onClick={openFilePicker}
       >
         <FolderUp className="h-4 w-4" />
-        Upload ({TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} AI limit)
+        Upload ({TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} source cap)
       </button>
       <input
         ref={inputRef}
         className="sr-only"
         type="file"
         aria-label="Upload video or audio file"
-        accept={acceptedMedia}
+        accept={ACCEPTED_TRANSCRIPTION_MEDIA_INPUTS}
         onChange={handleFileChange}
       />
     </>

@@ -415,7 +415,7 @@ export function PricingClient() {
             <span className="eyebrow"><span className="dot" /> Simple subtitle pricing</span>
             <h1 className="mb-4 mt-5 max-w-[760px] text-[clamp(42px,6vw,68px)] font-extrabold leading-[1]">Simple Pricing. No Surprises.</h1>
             <p className="mb-0 max-w-[720px] text-lg leading-[1.7] text-muted">
-              Start free. Upgrade when you need more transcription minutes. A {TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} technical file-size limit applies while minute quotas remain duration based.
+              Start free. Upgrade when you need more transcription minutes. Automatic transcription supports source files up to {TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL} while minute quotas remain duration based.
             </p>
           </div>
           <div className="rounded border border-line bg-panel p-2">
@@ -494,7 +494,7 @@ export function PricingClient() {
                 </ul>
                 {plan.plan === "free" ? (
                   <Link className="inline-flex min-h-[42px] w-full items-center justify-center rounded border border-line bg-white/[.03] px-4 text-sm font-bold" href="/#upload">
-                    Start free upload - 300 MB AI limit
+                    Start free upload - 300 MB source cap
                   </Link>
                 ) : (
                   <Button

@@ -1,10 +1,5 @@
-import { PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES } from "@/lib/limits";
-
-const OUTPUT_SAMPLE_RATE = 16_000;
-const OUTPUT_CHANNELS = 1;
-const BYTES_PER_SAMPLE = 2;
-const WAV_HEADER_BYTES = 44;
-const TARGET_CHUNK_BYTES = 80_000_000;
+import { BYTES_PER_SAMPLE, OUTPUT_CHANNELS, OUTPUT_SAMPLE_RATE, planMonoPcm16WavChunks, WAV_HEADER_BYTES } from "./audio-preprocess-plan";
+import { PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES } from "./limits";
 
 export type TranscriptionAudioChunk = {
   file: File;
@@ -30,7 +25,7 @@ export async function preprocessFileIntoAudioChunks(
   const OfflineAudioContextCtor = globalThis.OfflineAudioContext || audioGlobal.webkitOfflineAudioContext;
 
   if (!AudioContextCtor || !OfflineAudioContextCtor) {
-    throw new Error("This browser cannot preprocess large media for AI transcription. Try the latest Chrome, Edge, or Safari, or extract the audio to a smaller file.");
+    throw new Error("This browser cannot prepare this media for AI transcription. Try the latest Chrome, Edge, or Safari, or extract the audio to a supported file.");
   }
 
   let sourceBuffer: AudioBuffer;
@@ -42,8 +37,8 @@ export async function preprocessFileIntoAudioChunks(
     await context.close().catch(() => undefined);
   } catch (error) {
     const message = error instanceof DOMException && error.name === "EncodingError"
-      ? "This browser could not decode audio from the selected media. For files over 100,000,000 bytes, upload an audio file such as MP3, M4A, WAV, or WebM audio, or extract the audio first."
-      : "Large-file audio preprocessing failed while reading this media. Close other tabs and try again, or extract the audio to a smaller file.";
+      ? "This browser could not decode audio from the selected media. Upload a supported audio format such as MP3, M4A, WAV, or WebM audio, or use a smaller file."
+      : "Local audio preparation failed while reading this media. Try a supported audio format or a smaller file.";
     throw new Error(message);
   }
 
@@ -58,30 +53,27 @@ export async function preprocessFileIntoAudioChunks(
     source.start();
     rendered = await offline.startRendering();
   } catch {
-    throw new Error("This browser ran out of resources while preparing audio chunks. Try a shorter file, close other tabs, or extract compressed audio before uploading.");
+    throw new Error("This browser could not prepare audio chunks. Try a supported audio format or a smaller file.");
   }
 
-  const samplesPerChunk = Math.floor((TARGET_CHUNK_BYTES - WAV_HEADER_BYTES) / BYTES_PER_SAMPLE);
-  const totalChunks = Math.ceil(rendered.length / samplesPerChunk);
+  const plannedChunks = planMonoPcm16WavChunks(rendered.length, OUTPUT_SAMPLE_RATE);
   const chunks: TranscriptionAudioChunk[] = [];
   const samples = rendered.getChannelData(0);
 
-  for (let index = 0; index < totalChunks; index += 1) {
-    onProgress?.({ phase: "encoding", completedChunks: index, totalChunks });
-    const startSample = index * samplesPerChunk;
-    const endSample = Math.min(startSample + samplesPerChunk, samples.length);
-    const wav = encodeMonoPcm16Wav(samples.subarray(startSample, endSample), OUTPUT_SAMPLE_RATE);
+  for (const chunkPlan of plannedChunks) {
+    onProgress?.({ phase: "encoding", completedChunks: chunkPlan.index, totalChunks: plannedChunks.length });
+    const wav = encodeMonoPcm16Wav(samples.subarray(chunkPlan.startSample, chunkPlan.endSample), OUTPUT_SAMPLE_RATE);
     if (wav.size > PROVIDER_COMPATIBLE_TRANSCRIPTION_UPLOAD_BYTES) {
-      throw new Error("Prepared audio chunk exceeded the provider limit. Try extracting compressed speech audio and uploading that file.");
+      throw new Error("Prepared audio chunk exceeded the provider limit. Try a supported audio format or a smaller file.");
     }
     chunks.push({
-      file: new File([wav], `${safeBaseName(file.name)}.chunk-${String(index + 1).padStart(3, "0")}.wav`, { type: "audio/wav" }),
-      durationSeconds: (endSample - startSample) / OUTPUT_SAMPLE_RATE,
+      file: new File([wav], `${safeBaseName(file.name)}.chunk-${String(chunkPlan.index + 1).padStart(3, "0")}.wav`, { type: "audio/wav" }),
+      durationSeconds: chunkPlan.durationSeconds,
       fileSizeBytes: wav.size,
     });
   }
 
-  onProgress?.({ phase: "encoding", completedChunks: totalChunks, totalChunks });
+  onProgress?.({ phase: "encoding", completedChunks: plannedChunks.length, totalChunks: plannedChunks.length });
 
   if (chunks.length === 0) {
     throw new Error("No usable audio was found while preparing this file for transcription.");
