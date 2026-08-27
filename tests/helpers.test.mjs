@@ -832,7 +832,7 @@ globalThis.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : input.url;
   smallFetchCalls.push({ url, init });
   if (url === "https://r2.example.test/small.mp4") {
-    assert.equal(init?.redirect, "error");
+    assert.equal(init?.redirect, "manual");
     return new Response(new Blob(["small-audio"], { type: "video/mp4" }));
   }
   assert.equal(url, "https://api.groq.com/openai/v1/audio/transcriptions");
@@ -851,10 +851,31 @@ try {
   globalThis.fetch = originalFetchForAi;
 }
 
+const redirectFetchCalls = [];
+globalThis.fetch = async (input, init) => {
+  const url = typeof input === "string" ? input : input.url;
+  redirectFetchCalls.push({ url, init });
+  assert.equal(url, "https://r2.example.test/redirect.mp4");
+  assert.equal(init?.redirect, "manual");
+  return new Response(null, {
+    status: 302,
+    headers: { location: "https://r2.example.test/final.mp4" },
+  });
+};
+try {
+  await assert.rejects(
+    ai.transcribeWithGroq({ GROQ_API_KEY: "groq-key" }, "https://r2.example.test/redirect.mp4", "redirect.mp4", 25000000),
+    /Failed to fetch audio URL: 302/,
+  );
+  assert.equal(redirectFetchCalls.length, 1);
+} finally {
+  globalThis.fetch = originalFetchForAi;
+}
+
 globalThis.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : input.url;
   assert.equal(url, "https://r2.example.test/stale.mp4");
-  assert.equal(init?.redirect, "error");
+  assert.equal(init?.redirect, "manual");
   return new Response("small", { headers: { "content-length": "25000001" } });
 };
 try {

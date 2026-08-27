@@ -41,7 +41,7 @@ export async function transcribeSegmentsWithGroq(env: Bindings, audioUrl: string
   form.set("response_format", "verbose_json");
 
   let audioBlob: Blob | null = null;
-  const audioResponse = await fetch(audioUrl, { redirect: "error" });
+  const audioResponse = await fetch(audioUrl, { redirect: "manual" });
   if (!audioResponse.ok) {
     throw new Error(`Failed to fetch audio URL: ${audioResponse.status}`);
   }
