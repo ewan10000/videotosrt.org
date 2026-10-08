@@ -187,9 +187,9 @@ export function ExportModal({ trigger, subtitles, filename, user }: { trigger: R
           </TabsList>
         </Tabs>
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded border border-line bg-panel-2 px-3 py-2 text-sm font-semibold">
-          <span className="text-soft">Current membership</span>
+          <span className="text-soft">{user ? "Current membership" : "Local mode"}</span>
           <span className={`rounded border px-2 py-1 text-[11px] font-extrabold uppercase tracking-normal ${getVipBadgeClass(vipPlan)}`}>
-            {getVipLabel(vipPlan)}
+            {user ? getVipLabel(vipPlan) : "Guest"}
           </span>
         </div>
         <div className="grid shrink-0 gap-3 py-4 sm:grid-cols-2">

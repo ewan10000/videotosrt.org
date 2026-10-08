@@ -4,6 +4,7 @@ import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, FileVideo, Pause, Play, Plus, Save, Trash2 } from "lucide-react";
 import { Brand } from "@/components/brand";
+import { ImportSrtModal } from "@/components/modals/import-srt-modal";
 import { ExportModal } from "@/components/modals/export-modal";
 import { Button } from "@/components/ui/button";
 import { preprocessFileIntoAudioChunks } from "@/lib/audio-preprocess";
@@ -696,7 +697,7 @@ export function EditorClient() {
       const limits = getPlanLimits(effectiveVipPlan);
       if (mediaDuration > limits.maxFileMinutes * 60) {
         URL.revokeObjectURL(objectUrl);
-        setReadError(`${getVipLabel(effectiveVipPlan)} supports media up to ${limits.maxFileMinutes} minutes per file. This file is ${formatDuration(mediaDuration)}.`);
+        setReadError(`${effectiveUser ? getVipLabel(effectiveVipPlan) : "Local mode"} supports media up to ${limits.maxFileMinutes} minutes per file. This file is ${formatDuration(mediaDuration)}.`);
         setStatus("File duration is above your plan limit.");
         trackConversionEvent("file_rejected", {
           durationSeconds: mediaDuration,
@@ -745,6 +746,15 @@ export function EditorClient() {
         source: "editor"
       });
     }
+  }
+
+  function importSrt(importedRows: SubtitleRow[]) {
+    setRows(importedRows);
+    setActive(0);
+    setSubtitlePage(0);
+    setOrderEdits({});
+    setReadError("");
+    setStatus(`Imported ${importedRows.length} subtitles locally. Save to keep this draft.`);
   }
 
   function openFilePicker() {
@@ -848,14 +858,14 @@ export function EditorClient() {
     window.localStorage.setItem(CAPTION_POSITION_KEY, JSON.stringify(nextPosition));
   }
 
-  function startCaptionDrag(event: React.PointerEvent<HTMLDivElement>) {
+  function startCaptionDrag(event: React.PointerEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     moveCaptionToPointer(event.clientX, event.clientY);
   }
 
-  function dragCaption(event: React.PointerEvent<HTMLDivElement>) {
+  function dragCaption(event: React.PointerEvent<HTMLButtonElement>) {
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
       return;
     }
@@ -863,7 +873,7 @@ export function EditorClient() {
     moveCaptionToPointer(event.clientX, event.clientY);
   }
 
-  function stopCaptionDrag(event: React.PointerEvent<HTMLDivElement>) {
+  function stopCaptionDrag(event: React.PointerEvent<HTMLButtonElement>) {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -1007,7 +1017,7 @@ export function EditorClient() {
           </div>
           <div className="flex items-center gap-2">
             <span className={`rounded border px-2 py-1 text-[11px] font-extrabold uppercase tracking-normal ${getVipBadgeClass(vipPlan)}`}>
-              {getVipLabel(vipPlan)}
+              {user ? getVipLabel(vipPlan) : "Guest"}
             </span>
             {extraCreditLabel ? (
               <span className="rounded border border-cyan/40 bg-cyan/10 px-2 py-1 text-[11px] font-extrabold uppercase tracking-normal text-cyan">
@@ -1032,9 +1042,10 @@ export function EditorClient() {
             >
               {isTranscribing ? "Generating..." : user ? "Generate subtitles" : "Sign in to generate"}
             </Button>
-            <Button variant="secondary" size="icon" type="button" aria-label="Play or pause" onClick={togglePlayback}>
+            <Button variant="secondary" size="icon" type="button" aria-label={playing ? "Pause media" : "Play media"} title={playing ? "Pause media" : "Play media"} onClick={togglePlayback}>
               {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
+            <ImportSrtModal onImport={importSrt} disabled={isTranscribing} />
             <ExportModal trigger={<Button variant="secondary">Export</Button>} subtitles={rows} filename={filename} user={user} />
             <Button variant="primary" className="gap-2" type="button" onClick={saveDraft}>
               <Save className="h-4 w-4" />
@@ -1096,15 +1107,24 @@ export function EditorClient() {
                 </div>
               ) : null}
               {activeRow ? (
-                <div
+                <button
+                  type="button"
                   className="absolute z-10 max-w-[70%] cursor-move touch-none select-none rounded bg-black/60 px-4 py-2 text-center text-lg font-extrabold shadow-panel"
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Drag subtitle position"
+                  aria-label="Move subtitle position"
+                  title="Drag or use arrow keys to move subtitle position"
                   style={{
                     left: `${captionPosition.x}%`,
                     top: `${captionPosition.y}%`,
                     transform: "translate(-50%, -50%)"
+                  }}
+                  onKeyDown={(event) => {
+                    const offsets: Record<string, [number, number]> = { ArrowLeft: [-2, 0], ArrowRight: [2, 0], ArrowUp: [0, -2], ArrowDown: [0, 2] };
+                    const offset = offsets[event.key];
+                    if (!offset) return;
+                    event.preventDefault();
+                    const position = { x: Math.min(90, Math.max(10, captionPosition.x + offset[0])), y: Math.min(88, Math.max(12, captionPosition.y + offset[1])) };
+                    setCaptionPosition(position);
+                    window.localStorage.setItem(CAPTION_POSITION_KEY, JSON.stringify(position));
                   }}
                   onPointerDown={startCaptionDrag}
                   onPointerMove={dragCaption}
@@ -1112,7 +1132,7 @@ export function EditorClient() {
                   onPointerCancel={stopCaptionDrag}
                 >
                   {activeRow[2]}
-                </div>
+                </button>
               ) : null}
             </div>
             <div className="mt-4 flex items-center justify-end">
@@ -1342,6 +1362,7 @@ export function EditorClient() {
                 {isTranscribing ? "Generating subtitles..." : user ? "Generate subtitles" : "Sign in with Google to generate subtitles"}
               </Button>
               <div className="grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-2">
+                <ImportSrtModal onImport={importSrt} disabled={isTranscribing} />
                 <Button variant="secondary" size="sm" className="w-full" type="button" onClick={addRow}>Add row</Button>
                 <Button variant="secondary" size="sm" className="w-full" type="button" onClick={saveDraft}>{saveFeedback ? "Saved" : "Save"}</Button>
                 <ExportModal trigger={<Button variant="secondary" size="sm" className="w-full min-[360px]:col-span-2" type="button">Export</Button>} subtitles={rows} filename={filename} user={user} />
@@ -1360,7 +1381,7 @@ export function EditorClient() {
             {rows.length ? rows.map(([start, end, text], index) => (
               <article key={index} className={`min-w-0 rounded border p-3 ${active === index ? "border-cyan bg-cyan/10" : "border-line bg-panel"}`}>
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <button className="text-sm font-extrabold text-cyan" type="button" onClick={() => seekToRow(index)}>#{index + 1}</button>
+                  <button className="text-sm font-extrabold text-cyan" type="button" aria-label={`Select subtitle row ${index + 1}`} onClick={() => seekToRow(index)}>#{index + 1}</button>
                   <Button variant="ghost" size="icon" type="button" aria-label={`Delete subtitle row ${index + 1}`} onClick={() => deleteRow(index)}>
                     <Trash2 className="h-4 w-4 text-soft" />
                   </Button>

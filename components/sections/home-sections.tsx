@@ -238,7 +238,7 @@ export function EditorPreviewSection() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-panel-2 p-3">
             <div className="flex gap-2" aria-label="Editing controls">
               {["Undo", "Redo", "Split", "Merge", "Search"].map((tool) => (
-                <button key={tool} className="grid h-10 w-10 place-items-center rounded border border-line bg-white/[.03] text-xs font-extrabold text-muted hover:text-text" title={tool}>
+                <button key={tool} className="grid h-10 w-10 place-items-center rounded border border-line bg-white/[.03] text-xs font-extrabold text-muted hover:text-text" type="button" aria-label={tool} title={tool}>
                   {tool.slice(0, 1)}
                 </button>
               ))}
@@ -252,7 +252,7 @@ export function EditorPreviewSection() {
             <div className="p-5">
               <div className="relative grid aspect-video place-items-center overflow-hidden rounded border border-line bg-bg">
                 <div className="absolute inset-0 opacity-50 [background:linear-gradient(135deg,rgba(99,102,241,.22),transparent_35%),linear-gradient(45deg,rgba(34,211,238,.14),transparent_45%)]" />
-                <button className="relative grid h-[54px] w-[54px] place-items-center rounded-full bg-indigo font-extrabold">▶</button>
+                <button type="button" aria-label="Play editor demo" title="Play editor demo" className="relative grid h-[54px] w-[54px] place-items-center rounded-full bg-indigo font-extrabold">▶</button>
                 <div className="absolute bottom-6 rounded bg-black/55 px-4 py-2 text-sm font-bold">Fix a typo in two seconds.</div>
               </div>
               <div className="mt-4 h-12 rounded border border-line bg-panel-2 p-3">
