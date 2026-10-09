@@ -37,3 +37,5 @@ Deploy only after Wrangler is authenticated:
 ```bash
 npm run deploy
 ```
+
+Stripe billing migration and activation requirements are documented in [docs/stripe-billing.md](docs/stripe-billing.md). New purchases use Stripe; existing subscriptions remain with their original provider. Read the shared D1 requirements and legacy handling before configuring or deploying billing.

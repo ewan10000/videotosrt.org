@@ -380,6 +380,7 @@ function scheduleAnalyticsCleanup(env: EventEnv, ctx: WaitUntilContext | undefin
 }
 
 export async function POST(request: Request) {
+  if (/(?:^|;\s*)vts_synthetic=1(?:;|$)/.test(request.headers.get("cookie") ?? "")) return jsonResponse({ok:true,stored:false});
   if (!isSameOriginRequest(request)) {
     return jsonResponse({ ok: true, stored: false }, { status: 403 });
   }

@@ -97,34 +97,6 @@ function deleteParams(params: URLSearchParams, names: string[]) {
   }
 }
 
-function decodeBase64Url(value: string) {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  return window.atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="));
-}
-
-function decodeUserParam(value: string): ApiUser | null {
-  const candidates = [value];
-
-  try {
-    candidates.push(decodeBase64Url(value));
-  } catch {
-    // Some callbacks send plain JSON, others send base64url JSON.
-  }
-
-  for (const candidate of candidates) {
-    try {
-      const user = JSON.parse(candidate) as ApiUser;
-      if (user && typeof user === "object") {
-        return user;
-      }
-    } catch {
-      // Try the next encoding.
-    }
-  }
-
-  return null;
-}
-
 export function consumeSessionTokenFromLocation() {
   if (typeof window === "undefined") {
     return false;
@@ -136,20 +108,8 @@ export function consumeSessionTokenFromLocation() {
   const searchParams = new URLSearchParams(url.search);
   const token = getFirstParam(hashParams, TOKEN_PARAM_NAMES) || getFirstParam(searchParams, TOKEN_PARAM_NAMES);
   const rawUser = getFirstParam(hashParams, USER_PARAM_NAMES) || getFirstParam(searchParams, USER_PARAM_NAMES);
-  const user = rawUser ? decodeUserParam(rawUser) : null;
-
-  if (!token && !user) {
-    return false;
-  }
-
-  if (token) {
-    persistSessionToken(token);
-  }
-
-  if (user) {
-    setLocalUser(user);
-  }
-
+  if (!token && !rawUser) return false;
+  // URL credentials and unsigned user hints never establish a browser session.
   deleteParams(hashParams, TOKEN_PARAM_NAMES);
   deleteParams(hashParams, USER_PARAM_NAMES);
   deleteParams(searchParams, TOKEN_PARAM_NAMES);
@@ -158,7 +118,7 @@ export function consumeSessionTokenFromLocation() {
   url.search = searchParams.toString() ? `?${searchParams.toString()}` : "";
   window.history.replaceState(window.history.state, "", url.toString());
 
-  return true;
+  return false;
 }
 
 export function setLocalUser(user: ApiUser | null) {

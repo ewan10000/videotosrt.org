@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { parseSrt, readSrtFile } from '../lib/srt.ts';
 
 const sample = '\uFEFF1\r\n00:00:01,200 --> 00:00:03.450\r\nHello 世界\r\nSecond line\r\n \r\n8\r\n00:01:02,1 --> 00:01:03,22\r\nNext';
@@ -56,16 +55,13 @@ test('demo and editor controls have meaningful names; guests have local labels',
   }
   assert.match(readFileSync('components/modals/export-modal.tsx', 'utf8'), /user \? "Current membership" : "Local mode"/);
 });
-test('all active pages, metadata and copy remain PayPal-only', () => {
-  function check(directory) {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const path = join(directory, entry.name);
-      if (entry.isDirectory()) check(path);
-      else if (/\.(tsx?|json)$/.test(path)) assert.doesNotMatch(readFileSync(path, 'utf8'), /stripe/i, path);
-    }
-  }
-  for (const directory of ['app', 'components', 'lib']) check(directory);
+test('visible new billing copy uses Stripe and states credit expiry and legacy handling', () => {
   for (const path of ['components/sections/home-sections.tsx', 'components/sections/pricing-client.tsx', 'app/privacy-policy/page.tsx', 'app/terms-of-service/page.tsx']) {
-    assert.match(readFileSync(path, 'utf8'), /PayPal/);
+    assert.match(readFileSync(path, 'utf8'), /Stripe/, path);
   }
+  const pricing = readFileSync('components/sections/pricing-client.tsx', 'utf8');
+  assert.doesNotMatch(pricing, /never expire|Secure billing with PayPal|open PayPal checkout/);
+  assert.match(pricing, /UTC calendar month/);
+  assert.match(pricing, /Legacy subscriptions remain/);
+  assert.match(pricing, /Manage billing/);
 });

@@ -150,15 +150,8 @@ function buildUrl(path: string) {
 export function authLoginUrl(provider: "google", returnTo?: string) {
   const origin = typeof window === "undefined" ? "https://videotosrt.org" : window.location.origin;
   const url = new URL(`${API_BASE_URL}/auth/login`, origin);
-  const completeUrl = new URL("/auth/complete", origin);
-
-  completeUrl.searchParams.set("authTs", String(Date.now()));
   url.searchParams.set("provider", provider);
-  if (returnTo) {
-    completeUrl.searchParams.set("returnTo", returnTo);
-  }
-  url.searchParams.set("returnTo", completeUrl.toString());
-
+  if (returnTo) url.searchParams.set("returnTo", returnTo);
   return url.toString();
 }
 
@@ -303,11 +296,12 @@ export const api = {
     apiFetch<ApiJob>("/transcribe", { method: "POST", body: payload }),
   job: (id: string) => apiFetch<ApiJob>(`/jobs/${encodeURIComponent(id)}`),
   checkout: (plan: "pro" | "studio", billing: "monthly" | "yearly") =>
-    apiFetch<CheckoutResponse>("/checkout/paypal", { method: "POST", body: { billing, plan } }),
+    apiFetch<CheckoutResponse>("/checkout/stripe", { method: "POST", body: { billing, plan } }),
+  billingPortal: () => apiFetch<{ url: string }>("/billing/portal", { method: "POST" }),
   syncPaypalSubscription: (payload: { billing?: "monthly" | "yearly"; plan?: "pro" | "studio"; subscriptionId: string }) =>
     apiFetch<PaypalSyncResponse>("/checkout/paypal/sync", { method: "POST", body: payload }),
   checkoutCredits: (credits: "2h" | "5h" | "20h") =>
-    apiFetch<CheckoutResponse>("/checkout/paypal/credits", { method: "POST", body: { credits } }),
+    apiFetch<CheckoutResponse>("/checkout/stripe/credits", { method: "POST", body: { credits } }),
   captureCredits: (orderId: string) =>
     apiFetch<CreditsCaptureResponse>("/checkout/paypal/credits/capture", { method: "POST", body: { orderId } })
 };

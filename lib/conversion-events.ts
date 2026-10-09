@@ -46,7 +46,7 @@ function safePath() {
 }
 
 export function trackConversionEvent(name: ConversionEventName, properties: EventProperties = {}) {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || window.localStorage.getItem("videotosrt.analytics.synthetic") === "1") {
     return;
   }
 

@@ -69,10 +69,9 @@ export async function upsertUserLogin(env: UserStoreEnv, user: LocalAuthUser, pr
        ON CONFLICT(id) DO UPDATE SET
          email = excluded.email,
          name = excluded.name,
-         provider = excluded.provider,
-         provider_id = excluded.provider_id,
          updated_at = CURRENT_TIMESTAMP,
-         last_login_at = CURRENT_TIMESTAMP`
+         last_login_at = CURRENT_TIMESTAMP
+       WHERE users.provider = excluded.provider AND users.provider_id = excluded.provider_id`
     )
     .bind(user.id, user.email, user.name, provider, user.email)
     .run();
@@ -93,7 +92,7 @@ export async function getStoredUserMembership(env: UserStoreEnv, user: Pick<Loca
          COALESCE(MAX(plan), 'free') AS plan,
          COALESCE(SUM(extra_credit_hours), 0) AS extra_credit_hours
        FROM users
-       WHERE id = ? OR email = ?`
+       WHERE (id = ? OR email = ?) AND NOT EXISTS (SELECT 1 FROM stripe_accounts WHERE user_id = users.id AND subscription_id IS NOT NULL)`
     )
     .bind(user.id, user.email)
     .first<{ extra_credit_hours: number; plan: string }>();
@@ -107,7 +106,7 @@ export async function addUserExtraCredits(env: UserStoreEnv, user: Pick<LocalAut
   await ensureUserStoreSchema(env);
 
   const existingUser = await env.DB
-    .prepare("SELECT id FROM users WHERE id = ? OR email = ? ORDER BY updated_at DESC LIMIT 1")
+    .prepare("SELECT id FROM users WHERE (id = ? OR email = ?) AND NOT EXISTS (SELECT 1 FROM stripe_accounts WHERE user_id = users.id AND subscription_id IS NOT NULL) ORDER BY updated_at DESC LIMIT 1")
     .bind(user.id, user.email)
     .first<{ id: string }>();
   const userId = existingUser?.id ?? user.id;
@@ -120,7 +119,8 @@ export async function addUserExtraCredits(env: UserStoreEnv, user: Pick<LocalAut
          email = excluded.email,
          name = COALESCE(users.name, excluded.name),
          extra_credit_hours = COALESCE(users.extra_credit_hours, 0) + excluded.extra_credit_hours,
-         updated_at = CURRENT_TIMESTAMP`
+         updated_at = CURRENT_TIMESTAMP
+       WHERE NOT EXISTS (SELECT 1 FROM stripe_accounts WHERE user_id = users.id AND subscription_id IS NOT NULL)`
     )
     .bind(userId, user.email, user.name, user.email, hours)
     .run();

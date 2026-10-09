@@ -8,8 +8,9 @@
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "bash scripts/deploy-production.sh",
     "lint": "eslint app components lib middleware.ts worker.ts",
-    "test": "node scripts/check-product-truth.mjs && node scripts/srt.test.mjs",
-    "test:seo": "npm run build"
+    "test": "node scripts/check-product-truth.mjs && node scripts/srt.test.mjs && node scripts/stripe.test.mjs && node scripts/auth-handoff.test.mjs",
+    "test:seo": "npm run build",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.1",

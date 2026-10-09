@@ -16,7 +16,7 @@ const pageJsonLd = createPageJsonLd({
 
 
 export default function PrivacyPolicyPage() {
-  const lastUpdated = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const lastUpdated = "October 8, 2026";
 
   return (
     <>
@@ -33,7 +33,8 @@ export default function PrivacyPolicyPage() {
             ["Anonymous projects", "The product is designed for upload and editing before sign-in. Anonymous session data may be retained temporarily so you can complete the workflow."],
             ["Product analytics", "VideoToSRT stores a persistent anonymous browser ID in localStorage to count product events such as page views, uploads, transcription status, export starts, download initiation, checkout intent, and checkout status. Event details are limited to the page path, referrer host, event name, anonymous browser ID, and allowlisted fields such as plan, billing period, file type, rounded file size, duration, row count, status, reason, source, and export format. Detailed product events are retained for 30 days; daily aggregate event counts may be retained longer."],
             ["Media retention", "Uploaded media is used for the transcription workflow. A daily retention job deletes uploaded media under uploads/ from R2 after it is older than 7 days. Local drafts remain in your browser until you clear them."],
-            ["Third-party services", "VideoToSRT uses Google for sign-in, PayPal for checkout, and Cloudflare infrastructure for the web app and database storage used by this frontend."],
+            ["Third-party services", "VideoToSRT uses Google for sign-in, Stripe for new checkout and billing, and Cloudflare for hosting and database storage. Legacy subscriptions remain with their original payment provider."],
+            ["Billing data", "We send your account email and internal account ID to Stripe to associate purchases with your account. Stripe collects payment details in its hosted checkout and billing portal. We store Stripe customer, subscription, checkout and event identifiers, payment status, and quota transaction records for billing synchronization and duplicate-payment processing protection."],
             ["Contact", "Questions or deletion requests can be sent to support@videotosrt.org."]
           ].map(([title, body]) => (
             <section key={title} className="border-b border-line py-7">

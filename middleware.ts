@@ -7,11 +7,18 @@ const securityHeaders = {
   "X-Frame-Options": "DENY"
 };
 const LOCAL_API_ROUTES = new Set([
+  "/api/checkout",
+  "/api/paypal/webhook",
+  "/api/checkout/stripe",
+  "/api/checkout/stripe/credits",
+  "/api/billing/portal",
+  "/api/webhooks/stripe",
   "/api/admin/users",
   "/api/auth/logout",
   "/api/auth/me",
   "/api/auth/oauth/bridge",
   "/api/auth/session/complete",
+  "/api/auth/login",
   "/api/checkout/paypal",
   "/api/checkout/paypal/credits",
   "/api/checkout/paypal/credits/capture",

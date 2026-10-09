@@ -356,6 +356,16 @@ export async function getPaypalSubscription(input: {
   return data;
 }
 
+// A final legacy event must not replace a membership now managed by Stripe.
+async function stripeManagedMembership(env: CloudflareEnvWithPaypal, userId?: string, email?: string) {
+  if (!env.DB) return null;
+  const table = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'stripe_accounts'").first<{ name: string }>();
+  if (!table) return null;
+  return env.DB.prepare(`SELECT u.plan FROM users u JOIN stripe_accounts s ON s.user_id = u.id
+    WHERE (u.id = ? OR u.email = ?) AND s.subscription_id IS NOT NULL LIMIT 1`)
+    .bind(userId ?? "", email ?? "").first<{ plan: UserPlan }>();
+}
+
 export async function syncUserPlanFromPaypalSubscription(input: {
   env: CloudflareEnvWithPaypal;
   fallbackBilling?: PaypalBillingCycle;
@@ -373,18 +383,20 @@ export async function syncUserPlanFromPaypalSubscription(input: {
     throw new Error("This PayPal subscription belongs to another account.");
   }
 
+  const managed = await stripeManagedMembership(input.env, input.user.id, input.user.email);
+  if (managed) return { method: "stripe-protected", plan: managed.plan };
   const nextPlan = parsed.plan ?? input.fallbackTier ?? "pro";
   if (input.env.DB && (input.user.id || input.user.email)) {
     if (input.user.id) {
       await input.env.DB
-        .prepare("UPDATE users SET plan = ? WHERE id = ?")
+        .prepare("UPDATE users SET plan = ? WHERE id = ? AND NOT EXISTS (SELECT 1 FROM stripe_accounts WHERE user_id = users.id AND subscription_id IS NOT NULL)")
         .bind(nextPlan, input.user.id)
         .run();
       return { method: "d1", plan: nextPlan };
     }
 
     await input.env.DB
-      .prepare("UPDATE users SET plan = ? WHERE email = ?")
+      .prepare("UPDATE users SET plan = ? WHERE email = ? AND NOT EXISTS (SELECT 1 FROM stripe_accounts WHERE user_id = users.id AND subscription_id IS NOT NULL)")
       .bind(nextPlan, input.user.email)
       .run();
     return { method: "d1", plan: nextPlan };
@@ -562,7 +574,7 @@ export async function verifyPaypalWebhook(input: {
   return response.ok && data.verification_status === "SUCCESS";
 }
 
-async function forwardWebhook(env: CloudflareEnvWithPaypal, rawBody: string, request: Request) {
+export async function forwardWebhook(env: CloudflareEnvWithPaypal, rawBody: string, request: Request) {
   if (!env.PAYPAL_WEBHOOK_FORWARD_URL) {
     return;
   }
@@ -595,17 +607,20 @@ export async function updateUserPlanFromPaypalEvent(input: {
       ? "free"
       : parsed.plan ?? "pro";
 
+  const managed = await stripeManagedMembership(input.env, parsed.userId, email);
+  if (managed) return { method: "stripe-protected", plan: managed.plan };
+
   if (input.env.DB && (parsed.userId || email)) {
     if (parsed.userId) {
       await input.env.DB
-        .prepare("UPDATE users SET plan = ? WHERE id = ?")
+        .prepare("UPDATE users SET plan = ? WHERE id = ? AND NOT EXISTS (SELECT 1 FROM stripe_accounts WHERE user_id = users.id AND subscription_id IS NOT NULL)")
         .bind(nextPlan, parsed.userId)
         .run();
       return { method: "d1", plan: nextPlan };
     }
 
     await input.env.DB
-      .prepare("UPDATE users SET plan = ? WHERE email = ?")
+      .prepare("UPDATE users SET plan = ? WHERE email = ? AND NOT EXISTS (SELECT 1 FROM stripe_accounts WHERE user_id = users.id AND subscription_id IS NOT NULL)")
       .bind(nextPlan, email)
       .run();
     return { method: "d1", plan: nextPlan };

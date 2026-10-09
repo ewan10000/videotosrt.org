@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch, type ApiUserResponse } from "@/lib/api";
-import { normalizeUser, persistSessionToken, setLocalUser } from "@/lib/auth";
+import { normalizeUser, clearSessionToken, setLocalUser } from "@/lib/auth";
 import { trackConversionEvent } from "@/lib/conversion-events";
 
 function safeReturnTo(value: string | null) {
@@ -44,7 +44,7 @@ function cleanSessionTokenFromLocation() {
   const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
   const hashParams = new URLSearchParams(hash);
 
-  for (const name of ["token", "session_token", "sessionToken"]) {
+  for (const name of ["token", "session_token", "sessionToken", "handoff"]) {
     searchParams.delete(name);
     hashParams.delete(name);
   }
@@ -55,6 +55,7 @@ function cleanSessionTokenFromLocation() {
 }
 
 export function AuthCompleteClient() {
+  const completionRequest = useRef<Promise<ApiUserResponse> | null>(null);
   const [message, setMessage] = useState("Finishing sign in...");
   const returnTo = useMemo(() => {
     if (typeof window === "undefined") {
@@ -68,17 +69,21 @@ export function AuthCompleteClient() {
     let cancelled = false;
 
     async function finishSignIn() {
+      const handoff = new URLSearchParams(window.location.hash.slice(1)).get("handoff");
       const token = getSessionTokenFromLocation();
-      if (!token) {
+
+      if (!token && !handoff && !completionRequest.current) {
         setMessage("Sign in did not return a session. Please try again.");
         return;
       }
 
       try {
-        const data = await apiFetch<ApiUserResponse>("/auth/session/complete", {
-          body: { token },
+        completionRequest.current ??= apiFetch<ApiUserResponse>("/auth/session/complete", {
+          body: handoff ? { handoff } : { token },
           method: "POST"
         });
+        cleanSessionTokenFromLocation();
+        const data = await completionRequest.current;
         const user = normalizeUser(data);
         if (!user) {
           throw new Error("No user returned.");
@@ -88,9 +93,10 @@ export function AuthCompleteClient() {
           return;
         }
 
+        clearSessionToken();
         setLocalUser(user);
-        persistSessionToken(token);
-        cleanSessionTokenFromLocation();
+
+
         trackConversionEvent("sign_in_completed", { source: "oauth_complete" });
         window.location.replace(returnTo);
       } catch (error) {

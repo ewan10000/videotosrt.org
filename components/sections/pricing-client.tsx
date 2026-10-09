@@ -110,7 +110,7 @@ function getValidApprovalUrl(data: { approvalUrl?: string; checkout_url?: string
   try {
     const url = new URL(value);
     const host = url.hostname.toLowerCase();
-    if (url.protocol === "https:" && (host === "www.paypal.com" || host === "www.sandbox.paypal.com")) {
+    if (url.protocol === "https:" && host === "checkout.stripe.com") {
       return url.toString();
     }
   } catch {
@@ -199,6 +199,12 @@ export function PricingClient() {
 
     const params = new URLSearchParams(window.location.search);
     const checkoutState = params.get("checkout");
+    if (checkoutState === "stripe-success") {
+      setCheckoutNotice("Checkout returned. Your account updates after Stripe confirms payment. Refresh if confirmation is still pending.");
+      const timers = [2500, 7000].map((delay) => window.setTimeout(() => { void refreshUser(); }, delay));
+      return () => { mounted = false; removeAuthListener(); timers.forEach(window.clearTimeout); };
+    }
+
     if (checkoutState === "success") {
       setCheckoutNotice("Payment completed. Verifying your VIP permissions...");
       const pendingSubscription = readPendingPaypalSubscription();
@@ -228,7 +234,7 @@ export function PricingClient() {
             setCheckoutNotice(error instanceof Error ? error.message : "Payment completed, but VIP verification failed. Please refresh in a moment.");
           });
       } else {
-        setCheckoutNotice("Payment returned without a subscription ID. We are refreshing your account, but VIP permissions are not active until PayPal verification completes.");
+        setCheckoutNotice("Payment returned without a subscription ID. We are refreshing your account, but VIP permissions are not active until legacy payment verification completes.");
       }
 
       const timers = [2500, 7000].map((delay) => window.setTimeout(() => {
@@ -243,7 +249,7 @@ export function PricingClient() {
     }
 
     if (checkoutState === "cancelled") {
-      setCheckoutNotice("Checkout was cancelled. No changes were made to your membership.");
+      setCheckoutNotice("Checkout was cancelled. You can resume the same purchase, or wait up to 32 minutes before selecting a different purchase.");
     }
 
     if (checkoutState === "credits-success") {
@@ -302,12 +308,6 @@ export function PricingClient() {
         throw new Error("Checkout is not available right now. Please try again later.");
       }
 
-      window.localStorage.setItem(PENDING_PAYPAL_SUBSCRIPTION_KEY, JSON.stringify({
-        createdAt: Date.now(),
-        billing: selectedBilling,
-        plan,
-        subscriptionId: data.id
-      } satisfies PendingPaypalSubscription));
       window.localStorage.removeItem(PENDING_CHECKOUT_INTENT_KEY);
       window.location.href = url;
     } catch (error) {
@@ -436,7 +436,7 @@ export function PricingClient() {
               </button>
             </div>
             <p className="mb-0 mt-2 text-center text-xs font-semibold text-cyan">
-              Secure billing with PayPal · Annual saves 2 months
+              Secure billing with Stripe · Annual saves 2 months
             </p>
           </div>
         </div>
@@ -518,7 +518,7 @@ export function PricingClient() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h3 className="mb-1 text-xl font-extrabold">Pay as you go</h3>
-                <p className="mb-0 text-muted">Buy extra transcription hours that never expire.</p>
+                <p className="mb-0 text-muted">Buy extra transcription hours for the current UTC calendar month. Unused extra minutes expire at month end.</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {creditPackages.map((item) => (
@@ -540,11 +540,19 @@ export function PricingClient() {
               </div>
             </div>
           </div>
+          {user ? <Button type="button" variant="secondary" className="mt-5" onClick={async () => {
+            try {
+              const data = await api.billingPortal();
+              const url = new URL(data.url);
+              if (url.protocol !== "https:" || url.hostname !== "billing.stripe.com") throw new Error("Billing portal is unavailable.");
+              window.location.href = url.toString();
+            } catch (error) { setCheckoutError(error instanceof Error ? error.message : "Could not open billing management."); }
+          }}>Manage billing</Button> : null}
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {[
               ["Technical limit", `AI transcription currently accepts local audio/video uploads no larger than ${TECHNICAL_TRANSCRIPTION_UPLOAD_LABEL}. Minute quotas are separate duration limits, so a long high-bitrate file may need compression before transcription.`],
-              ["Billing provider", "Subscriptions and extra-hour purchases open PayPal checkout after Google sign-in so the purchase can attach to your account."],
-              ["Cancellation and support", "Cancel subscription billing in PayPal or contact support@videotosrt.org. Refunds are not promised here and are handled case by case through support and the payment provider process."]
+              ["Billing provider", "New subscriptions and extra-hour purchases open Stripe Checkout after Google sign-in. Paid access updates only after server verification. Subscriptions renew until canceled; allowances reset each UTC calendar month."],
+              ["Cancellation and support", "Use Manage billing to cancel a Stripe subscription at the end of its paid period. Legacy subscriptions remain with the original provider; contact support@videotosrt.org before migrating. Stripe Managed Payments acts as merchant of record for new purchases, handles applicable taxes and transaction support through Link, and may issue refunds under its policies and applicable consumer rights. Displayed prices are USD base prices; taxes and local currency conversion are shown before payment. Some customer countries are unsupported."]
             ].map(([title, body]) => (
               <article key={title} className="rounded border border-line bg-panel p-4">
                 <h3 className="mb-2 text-base font-extrabold">{title}</h3>

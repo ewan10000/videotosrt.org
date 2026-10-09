@@ -356,7 +356,7 @@ export function PricingTeaserSection() {
           ))}
         </div>
         <p className="mb-0 mt-5 text-center text-sm font-semibold text-soft">
-          All plans: No watermark · Google sign-in for AI transcription · PayPal checkout · You own your exports
+          All plans: No watermark · Google sign-in for AI transcription · Stripe Checkout · You own your exports
         </p>
       </div>
     </section>
