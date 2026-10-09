@@ -23,3 +23,24 @@ for(const extra of [{exp:0},{aud:'https://evil.example'},{purpose:'session'},{us
 assert.equal((await exchange(token+'.junk')).status,401);
 assert.equal((await exchange(await mint(),verifier,await createSignedToken({userId:'account-b',exp:Math.floor(Date.now()/1000)+60},env.SESSION_SECRET))).status,409);
 console.log('OAuth handoff: browser binding, atomic replay, expiry, audience, signature, account isolation PASS');
+// Exercise the actual callback-produced handoff and session, not just minted fixtures.
+const {createStateToken,verifySignedToken}=await import('../dist/lib/session.js');
+Object.assign(env,{GOOGLE_CLIENT_ID:'test-client',GOOGLE_CLIENT_SECRET:'test-secret',GOOGLE_REDIRECT_URI:'https://api.videotosrt.org/api/auth/callback/google'});
+const state=await createStateToken(env,{provider:'google',returnTo:'https://videotosrt.org/auth/complete?returnTo=%2Fpricing&challenge='+challenge});
+const originalFetch=globalThis.fetch;
+try {
+ globalThis.fetch=async url=> String(url).includes('oauth2.googleapis.com')?Response.json({access_token:'test-provider-token'}):Response.json({id:'a',email:user.email,name:'Test'});
+ const callback=await app.request('https://api.videotosrt.org/api/auth/callback/google?code=test-code&state='+encodeURIComponent(state),{headers:{Cookie:'vts_oauth_state='+state}},env);
+ assert.equal(callback.status,302);
+ const location=new URL(callback.headers.get('Location'));
+ assert.equal(location.origin,'https://videotosrt.org');assert.equal(location.pathname,'/auth/complete');
+ assert.equal(location.searchParams.has('challenge'),false);
+ const handoff=new URLSearchParams(location.hash.slice(1)).get('handoff');assert.ok(handoff);
+ const completed=await exchange(handoff);assert.equal(completed.status,200);
+ const issued=(await completed.json()).data;
+ assert.equal(issued.user.id,user.id);
+ assert.equal((await verifySignedToken(issued.token,env.SESSION_SECRET)).userId,user.id);
+ assert.equal((await exchange(handoff)).status,401);
+ assert.equal((await app.request('https://api.videotosrt.org/api/auth/callback/google?code=test-code&state='+encodeURIComponent(state),{},env)).status,400);
+ console.log('Actual Google callback fixture -> signed browser-bound handoff -> session -> replay rejection PASS');
+}finally{globalThis.fetch=originalFetch;}
