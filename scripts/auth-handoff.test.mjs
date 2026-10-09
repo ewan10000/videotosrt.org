@@ -52,3 +52,12 @@ test('browser-bound handoff exchanges only the cookie verifier and never install
   assert.equal((await POST(request({Origin:'https://videotosrt.org'},{handoff:'signed-handoff'}))).status,403);
  }finally{globalThis.fetch=original;}
 });
+test('navigation strips arbitrary URL credentials without creating a session or account',async()=>{
+ const authCode=ts.transpileModule(readFileSync('lib/auth.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+ const {consumeSessionTokenFromLocation}=await import('data:text/javascript;base64,'+Buffer.from(authCode).toString('base64'));
+ const originalWindow=globalThis.window,originalDocument=globalThis.document;let storageWrites=0,cookieWrites=0,cleaned='';
+ globalThis.window={location:{href:'https://videotosrt.org/pricing?token=attacker-session&user='+encodeURIComponent(JSON.stringify({email:'attacker@example.test',plan:'pro'}))},localStorage:{setItem(){storageWrites++;}},history:{state:null,replaceState(_state,_title,url){cleaned=url;}}};
+ globalThis.document={set cookie(_value){cookieWrites++;}};
+ try{assert.equal(consumeSessionTokenFromLocation(),false);assert.equal(storageWrites,0);assert.equal(cookieWrites,0);assert.equal(cleaned,'https://videotosrt.org/pricing');}
+ finally{globalThis.window=originalWindow;globalThis.document=originalDocument;}
+});
