@@ -1,3 +1,4 @@
+import { effectivePlan } from "../lib/stripe-entitlements";
 import { Hono } from "hono";
 import { consumeMinutes, refundJobMinutes } from "../lib/credits";
 import { parseDurationSeconds } from "../lib/duration";
@@ -260,7 +261,7 @@ transcribeRoutes.post("/transcribe", async (c) => {
     if (!verified.ok) return fail(c, verified.status, verified.code, verified.message);
   }
 
-  const plan = normalizePlan(user.plan ?? user.subscription_plan ?? user.subscription_tier ?? user.tier ?? user.vip_level);
+  const plan = normalizePlan(await effectivePlan(c.env, user.id, user.plan ?? user.subscription_plan ?? user.subscription_tier ?? user.tier ?? user.vip_level));
   const quota = getPlanQuota(plan);
   if (durationSeconds > quota.maxFileMinutes * 60) {
     return fail(

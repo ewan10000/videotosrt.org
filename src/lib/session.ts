@@ -2,6 +2,8 @@ import type { Context, MiddlewareHandler } from "hono";
 import { getCookie, SESSION_COOKIE, setCookie } from "./cookies";
 import type { Bindings, HonoAppEnv, User } from "../types";
 
+import { effectivePlan } from "./stripe-entitlements";
+
 type SessionPayload = {
   userId: string;
   exp: number;
@@ -57,7 +59,9 @@ export async function createSignedToken(payload: unknown, secret: string) {
 
 export async function verifySignedToken<T>(token: string | null, secret: string): Promise<T | null> {
   if (!token) return null;
-  const [body, sig] = token.split(".");
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [body, sig] = parts;
   if (!body || !sig) return null;
 
   const expected = await signValue(body, secret);
@@ -110,7 +114,9 @@ export async function getSessionUser(c: Context<HonoAppEnv>) {
   const payload = await verifySignedToken<SessionPayload>(token, c.env.SESSION_SECRET);
   if (!payload || payload.exp < Math.floor(Date.now() / 1000)) return null;
 
-  return c.env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(payload.userId).first<User>();
+  const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(payload.userId).first<User>();
+  if (user) user.plan = String(await effectivePlan(c.env, user.id, user.plan));
+  return user;
 }
 
 export const loadUser: MiddlewareHandler<HonoAppEnv> = async (c, next) => {

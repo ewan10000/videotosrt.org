@@ -7,7 +7,7 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "test": "npm run build && node --loader ./tests/esm-loader.mjs tests/helpers.test.mjs",
+    "test": "npm run build && node --loader ./tests/esm-loader.mjs tests/helpers.test.mjs && node --loader ./tests/esm-loader.mjs tests/stripe-integration.test.mjs && node --loader ./tests/esm-loader.mjs tests/oauth-handoff.test.mjs",
     "db:migrate:local": "wrangler d1 execute videotosrt-db --local --file=./migrations/0001_init.sql",
     "db:migrate:remote": "wrangler d1 execute videotosrt-db --remote --file=./migrations/0001_init.sql"
   },

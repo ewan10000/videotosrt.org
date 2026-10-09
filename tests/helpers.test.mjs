@@ -381,7 +381,7 @@ const optionsResponse = await fetchWorker("/api/health", {
 });
 assert.equal(optionsResponse.status, 204);
 assert.equal(optionsResponse.headers.get("x-robots-tag"), "noindex,nofollow");
-assert.equal(optionsResponse.headers.get("access-control-allow-origin"), "https://client.example");
+assert.equal(optionsResponse.headers.get("access-control-allow-origin"), "https://videotosrt.org");
 assert.equal(optionsResponse.headers.get("access-control-allow-credentials"), "true");
 
 const api404Response = await fetchWorker("/api/missing", { method: "POST" });
@@ -420,9 +420,14 @@ globalThis.fetch = async (input, init) => {
   return originalFetch(input, init);
 };
 try {
+  for (const headers of [{}, { Cookie: 'vts_oauth_state=foreign-browser' }]) {
+    const rejected = await fetchWorker(`/api/auth/callback/google?state=${encodeURIComponent(oauthState)}&code=oauth-code`, { headers }, oauthEnv);
+    assert.equal(rejected.status, 400, 'OAuth callbacks require the initiating browser state cookie');
+    assert.equal(oauthEnv.__users.length, 0);
+  }
   const callbackResponse = await fetchWorker(
     `/api/auth/callback/google?state=${encodeURIComponent(oauthState)}&code=oauth-code`,
-    {},
+    { headers: { Cookie: `vts_oauth_state=${encodeURIComponent(oauthState)}` } },
     oauthEnv,
   );
   assert.equal(callbackResponse.status, 302);

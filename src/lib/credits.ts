@@ -3,24 +3,41 @@ import { getPlanQuota } from "./plans";
 import { refundTransactionId, usageMonthFromCreatedAt } from "./refund";
 import type { Bindings } from "../types";
 
+import { hasStripeSchema } from "./stripe-entitlements";
+
 export { usageMonthFromCreatedAt } from "./refund";
 
 export async function ensureUsageRecord(env: Bindings, userId: string, month = currentMonth(), plan: unknown = "free") {
+  const stripeSchema = await hasStripeSchema(env);
+  if (stripeSchema) {
+    const managed = await env.DB.prepare('SELECT user_id FROM stripe_accounts WHERE user_id=? AND subscription_id IS NOT NULL').bind(userId).first();
+    if (managed) {
+      const base = `CASE WHEN s.status='active' AND s.paid_through > unixepoch() THEN CASE WHEN u.plan='studio' THEN 3000 WHEN u.plan='pro' THEN 600 ELSE 60 END ELSE 60 END`;
+      await env.DB.batch([
+        env.DB.prepare(`INSERT OR IGNORE INTO usage_records (id,user_id,month,minutes_used,minutes_limit,created_at,updated_at) SELECT ?,u.id,?,0,${base},CURRENT_TIMESTAMP,CURRENT_TIMESTAMP FROM users u JOIN stripe_accounts s ON s.user_id=u.id WHERE u.id=?`).bind(createId('usage'),month,userId),
+        env.DB.prepare(`INSERT OR IGNORE INTO stripe_quota_bases (user_id,month,plan_minutes) SELECT u.id,?,${base} FROM users u JOIN stripe_accounts s ON s.user_id=u.id WHERE u.id=?`).bind(month,userId),
+        env.DB.prepare(`UPDATE usage_records SET minutes_limit=MAX(0,minutes_limit + (SELECT ${base} FROM users u JOIN stripe_accounts s ON s.user_id=u.id WHERE u.id=?) - (SELECT plan_minutes FROM stripe_quota_bases WHERE user_id=? AND month=?)),updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND month=?`).bind(userId,userId,month,userId,month),
+        env.DB.prepare(`UPDATE stripe_quota_bases SET plan_minutes=(SELECT ${base} FROM users u JOIN stripe_accounts s ON s.user_id=u.id WHERE u.id=?) WHERE user_id=? AND month=?`).bind(userId,userId,month),
+      ]);
+      return;
+    }
+  }
   const now = nowIso();
   const monthlyLimit = getPlanQuota(plan).monthlyMinutes;
+  const ownershipGuard = stripeSchema ? " AND NOT EXISTS (SELECT 1 FROM stripe_accounts WHERE user_id = ? AND subscription_id IS NOT NULL)" : "";
   await env.DB.prepare(
     `INSERT OR IGNORE INTO usage_records (id, user_id, month, minutes_used, minutes_limit, created_at, updated_at)
-     VALUES (?, ?, ?, 0, ?, ?, ?)`,
+     SELECT ?, ?, ?, 0, ?, ?, ? WHERE 1=1${ownershipGuard}`,
   )
-    .bind(createId("usage"), userId, month, monthlyLimit, now, now)
+    .bind(createId("usage"), userId, month, monthlyLimit, now, now, ...(stripeSchema ? [userId] : []))
     .run();
 
   await env.DB.prepare(
     `UPDATE usage_records
      SET minutes_limit = MAX(minutes_limit, ?), updated_at = ?
-     WHERE user_id = ? AND month = ?`,
+     WHERE user_id = ? AND month = ?${ownershipGuard}`,
   )
-    .bind(monthlyLimit, now, userId, month)
+    .bind(monthlyLimit, now, userId, month, ...(stripeSchema ? [userId] : []))
     .run();
 }
 
@@ -47,13 +64,14 @@ export async function consumeMinutes(env: Bindings, userId: string, minutes: num
   await ensureUsageRecord(env, userId, month, plan);
 
   const now = nowIso();
+  const expiryGuard = await hasStripeSchema(env) ? ` AND NOT EXISTS (SELECT 1 FROM stripe_accounts s JOIN stripe_quota_bases b ON b.user_id=s.user_id WHERE s.user_id=usage_records.user_id AND b.month=usage_records.month AND b.plan_minutes>60 AND (s.status<>'active' OR s.paid_through<=unixepoch()))` : '';
 
   const result = await env.DB.prepare(
     `UPDATE usage_records
      SET minutes_used = minutes_used + ?, updated_at = ?
      WHERE user_id = ?
        AND month = ?
-       AND minutes_used + ? <= minutes_limit`,
+       AND minutes_used + ? <= minutes_limit${expiryGuard}`,
   )
     .bind(minutes, now, userId, month, minutes)
     .run();

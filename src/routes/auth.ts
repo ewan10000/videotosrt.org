@@ -9,6 +9,7 @@ import {
   createStateToken,
   requireUser,
   verifyStateToken,
+  verifySignedToken,
 } from "../lib/session";
 import type { HonoAppEnv, User } from "../types";
 
@@ -124,6 +125,14 @@ function redirectWithFrontendSessionToken(env: HonoAppEnv["Bindings"], returnTo:
   fragment.set("token", token);
   url.hash = fragment.toString();
   return url.toString();
+}
+
+type FrontendHandoff = { iss: string; aud: string; purpose: string; userId: string; challenge: string; nonce: string; exp: number };
+function frontendCompletion(env: HonoAppEnv["Bindings"], value: string) {
+  const url = new URL(value);
+  if (url.origin !== new URL(appOrigin(env)).origin || url.pathname !== "/auth/complete") return null;
+  const challenge = url.searchParams.get("challenge");
+  return challenge && /^[a-f0-9]{64}$/.test(challenge) ? { url, challenge } : null;
 }
 
 async function upsertUser(env: HonoAppEnv["Bindings"], profile: UserProfile) {
@@ -328,6 +337,30 @@ authRoutes.post("/auth/shipany/grant-credits", async (c) => {
   });
 });
 
+authRoutes.post("/auth/handoff/exchange", async (c) => {
+  const body = await c.req.json<{ token?: string; verifier?: string }>().catch(() => null);
+  if (typeof body?.token !== "string" || body.token.length > 4096 || typeof body.verifier !== "string" || !/^[a-f0-9]{64}$/.test(body.verifier)) return fail(c, 401, "INVALID_HANDOFF", "Invalid handoff");
+  const payload = await verifySignedToken<FrontendHandoff>(body.token, c.env.SESSION_SECRET);
+  const now = Math.floor(Date.now() / 1000);
+  if (!payload || payload.iss !== "videotosrt-backend" || payload.aud !== new URL(appOrigin(c.env)).origin || payload.purpose !== "frontend-handoff" || !Number.isSafeInteger(payload.exp) || payload.exp <= now || payload.exp > now + 60 || typeof payload.nonce !== "string" || !/^[a-f0-9-]{36}$/.test(payload.nonce) || payload.challenge !== await sha256Hex(body.verifier)) return fail(c, 401, "INVALID_HANDOFF", "Invalid or expired handoff");
+  // A signed-in browser cannot exchange a handoff belonging to another account.
+  const authorization = c.req.header("Authorization");
+  const existingToken = authorization ? /^Bearer ([^\s]+)$/i.exec(authorization)?.[1] : getCookie(c, SESSION_COOKIE);
+  if (authorization && !existingToken) return fail(c, 401, "INVALID_SESSION", "Invalid existing session");
+  if (existingToken) {
+    const existing = await verifySignedToken<{userId: string; exp: number}>(existingToken, c.env.SESSION_SECRET);
+    if (!existing || existing.exp <= now) return fail(c, 401, "INVALID_SESSION", "Invalid existing session");
+    if (existing.userId !== payload.userId) return fail(c, 409, "ACCOUNT_MISMATCH", "Sign out before switching accounts");
+  }
+  const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(payload.userId).first<User>();
+  if (!user) return fail(c, 401, "INVALID_HANDOFF", "Account unavailable");
+  const token = await createSessionToken(c, user.id);
+  const claim = await c.env.DB.prepare("INSERT OR IGNORE INTO oauth_handoff_claims (nonce, expires_at) VALUES (?, ?)").bind(payload.nonce, payload.exp).run();
+  if (claim.meta.changes !== 1) return fail(c, 401, "HANDOFF_USED", "Handoff already used");
+  c.header("Cache-Control", "no-store");
+  return ok(c, {token, user});
+});
+
 authRoutes.get("/auth/login", async (c) => {
   const provider = c.req.query("provider") as Provider | undefined;
   if (provider !== "google") {
@@ -359,8 +392,8 @@ authRoutes.get("/auth/callback/:provider", async (c) => {
 
   const state = c.req.query("state") ?? null;
   const stateCookie = getCookie(c, STATE_COOKIE);
-  // OAuth callbacks may land on a different host than the login endpoint, so the state cookie can be absent.
-  if (!state || (stateCookie && state !== stateCookie)) {
+  // The callback must prove that this browser initiated the OAuth flow.
+  if (!state || !stateCookie || state !== stateCookie) {
     return fail(c, 400, "INVALID_STATE", "OAuth state mismatch");
   }
 
@@ -392,6 +425,15 @@ authRoutes.get("/auth/callback/:provider", async (c) => {
 
   const user = await upsertUser(c.env, profile);
   clearCookie(c, STATE_COOKIE);
+  const target = frontendCompletion(c.env, verifiedState.returnTo);
+  if (target) {
+    const handoff = await createSignedToken({ iss: "videotosrt-backend", aud: target.url.origin, purpose: "frontend-handoff", userId: user.id, challenge: target.challenge, nonce: crypto.randomUUID(), exp: Math.floor(Date.now()/1000) + 60 }, c.env.SESSION_SECRET);
+    target.url.searchParams.delete("challenge");
+    target.url.hash = new URLSearchParams({ handoff }).toString();
+    c.header("Cache-Control", "no-store");
+    c.header("Referrer-Policy", "no-referrer");
+    return c.redirect(target.url.toString());
+  }
   const token = await createSessionToken(c, user.id);
   setCookie(c, SESSION_COOKIE, token);
 

@@ -9,6 +9,7 @@ import { deleteExpiredUploads } from "./lib/retention";
 import { bootstrapSchema } from "./lib/schema";
 import { loadUser } from "./lib/session";
 import { adminRoutes } from "./routes/admin";
+import { stripeRoutes } from "./routes/stripe";
 import { authRoutes } from "./routes/auth";
 import { checkoutRoutes } from "./routes/checkout";
 import { healthRoutes } from "./routes/health";
@@ -31,7 +32,7 @@ app.use("*", async (c, next) => {
 app.use(
   "/api/*",
   cors({
-    origin: (origin, c) => origin || appOrigin(c.env),
+    origin: (origin, c) => [appOrigin(c.env), "https://videotosrt-shipany.ewan0862.workers.dev"].includes(origin) ? origin : appOrigin(c.env),
     credentials: true,
     allowHeaders: ["Content-Type", "Authorization", "creem-signature"],
     allowMethods: ["GET", "POST", "OPTIONS"],
@@ -46,6 +47,7 @@ app.route("/api", adminRoutes);
 app.route("/api", usageRoutes);
 app.route("/api", uploadRoutes);
 app.route("/api", transcribeRoutes);
+app.route("/api", stripeRoutes);
 app.route("/api", checkoutRoutes);
 app.route("/api", webhookRoutes);
 

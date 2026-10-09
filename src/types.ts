@@ -1,4 +1,5 @@
 export type Bindings = {
+  [key: string]: unknown;
   DB: D1Database;
   R2: R2Bucket;
   AI_QUEUE: Queue<TranscriptionQueueMessage>;
