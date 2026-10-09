@@ -182,7 +182,7 @@ export async function createCheckout(env: StripeEnv, user: BillingUser, input: R
     }>();
     if (!stored)
         throw new BillingError('Your billing account could not be verified. Please contact support.', 409);
-    const legacyPaid = await db.prepare("SELECT id FROM users WHERE email = ? AND id <> ? AND plan <> 'free' LIMIT 1").bind(user.email, user.id).first();
+    const legacyPaid = await db.prepare("SELECT id FROM users WHERE lower(trim(email)) = lower(trim(?)) AND id <> ? AND plan <> 'free' LIMIT 1").bind(user.email, user.id).first();
     const account = await db.prepare('SELECT * FROM stripe_accounts WHERE user_id = ?').bind(user.id).first<{
         customer_id: string;
         subscription_id: string | null;
