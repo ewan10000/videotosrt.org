@@ -10,7 +10,9 @@ for (const [path,kind] of [['/checkout/stripe','subscription'],['/checkout/strip
    if(kind==='webhook') {
     if(Number(c.req.header('Content-Length')??0)>1048576) return c.json({message:'Payload too large'},413);
     const raw=await c.req.text();if(raw.length>1048576)return c.json({message:'Payload too large'},413);
-    return c.json(await handleWebhook(c.env,raw,c.req.header('stripe-signature')??null));
+    const result=await handleWebhook(c.env,raw,c.req.header('stripe-signature')??null);
+    console.info('[Stripe verified webhook]', JSON.stringify({id:JSON.parse(raw).id,...result}));
+    return c.json(result);
    }
    if(c.req.header('Origin')!==c.env.APP_ORIGIN || c.req.header('Sec-Fetch-Site')==='cross-site')return c.json({message:'Invalid billing origin'},403);
    const user=requireUser(c);if(!user)return c.json({message:'Verified sign-in required'},401);
