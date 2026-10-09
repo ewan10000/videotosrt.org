@@ -261,7 +261,7 @@ test('production portable billing engine matches the tested frontend engine',()=
  assert.equal(readFileSync(`${process.env.VTS_BACKEND_DIR ?? '../videotosrt-backend'}/src/lib/stripe-billing.ts`,'utf8'),readFileSync('lib/stripe.ts','utf8'));
 });
 test('legacy subscriptions cannot be duplicated through email case variants',async()=>{
- const {sql,env}=fixture();
+ const {sql,env}=fixture();env.STRIPE_PORTAL_CONFIGURATION_ID='bpc_fixture';
  sql.exec("INSERT INTO users (id,email,provider,provider_id,plan,created_at,updated_at) VALUES ('legacy','U@EXAMPLE.COM','email','legacy','pro','now','now')");
  const original=globalThis.fetch;globalThis.fetch=async()=>{throw Error('Duplicate subscription must never reach Stripe');};
  try{await assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{plan:'pro'}),/already have a paid/);}
