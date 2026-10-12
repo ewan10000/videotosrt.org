@@ -7,6 +7,7 @@ import { effectivePlan } from "./stripe-entitlements";
 type SessionPayload = {
   userId: string;
   exp: number;
+  purpose?: "session";
 };
 
 type StatePayload = {
@@ -77,6 +78,7 @@ export async function verifySignedToken<T>(token: string | null, secret: string)
 export async function createSessionToken(c: Context, userId: string) {
   const payload: SessionPayload = {
     userId,
+    purpose: "session",
     exp: Math.floor(Date.now() / 1000) + 604800,
   };
   return createSignedToken(payload, c.env.SESSION_SECRET);
@@ -96,6 +98,16 @@ export async function verifyStateToken(env: Bindings, token: string | null, prov
   return payload;
 }
 
+export function isSessionPayload(payload: unknown): payload is SessionPayload {
+  if (!payload || typeof payload !== "object") return false;
+  const value = payload as Record<string, unknown>;
+  const legacy = !Object.prototype.hasOwnProperty.call(value, "purpose")
+    && Object.keys(value).every(key => key === "userId" || key === "exp");
+  return (value.purpose === "session" || legacy)
+    && typeof value.userId === "string" && /^[A-Za-z0-9_.:-]{1,160}$/.test(value.userId)
+    && typeof value.exp === "number" && Number.isSafeInteger(value.exp) && value.exp > Math.floor(Date.now() / 1000);
+}
+
 function getBearerSessionToken(c: Context<HonoAppEnv>): SessionTokenSource {
   const authorization = c.req.header("Authorization");
   if (!authorization) return { status: "absent" };
@@ -112,7 +124,7 @@ export async function getSessionUser(c: Context<HonoAppEnv>) {
 
   const token = bearer.status === "token" ? bearer.token : getCookie(c, SESSION_COOKIE);
   const payload = await verifySignedToken<SessionPayload>(token, c.env.SESSION_SECRET);
-  if (!payload || payload.exp < Math.floor(Date.now() / 1000)) return null;
+  if (!isSessionPayload(payload)) return null;
 
   const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(payload.userId).first<User>();
   if (user) user.plan = String(await effectivePlan(c.env, user.id, user.plan));

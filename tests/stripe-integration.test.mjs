@@ -6,7 +6,7 @@ import { effectivePlan } from '../dist/lib/stripe-entitlements.js';
 const sql=new DatabaseSync(':memory:');
 sql.exec(readFileSync('migrations/0001_init.sql','utf8'));
 sql.exec(readFileSync('migrations/0004_stripe_billing.sql','utf8'));
-const db={prepare(query){let values=[];return {bind(...v){values=v;return this;},async first(){return sql.prepare(query).get(...values)??null;},async run(){const r=sql.prepare(query).run(...values);return {meta:{changes:Number(r.changes)}};},execute(){return sql.prepare(query).run(...values);}};},async batch(statements){sql.exec('BEGIN');try{const result=statements.map(s=>s.execute());sql.exec('COMMIT');return result;}catch(e){sql.exec('ROLLBACK');throw e;}}};
+const db={prepare(query){let values=[];return {bind(...v){values=v;return this;},async first(){return sql.prepare(query).get(...values)??null;},async run(){const r=sql.prepare(query).run(...values);return {meta:{changes:Number(r.changes)}};},execute(){const r=sql.prepare(query).run(...values);return {meta:{changes:Number(r.changes)}};}};},async batch(statements){sql.exec('BEGIN');try{const result=statements.map(s=>s.execute());sql.exec('COMMIT');return result;}catch(e){sql.exec('ROLLBACK');throw e;}}};
 const env={DB:db}, month=new Date().toISOString().slice(0,7);
 sql.exec("INSERT INTO users (id,email,provider,provider_id,plan,created_at,updated_at) VALUES ('u','x@example.com','google','g','pro','now','now')");
 sql.prepare("INSERT INTO stripe_accounts (user_id,customer_id,subscription_id,status,paid_through) VALUES ('u','cus','sub','active',?)").run(Math.floor(Date.now()/1000)+3600);

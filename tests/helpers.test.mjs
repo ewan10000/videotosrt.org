@@ -142,6 +142,7 @@ await assert.rejects(
       prepare(sql) {
         return {
           run: async () => {
+            if (sql.includes("changes()") && lastChanges !== 1) return {meta:{changes:0}};
             failedRaceStatements.push(sql);
             if (sql === "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'") {
               throw new Error("D1 alter failed");
@@ -177,6 +178,7 @@ function createRequestTestEnv(options = {}) {
   const queueMessages = [];
   const creditTransactions = [];
   const usage = new Map();
+  let lastChanges = 0;
   const r2Objects = new Map(options.r2Objects ?? []);
   const r2HeadKeys = [];
   return {
@@ -191,7 +193,9 @@ function createRequestTestEnv(options = {}) {
       batch: async (statements) => {
         const results = [];
         for (const statement of statements) {
-          results.push(await statement.run());
+          const result = await statement.run();
+          lastChanges = result.meta?.changes ?? 0;
+          results.push(result);
         }
         return results;
       },
@@ -204,6 +208,7 @@ function createRequestTestEnv(options = {}) {
             return this;
           },
           run: async () => {
+            if (sql.includes("changes()") && lastChanges !== 1) return {meta:{changes:0}};
             if (sql.startsWith("INSERT OR IGNORE INTO usage_records")) {
               const key = `${bindings[1]}:${bindings[2]}`;
               if (!usage.has(key)) {
@@ -219,7 +224,7 @@ function createRequestTestEnv(options = {}) {
             if (sql.startsWith("UPDATE usage_records")) {
               const key = `${bindings[2]}:${bindings[3]}`;
               const record = usage.get(key) ?? { userId: bindings[2], month: bindings[3], minutesUsed: 0, minutesLimit: 60 };
-              if (sql.includes("MAX(minutes_used -")) {
+              if ((sql.includes("MAX(minutes_used -") || sql.includes("MAX(minutes_used-"))) {
                 record.minutesUsed = Math.max(record.minutesUsed - bindings[0], 0);
                 usage.set(key, record);
                 return { meta: { changes: 1 } };
@@ -241,14 +246,22 @@ function createRequestTestEnv(options = {}) {
               if (creditTransactions.some((entry) => entry.id === bindings[0])) {
                 return { meta: { changes: 0 } };
               }
-              creditTransactions.push({ id: bindings[0], userId: bindings[1], amount: bindings[2], description: bindings[3] });
+              if (sql.includes('FROM transcription_jobs')) {
+                const job = jobs.find(j=>j.id===bindings[3]);
+                creditTransactions.push({id:bindings[0],userId:job.user_id,amount:Math.ceil(job.duration_seconds/60),description:bindings[1]});
+              } else creditTransactions.push({ id: bindings[0], userId: bindings[1], amount: bindings[2], description: bindings[3] });
               return { meta: { changes: 1 } };
             }
             if (sql.startsWith("INSERT INTO credit_transactions")) {
               creditTransactions.push({ id: bindings[0], userId: bindings[1], amount: bindings[2], description: bindings[3] });
               return { meta: { changes: 1 } };
             }
-            if (sql.startsWith("INSERT INTO transcription_jobs")) {
+            if (sql.startsWith("INSERT INTO transcription_jobs") || sql.startsWith("INSERT OR IGNORE INTO transcription_jobs")) {
+              if (jobs.some(j=>j.id===bindings[0])) return {meta:{changes:0}};
+              if (sql.includes("FROM usage_records")) {
+                const quota=usage.get(`${bindings[7]}:${bindings[8]}`);
+                if (!quota || quota.minutesUsed + bindings[9] > quota.minutesLimit) return {meta:{changes:0}};
+              }
               jobs.push({
                 id: bindings[0],
                 user_id: bindings[1],
@@ -262,11 +275,14 @@ function createRequestTestEnv(options = {}) {
               return { meta: { changes: 1 } };
             }
             if (sql.startsWith("UPDATE transcription_jobs")) {
-              const jobIdBinding = sql.includes("status = 'processing'") ? bindings[1] : bindings[2];
-              const userIdBinding = sql.includes("status = 'processing'") ? bindings[2] : bindings[3];
+              const jobIdBinding = bindings[2];
+              const userIdBinding = bindings[3];
               const job = jobs.find((entry) => entry.id === jobIdBinding && entry.user_id === userIdBinding);
+              if (job && sql.includes("execution_token=?") && (job.status !== 'processing' || job.execution_token !== bindings[4])) return {meta:{changes:0}};
+              if (job && (sql.includes("status='queued'") || sql.includes("status IN")) && ["failed","completed"].includes(job.status)) return {meta:{changes:0}};
               if (job) {
                 if (sql.includes("status = 'processing'")) {
+                  job.execution_token = bindings[1];
                   job.status = "processing";
                   job.updated_at = bindings[0];
                 } else if (sql.includes("status = 'completed'")) {

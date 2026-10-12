@@ -78,6 +78,7 @@ type StripeObject = {
 };
 export class BillingError extends Error {
     status: number;
+    definitive = false;
     constructor(message: string, status = 503) { super(message); this.status = status; }
 }
 function billingOrigin(env: StripeEnv) {
@@ -150,12 +151,17 @@ async function stripe(env: StripeEnv, path: string, body?: URLSearchParams, key?
         headers['Idempotency-Key'] = key;
     const response = await fetch(`https://api.stripe.com/v1/${path}`, { method: body ? 'POST' : 'GET', headers, body, redirect: 'manual', signal: AbortSignal.timeout(15000) });
     if (!response.ok) {
-        if (env.STRIPE_SANDBOX_ORIGIN) {
-            const details = await response.json().catch(() => null) as { error?: { code?: string; param?: string; type?: string } } | null;
-            const safe = (value: unknown) => typeof value === 'string' && /^[a-zA-Z0-9_[\].-]{1,100}$/.test(value) ? value : 'unavailable';
-            console.error('Sandbox Stripe request rejected', response.status, safe(details?.error?.type), safe(details?.error?.code), safe(details?.error?.param));
+        const details = await response.json().catch(() => null) as { error?: { type?: string; code?: string; param?: string; message?: string } } | null;
+        // Only a structured validation/auth rejection proves this attempt did not create a session.
+        // Conflicts, rate limits, server errors and unreadable responses remain ambiguous.
+        const error = new BillingError('Stripe billing is temporarily unavailable. Please try again or contact support.', 502);
+        const idempotencyConflict = /idempotenc/i.test(`${details?.error?.type ?? ''} ${details?.error?.code ?? ''} ${details?.error?.param ?? ''} ${details?.error?.message ?? ''}`);
+        if (!idempotencyConflict && [400, 401, 403, 404, 422].includes(response.status) &&
+            ['invalid_request_error', 'authentication_error', 'permission_error'].includes(details?.error?.type ?? '')) {
+            error.definitive = true;
+            error.status = response.status === 400 || response.status === 422 ? 400 : 502;
         }
-        throw new BillingError('Stripe billing is temporarily unavailable. Please try again or contact support.', 502);
+        throw error;
     }
     return await response.json() as StripeObject;
 }
@@ -168,6 +174,7 @@ async function database(env: StripeEnv) {
     await env.DB.prepare('SELECT id, user_id, amount, type, description, created_at FROM credit_transactions LIMIT 1').first();
     await env.DB.prepare('SELECT id, user_id, price_id, mode, attempt FROM vts_stripe_checkouts LIMIT 1').first();
     await env.DB.prepare('SELECT user_id, attempt, expires_at FROM stripe_checkout_locks LIMIT 1').first();
+    await env.DB.prepare('SELECT attempt, user_id, price_id, request_body, created_at, replay_started FROM stripe_checkout_attempts LIMIT 1').first();
     await env.DB.prepare('SELECT id, token, created FROM vts_stripe_events LIMIT 1').first();
     await env.DB.prepare('SELECT user_id, month, plan_minutes FROM stripe_quota_bases LIMIT 1').first();
     return env.DB;
@@ -195,49 +202,67 @@ export async function createCheckout(env: StripeEnv, user: BillingUser, input: R
     if (env.STRIPE_SANDBOX_ORIGIN && price.livemode !== false) throw new BillingError('Live prices are forbidden in sandbox.');
     if (!price.active || price.currency !== 'usd' || price.unit_amount !== selection.amount || price.type !== (selection.mode === 'subscription' ? 'recurring' : 'one_time') || (selection.interval && (price.recurring?.interval !== selection.interval || price.recurring.interval_count !== 1)))
         throw new BillingError('Stripe price configuration does not match this purchase. Please contact support.');
-    const now = Math.floor(Date.now() / 1000), attempt = crypto.randomUUID();
-    // Reserve one checkout per account for 32 minutes, longer than the 31-minute Checkout expiry.
-    await db.prepare(`INSERT INTO stripe_checkout_locks (user_id, attempt, expires_at) VALUES (?, ?, ?)
- ON CONFLICT(user_id) DO UPDATE SET attempt=excluded.attempt, expires_at=excluded.expires_at WHERE stripe_checkout_locks.expires_at <= ?`).bind(user.id, attempt, now + 1920, now).run();
-    const lock = await db.prepare('SELECT attempt FROM stripe_checkout_locks WHERE user_id = ?').bind(user.id).first<{
-        attempt: string;
-    }>();
-    if (lock?.attempt !== attempt) {
-        const pending = await db.prepare('SELECT id, price_id FROM vts_stripe_checkouts WHERE user_id = ? AND attempt = ?').bind(user.id, lock?.attempt ?? '').first<{
-            id: string;
-            price_id: string;
-        }>();
-        if (pending?.price_id === selection.price) {
-            const session = await stripe(env, `checkout/sessions/${encodeURIComponent(pending.id)}`);
-            if (session.status === 'open' && session.url && new URL(session.url).protocol === 'https:' && new URL(session.url).hostname === 'checkout.stripe.com')
-                return { url: session.url, id: session.id, provider: 'stripe' };
-        }
-        throw new BillingError('A checkout is already pending. Resume the same purchase or wait 32 minutes before starting another.', 409);
+    const now = Math.floor(Date.now() / 1000), proposedAttempt = crypto.randomUUID();
+    const proposedBody = new URLSearchParams({ mode: selection.mode, 'line_items[0][price]': selection.price, 'line_items[0][quantity]': '1', client_reference_id: user.id, success_url: `${origin}/pricing?checkout=stripe-success`, cancel_url: `${origin}/pricing?checkout=cancelled`, expires_at: String(now + 1860), 'metadata[user_id]': user.id, 'metadata[price_id]': selection.price });
+    if (env.STRIPE_SANDBOX_ORIGIN) proposedBody.set('managed_payments[enabled]', 'false');
+    else if (env.STRIPE_MANAGED_PAYMENTS === 'true') proposedBody.set('managed_payments[enabled]', 'true');
+    if (account?.customer_id) proposedBody.set('customer', account.customer_id);
+    else proposedBody.set('customer_email', user.email);
+    if (selection.mode === 'subscription') {
+        proposedBody.set('subscription_data[metadata][user_id]', user.id);
+        proposedBody.set('subscription_data[metadata][price_id]', selection.price);
     }
+    await db.batch([
+        // An expired lock can be replaced only when its session was durably mapped.
+        // Unmapped legacy or ambiguous attempts never age into permission to create another purchase.
+        db.prepare(`INSERT INTO stripe_checkout_locks (user_id, attempt, expires_at) VALUES (?, ?, ?)
+          ON CONFLICT(user_id) DO UPDATE SET attempt=excluded.attempt, expires_at=excluded.expires_at
+          WHERE stripe_checkout_locks.expires_at <= ? AND EXISTS
+          (SELECT 1 FROM vts_stripe_checkouts c WHERE c.user_id=stripe_checkout_locks.user_id AND c.attempt=stripe_checkout_locks.attempt)`)
+          .bind(user.id, proposedAttempt, now + 1920, now),
+        db.prepare(`INSERT INTO stripe_checkout_attempts (attempt,user_id,price_id,request_body,created_at)
+          SELECT ?,?,?,?,? WHERE EXISTS (SELECT 1 FROM stripe_checkout_locks WHERE user_id=? AND attempt=?)`)
+          .bind(proposedAttempt,user.id,selection.price,proposedBody.toString(),now,user.id,proposedAttempt),
+    ]);
+    const lock = await db.prepare('SELECT attempt FROM stripe_checkout_locks WHERE user_id = ?').bind(user.id).first<{attempt: string}>();
+    if (!lock) throw new BillingError('Checkout reservation unavailable.', 409);
+    const attempt = lock.attempt;
+    const pending = await db.prepare('SELECT id, price_id FROM vts_stripe_checkouts WHERE user_id = ? AND attempt = ?').bind(user.id,attempt).first<{id: string; price_id: string}>();
+    if (pending?.price_id === selection.price) {
+        const session = await stripe(env, `checkout/sessions/${encodeURIComponent(pending.id)}`);
+        if (session.status === 'open' && validCheckout(session)) return {url: session.url!,id: session.id,provider:'stripe'};
+    }
+    const saved = await db.prepare('SELECT price_id, request_body, created_at FROM stripe_checkout_attempts WHERE user_id=? AND attempt=?').bind(user.id,attempt).first<{price_id: string; request_body: string; created_at: number}>();
+    if (pending || !saved || saved.price_id !== selection.price || now - saved.created_at >= 23 * 3600)
+        throw new BillingError('A checkout is already pending. Resume the same purchase or contact support.',409);
+    // Stripe retains idempotency results for at least 24 hours. Stop before that boundary.
+    // Use the original serialized body, including expiry, email, customer and optional flags.
+    // Register before POST. A replay permanently forbids creator-side release; if release
+    // won first, this conditional write fails and the stale recoverer must not call Stripe.
+    const registered = await db.prepare(`UPDATE stripe_checkout_attempts
+      SET replay_started = MAX(replay_started, ?) WHERE attempt=? AND user_id=?
+      AND EXISTS (SELECT 1 FROM stripe_checkout_locks WHERE user_id=? AND attempt=?) RETURNING attempt`)
+      .bind(attempt === proposedAttempt ? 0 : 1,attempt,user.id,user.id,attempt).first();
+    if (!registered) throw new BillingError('Checkout reservation changed. Please retry.',409);
     try {
-        const body = new URLSearchParams({ mode: selection.mode, 'line_items[0][price]': selection.price, 'line_items[0][quantity]': '1', client_reference_id: user.id, success_url: `${origin}/pricing?checkout=stripe-success`, cancel_url: `${origin}/pricing?checkout=cancelled`, expires_at: String(now + 1860), 'metadata[user_id]': user.id, 'metadata[price_id]': selection.price });
-        // Sandbox verifies the app's existing hosted Checkout contract, not Managed Payments.
-        if (env.STRIPE_SANDBOX_ORIGIN) body.set('managed_payments[enabled]', 'false');
-        else if (env.STRIPE_MANAGED_PAYMENTS === 'true') body.set('managed_payments[enabled]', 'true');
-        if (account?.customer_id)
-            body.set('customer', account.customer_id);
-        else
-            body.set('customer_email', user.email);
-        if (selection.mode === 'subscription') {
-            body.set('subscription_data[metadata][user_id]', user.id);
-            body.set('subscription_data[metadata][price_id]', selection.price);
-        }
-        const session = await stripe(env, 'checkout/sessions', body, `checkout-${attempt}`);
-        if (!session.id || !session.url || new URL(session.url).protocol !== 'https:' || new URL(session.url).hostname !== 'checkout.stripe.com')
-            throw new BillingError('Stripe did not return a valid checkout.', 502);
-        await db.prepare('INSERT INTO vts_stripe_checkouts (id, user_id, price_id, mode, attempt) VALUES (?, ?, ?, ?, ?)').bind(session.id, user.id, selection.price, selection.mode, attempt).run();
-        return { url: session.url, id: session.id, provider: 'stripe' };
-    }
-    catch (error) {
-        // Retain reservation after ambiguous provider errors to prevent duplicate purchases.
+        const session = await stripe(env,'checkout/sessions',new URLSearchParams(saved.request_body),`checkout-${attempt}`);
+        if (!validCheckout(session)) throw new BillingError('Stripe did not return a valid checkout.',502);
+        await db.prepare('INSERT OR IGNORE INTO vts_stripe_checkouts (id,user_id,price_id,mode,attempt) VALUES (?,?,?,?,?)')
+          .bind(session.id,user.id,saved.price_id,new URLSearchParams(saved.request_body).get('mode'),attempt).run();
+        return {url:session.url!,id:session.id,provider:'stripe'};
+    } catch(error) {
+        // A rejection on a replay can concern stale parameters after earlier ambiguous success.
+        // Release only a newly issued attempt with a definitive rejection.
+        if (attempt === proposedAttempt && error instanceof BillingError && error.definitive)
+            await db.prepare('DELETE FROM stripe_checkout_locks WHERE user_id=? AND attempt=? AND EXISTS (SELECT 1 FROM stripe_checkout_attempts a WHERE a.attempt=stripe_checkout_locks.attempt AND a.replay_started=0) AND NOT EXISTS (SELECT 1 FROM vts_stripe_checkouts c WHERE c.attempt=stripe_checkout_locks.attempt)').bind(user.id,attempt).run();
         throw error;
     }
 }
+function validCheckout(session: StripeObject) {
+    try { const url = new URL(session.url ?? ''); return !!session.id && url.protocol==='https:' && url.hostname==='checkout.stripe.com'; }
+    catch { return false; }
+}
+
 export async function createPortal(env: StripeEnv, user: BillingUser) {
     const origin = billingOrigin(env);
     const db = await database(env);

@@ -1,6 +1,6 @@
 import { effectivePlan } from "../lib/stripe-entitlements";
 import { Hono } from "hono";
-import { consumeMinutes, refundJobMinutes } from "../lib/credits";
+import { consumeMinutes, usageMonthFromCreatedAt } from "../lib/credits";
 import { parseDurationSeconds } from "../lib/duration";
 import { createId, nowIso } from "../lib/env";
 import { getPlanQuota, normalizePlan } from "../lib/plans";
@@ -280,23 +280,21 @@ transcribeRoutes.post("/transcribe", async (c) => {
       .bind(id, user.id)
       .first<TranscriptionJob>();
     if (existing) {
-      return ok(c, { id: existing.id, job_id: existing.id, status: existing.status, minutes_charged: minutes }, 202);
+      return ok(c, { id: existing.id, job_id: existing.id, status: existing.status, minutes_charged: Math.ceil(existing.duration_seconds / 60) }, 202);
     }
   }
 
   const now = nowIso();
-  const charged = await consumeMinutes(c.env, user.id, minutes, `Transcription: ${filename}`, plan);
-  if (!charged) return fail(c, 402, "INSUFFICIENT_CREDITS", "Usage limit exceeded");
+  // Reserve only if quota is available. The reservation, debit and ledger share one transaction.
+  const charged = await consumeMinutes(c.env, user.id, minutes, `Transcription: ${filename}`, plan,
+    { id, filename, audioUrl: body.audio_url, durationSeconds, createdAt: now });
+  if (!charged) {
+    const existing = await c.env.DB.prepare("SELECT * FROM transcription_jobs WHERE id = ? AND user_id = ?").bind(id, user.id).first<TranscriptionJob>();
+    if (existing) return ok(c, { id, job_id: id, status: existing.status, minutes_charged: Math.ceil(existing.duration_seconds / 60) }, 202);
+    return fail(c, 402, "INSUFFICIENT_CREDITS", "Usage limit exceeded");
+  }
 
   try {
-    await c.env.DB.prepare(
-      `INSERT INTO transcription_jobs
-        (id, user_id, status, filename, audio_url, srt_content, duration_seconds, created_at, updated_at)
-       VALUES (?, ?, 'queued', ?, ?, NULL, ?, ?, ?)`,
-    )
-      .bind(id, user.id, filename, body.audio_url, durationSeconds, now, now)
-      .run();
-
     const message: TranscriptionQueueMessage = {
       jobId: id,
       userId: user.id,
@@ -309,26 +307,17 @@ transcribeRoutes.post("/transcribe", async (c) => {
     };
     await c.env.AI_QUEUE.send(message);
   } catch (error) {
-    const messageText = error instanceof Error ? error.message : "Failed to queue transcription";
-    try {
-      await c.env.DB.prepare(
-        `UPDATE transcription_jobs
-         SET status = 'failed', srt_content = ?, updated_at = ?
-         WHERE id = ? AND user_id = ?`,
-      )
-        .bind(messageText, nowIso(), id, user.id)
-        .run();
-    } catch (statusError) {
-      console.error("[Transcription Queue Cleanup Error] job:", id, "error:", statusError);
-    }
-
-    await refundJobMinutes(c.env, {
-      jobId: id,
-      userId: user.id,
-      durationSeconds,
-      createdAt: now,
-      description: `Refund failed transcription: ${filename}`,
-    });
+    // The worker may already have received a send whose acknowledgement was lost.
+    // Claim failure only while queued, then compensate in the same transaction.
+    const failedAt = nowIso();
+    await c.env.DB.batch([
+      c.env.DB.prepare(`UPDATE transcription_jobs SET status='failed', srt_content=?, updated_at=?
+        WHERE id=? AND user_id=? AND status='queued'`).bind("Failed to queue transcription", failedAt, id, user.id),
+      c.env.DB.prepare(`INSERT OR IGNORE INTO credit_transactions (id,user_id,amount,type,description,created_at)
+        SELECT ?,?,?,'credit',?,? WHERE changes()=1`).bind(`refund_${id}`,user.id,minutes,`Refund failed transcription: ${filename}`,failedAt),
+      c.env.DB.prepare(`UPDATE usage_records SET minutes_used=MAX(minutes_used-?,0),updated_at=?
+        WHERE user_id=? AND month=? AND changes()=1`).bind(minutes,failedAt,user.id,usageMonthFromCreatedAt(now)),
+    ]);
 
     return fail(c, 500, "TRANSCRIPTION_QUEUE_FAILED", "Failed to queue transcription");
   }

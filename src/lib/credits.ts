@@ -59,35 +59,37 @@ export async function getUsage(env: Bindings, userId: string, month = currentMon
     }>();
 }
 
-export async function consumeMinutes(env: Bindings, userId: string, minutes: number, description: string, plan: unknown = "free") {
-  const month = currentMonth();
+type JobReservation = { id: string; filename: string; audioUrl: string; durationSeconds: number; createdAt: string };
+
+export async function consumeMinutes(
+  env: Bindings, userId: string, minutes: number, description: string,
+  plan: unknown = "free", reservation?: JobReservation,
+) {
+  if (!Number.isSafeInteger(minutes) || minutes <= 0) throw new Error("Invalid minutes");
+  const month = reservation ? usageMonthFromCreatedAt(reservation.createdAt) : currentMonth();
   await ensureUsageRecord(env, userId, month, plan);
 
   const now = nowIso();
   const expiryGuard = await hasStripeSchema(env) ? ` AND NOT EXISTS (SELECT 1 FROM stripe_accounts s JOIN stripe_quota_bases b ON b.user_id=s.user_id WHERE s.user_id=usage_records.user_id AND b.month=usage_records.month AND b.plan_minutes>60 AND (s.status<>'active' OR s.paid_through<=unixepoch()))` : '';
 
-  const result = await env.DB.prepare(
-    `UPDATE usage_records
-     SET minutes_used = minutes_used + ?, updated_at = ?
-     WHERE user_id = ?
-       AND month = ?
-       AND minutes_used + ? <= minutes_limit${expiryGuard}`,
-  )
-    .bind(minutes, now, userId, month, minutes)
-    .run();
-
-  if ((result.meta.changes ?? 0) !== 1) {
-    return false;
-  }
-
-  await env.DB.prepare(
+  const reserve = reservation ? env.DB.prepare(
+    `INSERT OR IGNORE INTO transcription_jobs
+      (id,user_id,status,filename,audio_url,srt_content,duration_seconds,created_at,updated_at)
+     SELECT ?,?,'queued',?,?,NULL,?,?,? FROM usage_records
+     WHERE user_id=? AND month=? AND minutes_used + ? <= minutes_limit${expiryGuard}`,
+  ).bind(reservation.id,userId,reservation.filename,reservation.audioUrl,reservation.durationSeconds,
+    reservation.createdAt,reservation.createdAt,userId,month,minutes) : undefined;
+  // The reservation checks expiry once; its quota cannot change inside this batch.
+  const update = env.DB.prepare(
+    `UPDATE usage_records SET minutes_used = minutes_used + ?, updated_at = ?
+     WHERE user_id = ? AND month = ? AND minutes_used + ? <= minutes_limit${reservation ? "" : expiryGuard}${reservation ? " AND changes() = 1" : ""}`,
+  ).bind(minutes, now, userId, month, minutes);
+  const ledger = env.DB.prepare(
     `INSERT INTO credit_transactions (id, user_id, amount, type, description, created_at)
-     VALUES (?, ?, ?, 'debit', ?, ?)`,
-  )
-    .bind(createId("txn"), userId, -minutes, description, now)
-    .run();
-
-  return true;
+     SELECT ?, ?, ?, 'debit', ?, ? WHERE changes() = 1`,
+  ).bind(createId("txn"), userId, -minutes, description, now);
+  const results = await env.DB.batch([...(reserve ? [reserve] : []), update, ledger]);
+  return (results[reservation ? 1 : 0].meta.changes ?? 0) === 1;
 }
 
 export async function refundJobMinutes(
@@ -132,24 +134,7 @@ export async function refundJobMinutes(
 }
 
 export async function addCredits(env: Bindings, userId: string, minutes: number, description: string) {
-  const month = currentMonth();
-  await ensureUsageRecord(env, userId, month);
-
-  const now = nowIso();
-  await env.DB.prepare(
-    `UPDATE usage_records
-     SET minutes_limit = minutes_limit + ?, updated_at = ?
-     WHERE user_id = ? AND month = ?`,
-  )
-    .bind(minutes, now, userId, month)
-    .run();
-
-  await env.DB.prepare(
-    `INSERT INTO credit_transactions (id, user_id, amount, type, description, created_at)
-     VALUES (?, ?, ?, 'credit', ?, ?)`,
-  )
-    .bind(createId("txn"), userId, minutes, description, now)
-    .run();
+  await addCreditsIdempotent(env, userId, minutes, description, createId("txn"));
 }
 
 export async function addCreditsIdempotent(
@@ -163,24 +148,13 @@ export async function addCreditsIdempotent(
   await ensureUsageRecord(env, userId, month);
 
   const now = nowIso();
-  const insert = await env.DB.prepare(
-    `INSERT OR IGNORE INTO credit_transactions (id, user_id, amount, type, description, created_at)
-     VALUES (?, ?, ?, 'credit', ?, ?)`,
-  )
-    .bind(transactionId, userId, minutes, description, now)
-    .run();
-
-  if ((insert.meta.changes ?? 0) !== 1) {
-    return { granted: false, duplicate: true };
-  }
-
-  await env.DB.prepare(
-    `UPDATE usage_records
-     SET minutes_limit = minutes_limit + ?, updated_at = ?
-     WHERE user_id = ? AND month = ?`,
-  )
-    .bind(minutes, now, userId, month)
-    .run();
-
-  return { granted: true, duplicate: false };
+  if (!Number.isSafeInteger(minutes) || minutes <= 0) throw new Error("Invalid minutes");
+  const [insert] = await env.DB.batch([
+    env.DB.prepare(`INSERT OR IGNORE INTO credit_transactions (id, user_id, amount, type, description, created_at)
+      VALUES (?, ?, ?, 'credit', ?, ?)`).bind(transactionId, userId, minutes, description, now),
+    env.DB.prepare(`UPDATE usage_records SET minutes_limit = minutes_limit + ?, updated_at = ?
+      WHERE user_id = ? AND month = ? AND changes() = 1`).bind(minutes, now, userId, month),
+  ]);
+  const granted = (insert.meta.changes ?? 0) === 1;
+  return { granted, duplicate: !granted };
 }

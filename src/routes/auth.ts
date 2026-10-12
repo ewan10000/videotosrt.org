@@ -4,6 +4,7 @@ import { addCreditsIdempotent } from "../lib/credits";
 import { appOrigin, createId, nowIso } from "../lib/env";
 import { fail, ok } from "../lib/response";
 import {
+  isSessionPayload,
   createSessionToken,
   createSignedToken,
   createStateToken,
@@ -342,14 +343,14 @@ authRoutes.post("/auth/handoff/exchange", async (c) => {
   if (typeof body?.token !== "string" || body.token.length > 4096 || typeof body.verifier !== "string" || !/^[a-f0-9]{64}$/.test(body.verifier)) return fail(c, 401, "INVALID_HANDOFF", "Invalid handoff");
   const payload = await verifySignedToken<FrontendHandoff>(body.token, c.env.SESSION_SECRET);
   const now = Math.floor(Date.now() / 1000);
-  if (!payload || payload.iss !== "videotosrt-backend" || payload.aud !== new URL(appOrigin(c.env)).origin || payload.purpose !== "frontend-handoff" || !Number.isSafeInteger(payload.exp) || payload.exp <= now || payload.exp > now + 60 || typeof payload.nonce !== "string" || !/^[a-f0-9-]{36}$/.test(payload.nonce) || payload.challenge !== await sha256Hex(body.verifier)) return fail(c, 401, "INVALID_HANDOFF", "Invalid or expired handoff");
+  if (!payload || typeof payload.userId !== "string" || !/^[A-Za-z0-9_.:-]{1,160}$/.test(payload.userId) || payload.iss !== "videotosrt-backend" || payload.aud !== new URL(appOrigin(c.env)).origin || payload.purpose !== "frontend-handoff" || !Number.isSafeInteger(payload.exp) || payload.exp <= now || payload.exp > now + 60 || typeof payload.nonce !== "string" || !/^[a-f0-9-]{36}$/.test(payload.nonce) || payload.challenge !== await sha256Hex(body.verifier)) return fail(c, 401, "INVALID_HANDOFF", "Invalid or expired handoff");
   // A signed-in browser cannot exchange a handoff belonging to another account.
   const authorization = c.req.header("Authorization");
   const existingToken = authorization ? /^Bearer ([^\s]+)$/i.exec(authorization)?.[1] : getCookie(c, SESSION_COOKIE);
   if (authorization && !existingToken) return fail(c, 401, "INVALID_SESSION", "Invalid existing session");
   if (existingToken) {
     const existing = await verifySignedToken<{userId: string; exp: number}>(existingToken, c.env.SESSION_SECRET);
-    if (!existing || existing.exp <= now) return fail(c, 401, "INVALID_SESSION", "Invalid existing session");
+    if (!isSessionPayload(existing)) return fail(c, 401, "INVALID_SESSION", "Invalid existing session");
     if (existing.userId !== payload.userId) return fail(c, 409, "ACCOUNT_MISMATCH", "Sign out before switching accounts");
   }
   const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(payload.userId).first<User>();

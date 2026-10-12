@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { segmentsToSrt, transcribeSegmentsWithGroq, transcribeWithGroq, type TranscriptionSegment } from "./lib/ai";
 import { robotsTxt, withNoindexHeaders } from "./lib/crawler";
 import { refundJobMinutes } from "./lib/credits";
+import { refundTransactionId } from "./lib/refund";
 import { appOrigin, nowIso } from "./lib/env";
 import { shouldCallTranscriptionProvider } from "./lib/queue";
 import { deleteExpiredUploads } from "./lib/retention";
@@ -96,19 +97,22 @@ async function refundStoredJobCharge(env: Bindings, jobId: string, fallback: Tra
   });
 }
 
-async function finalizeFailedTranscription(env: Bindings, message: TranscriptionQueueMessage, reason: string) {
-  const job = await getStoredJob(env, message.jobId);
-  if (job?.status === "completed") return;
-
-  await env.DB.prepare(
-    `UPDATE transcription_jobs
-     SET status = 'failed', srt_content = ?, updated_at = ?
-     WHERE id = ? AND user_id = ? AND status != 'completed'`,
-  )
-    .bind(reason, nowIso(), message.jobId, message.userId)
-    .run();
-
-  await refundStoredJobCharge(env, message.jobId, message, job);
+export async function finalizeFailedTranscription(env: Bindings, message: TranscriptionQueueMessage, reason: string, executionToken: string) {
+  // All charge details come from the stored reservation, and changes() ties each
+  // mutation to the preceding winning transition inside the D1 transaction.
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE transcription_jobs SET status='failed', srt_content=?, updated_at=?
+      WHERE id=? AND user_id=? AND status='processing' AND execution_token=?`)
+      .bind(reason, nowIso(), message.jobId, message.userId, executionToken),
+    env.DB.prepare(`INSERT OR IGNORE INTO credit_transactions (id,user_id,amount,type,description,created_at)
+      SELECT ?,user_id,(CAST(duration_seconds / 60 AS INTEGER) + (duration_seconds > 60 * CAST(duration_seconds / 60 AS INTEGER))),'credit',?,?
+      FROM transcription_jobs WHERE id=? AND changes()=1 AND duration_seconds>0`)
+      .bind(refundTransactionId(message.jobId), `Refund failed transcription: ${message.jobId}`, nowIso(), message.jobId),
+    env.DB.prepare(`UPDATE usage_records SET minutes_used=MAX(0,minutes_used-
+      (SELECT amount FROM credit_transactions WHERE id=?)), updated_at=?
+      WHERE user_id=? AND month=(SELECT substr(created_at,1,7) FROM transcription_jobs WHERE id=?) AND changes()=1`)
+      .bind(refundTransactionId(message.jobId), nowIso(), message.userId, message.jobId),
+  ]);
 }
 
 export function isNonRetriableProviderError(error: unknown) {
@@ -154,7 +158,7 @@ function providerFailureCategory(status: number, providerMessage: string, provid
   return "";
 }
 
-async function handleTranscription(message: TranscriptionQueueMessage, env: Bindings, callProvider: boolean) {
+export async function handleTranscription(message: TranscriptionQueueMessage, env: Bindings, callProvider: boolean) {
   const storedJob = await getStoredJob(env, message.jobId);
   if (storedJob?.status === "completed") return;
   if (storedJob?.status === "failed") {
@@ -162,37 +166,38 @@ async function handleTranscription(message: TranscriptionQueueMessage, env: Bind
     return;
   }
 
-  if (!callProvider) {
-    await finalizeFailedTranscription(env, message, "Transcription failed after 3 provider attempts");
-    return;
-  }
-
   const now = nowIso();
+  const executionToken = crypto.randomUUID();
 
   try {
-    await env.DB.prepare(
+    const claim = await env.DB.prepare(
       `UPDATE transcription_jobs
-       SET status = 'processing', updated_at = ?
-       WHERE id = ? AND user_id = ? AND status != 'completed'`,
+       SET status = 'processing', updated_at = ?, execution_token = ?
+       WHERE id = ? AND user_id = ? AND status IN ('queued', 'processing')`,
     )
-      .bind(now, message.jobId, message.userId)
+      .bind(now, executionToken, message.jobId, message.userId)
       .run();
 
+    if ((claim.meta.changes ?? 0) !== 1) return;
+    if (!callProvider) {
+      await finalizeFailedTranscription(env, message, "Transcription failed after 3 provider attempts", executionToken);
+      return;
+    }
     const srt = message.chunks?.length
       ? await transcribeChunksWithGroq(env, message)
       : await transcribeWithGroq(env, message.audioUrl, message.filename, message.fileSizeBytes);
     await env.DB.prepare(
       `UPDATE transcription_jobs
        SET status = 'completed', srt_content = ?, updated_at = ?
-       WHERE id = ? AND user_id = ?`,
+       WHERE id = ? AND user_id = ? AND status='processing' AND execution_token=?`,
     )
-      .bind(srt, nowIso(), message.jobId, message.userId)
+      .bind(srt, nowIso(), message.jobId, message.userId, executionToken)
       .run();
   } catch (error) {
     if (isNonRetriableProviderError(error)) {
       const reason = sanitizeProviderFailureReason(error);
       console.error("[Transcription Non-Retriable Provider Error] job:", message.jobId, "reason:", reason);
-      await finalizeFailedTranscription(env, message, reason);
+      await finalizeFailedTranscription(env, message, reason, executionToken);
       return;
     }
 
