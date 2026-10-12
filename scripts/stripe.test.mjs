@@ -38,6 +38,8 @@ function fixture() {
  const sql=new DatabaseSync(':memory:');
  sql.exec(readFileSync(`${process.env.VTS_BACKEND_DIR ?? '../videotosrt-backend'}/migrations/0001_init.sql`,'utf8'));
  sql.exec(readFileSync('schema/stripe.sql','utf8'));
+ sql.exec(readFileSync('schema/checkout-attempts.sql','utf8'));
+ sql.exec(readFileSync('schema/checkout-replay-guard.sql','utf8'));
  sql.exec("INSERT INTO users (id,email,provider,provider_id,plan,created_at,updated_at) VALUES ('u1','u@example.com','google','g1','free','now','now')");
  const db={prepare(query){let values=[];return {bind(...v){values=v;return this;},async first(){return sql.prepare(query).get(...values)??null;},async all(){return {results:sql.prepare(query).all(...values)};},async run(){return sql.prepare(query).run(...values);},execute(){return sql.prepare(query).run(...values);}};},async batch(statements){sql.exec('BEGIN');try {const results=statements.map(s=>s.execute());sql.exec('COMMIT');return results;}catch(e){sql.exec('ROLLBACK');throw e;}}};
  return {sql,env:{...env,DB:db,STRIPE_CREDITS_2H_PRICE_ID:'price_credits'},db};
@@ -266,4 +268,91 @@ test('legacy subscriptions cannot be duplicated through email case variants',asy
  const original=globalThis.fetch;globalThis.fetch=async()=>{throw Error('Duplicate subscription must never reach Stripe');};
  try{await assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{plan:'pro'}),/already have a paid/);}
  finally{globalThis.fetch=original;}
+});
+
+test('definitive checkout rejection releases only its attempt',async()=>{
+ const {env,sql}=fixture();const previous=globalThis.fetch;
+ globalThis.fetch=async(url,init)=>url.includes('/prices/')?Response.json({active:true,currency:'usd',unit_amount:500,type:'one_time'}):Response.json({error:{type:'invalid_request_error'}},{status:400});
+ try{await assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'}),e=>e.status===400);assert.equal(sql.prepare('SELECT count(*) n FROM stripe_checkout_locks').get().n,0)}finally{globalThis.fetch=previous}
+});
+test('ambiguous creation recovers exact persisted request and key even after lock expiry',async()=>{
+ const {env,sql}=fixture();const previous=globalThis.fetch;let posted, key,posts=0;
+ globalThis.fetch=async(url,init)=>{if(url.includes('/prices/'))return Response.json({active:true,currency:'usd',unit_amount:500,type:'one_time'});posts++;if(posts===1){posted=init.body.toString();key=init.headers['Idempotency-Key'];throw Error('lost response')}assert.equal(init.body.toString(),posted);assert.equal(init.headers['Idempotency-Key'],key);return Response.json({id:'cs_recovered',url:'https://checkout.stripe.com/c/recovered',status:'open'})};
+ try{await assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'}));sql.exec('UPDATE stripe_checkout_locks SET expires_at=0');const result=await createCheckout(env,{id:'u1',email:'changed@example.com'},{credits:'2h'});assert.equal(result.id,'cs_recovered');assert.equal(posts,2)}finally{globalThis.fetch=previous}
+});
+test('local persistence failure recovers provider result with same key',async()=>{
+ const {env,sql}=fixture();const previous=globalThis.fetch;const keys=[];
+ sql.exec("CREATE TRIGGER fail_checkout BEFORE INSERT ON vts_stripe_checkouts BEGIN SELECT RAISE(ABORT,'fixture'); END");
+ globalThis.fetch=async(url,init)=>{if(url.includes('/prices/'))return Response.json({active:true,currency:'usd',unit_amount:500,type:'one_time'});keys.push(init.headers['Idempotency-Key']);return Response.json({id:'cs_recovered',url:'https://checkout.stripe.com/c/recovered',status:'open'})};
+ try{await assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'}));sql.exec('DROP TRIGGER fail_checkout');await createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'});assert.equal(keys.length,2);assert.equal(keys[0],keys[1])}finally{globalThis.fetch=previous}
+});
+test('expired legacy unmapped lock stays safe',async()=>{
+ const {env,sql}=fixture();sql.exec("INSERT INTO stripe_checkout_locks VALUES('u1','legacy',0)");await mockStripe({active:true,currency:'usd',unit_amount:500,type:'one_time'},()=>assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'}),e=>e.status===409));assert.equal(sql.prepare('SELECT attempt FROM stripe_checkout_locks').get().attempt,'legacy')
+});
+test('ambiguous Stripe responses retain lock and saved attempt',async()=>{
+ for(const status of [409,429,500]){
+ const {env,sql}=fixture();const previous=globalThis.fetch;
+ globalThis.fetch=async url=>url.includes('/prices/')?Response.json({active:true,currency:'usd',unit_amount:500,type:'one_time'}):Response.json({error:{type:'invalid_request_error'}},{status});
+ try{await assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'}));assert.equal(sql.prepare('SELECT count(*) n FROM stripe_checkout_locks').get().n,1);assert.equal(sql.prepare('SELECT count(*) n FROM stripe_checkout_attempts').get().n,1)}finally{globalThis.fetch=previous}
+ }
+});
+test('ambiguous attempt older than replay window is never reissued or unlocked',async()=>{
+ const {env,sql}=fixture();sql.exec("INSERT INTO stripe_checkout_locks VALUES('u1','old',0); INSERT INTO stripe_checkout_attempts(attempt,user_id,price_id,request_body,created_at) VALUES('old','u1','price_credits','mode=payment',0)");let posts=0;const previous=globalThis.fetch;
+ globalThis.fetch=async(url,init)=>{if(init.method==='POST')posts++;return Response.json({active:true,currency:'usd',unit_amount:500,type:'one_time'})};
+ try{await assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'}),e=>e.status===409);assert.equal(posts,0);assert.equal(sql.prepare('SELECT attempt FROM stripe_checkout_locks').get().attempt,'old')}finally{globalThis.fetch=previous}
+});
+test('attempt persistence failure rolls back reservation before contacting Stripe checkout',async()=>{
+ const {env,sql}=fixture();sql.exec("CREATE TRIGGER fail_attempt BEFORE INSERT ON stripe_checkout_attempts BEGIN SELECT RAISE(ABORT,'fixture'); END");let posts=0;const previous=globalThis.fetch;
+ globalThis.fetch=async(url,init)=>{if(init.method==='POST')posts++;return Response.json({active:true,currency:'usd',unit_amount:500,type:'one_time'})};
+ try{await assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'}));assert.equal(posts,0);assert.equal(sql.prepare('SELECT count(*) n FROM stripe_checkout_locks').get().n,0)}finally{globalThis.fetch=previous}
+});
+test('definitive rejection on ambiguous replay cannot release the unresolved lock',async()=>{
+ const {env,sql}=fixture();const previous=globalThis.fetch;let posts=0;
+ globalThis.fetch=async url=>{if(url.includes('/prices/'))return Response.json({active:true,currency:'usd',unit_amount:500,type:'one_time'});if(++posts===1)throw Error('ack lost');return Response.json({error:{type:'invalid_request_error'}},{status:400})};
+ try{await assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'}));const attempt=sql.prepare('SELECT attempt FROM stripe_checkout_locks').get().attempt;await assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'}));assert.equal(sql.prepare('SELECT attempt FROM stripe_checkout_locks').get().attempt,attempt)}finally{globalThis.fetch=previous}
+});
+test('concurrent checkout creation shares one persisted attempt and provider idempotency key',async()=>{
+ const {env,sql}=fixture();const previous=globalThis.fetch;const keys=[],bodies=[];
+ globalThis.fetch=async(url,init)=>{if(url.includes('/prices/'))return Response.json({active:true,currency:'usd',unit_amount:500,type:'one_time'});keys.push(init.headers['Idempotency-Key']);bodies.push(init.body.toString());return Response.json({id:'cs_concurrent',url:'https://checkout.stripe.com/c/concurrent',status:'open'})};
+ try{const results=await Promise.all([createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'}),createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'})]);assert.equal(results[0].id,results[1].id);assert.equal(new Set(keys).size,1);assert.equal(new Set(bodies).size,1);assert.equal(sql.prepare('SELECT count(*) n FROM stripe_checkout_attempts').get().n,1);assert.equal(sql.prepare('SELECT count(*) n FROM vts_stripe_checkouts').get().n,1)}finally{globalThis.fetch=previous}
+});
+
+for (const error of [{type:'invalid_request_error',code:'idempotency_key_in_use'}, {type:'idempotency_error'}, {type:'invalid_request_error',message:'Idempotency key reused with different parameters'}, {type:'invalid_request_error'}]) {
+ test(`creator rejection cannot unlock while replay is in flight: ${JSON.stringify(error)}`, async()=>{
+  const {env,sql}=fixture(), previous=globalThis.fetch; const keys=[];
+  let rejectCreator, finishReplay, creatorStarted, replayStarted;
+  const creatorReady=new Promise(r=>creatorStarted=r), replayReady=new Promise(r=>replayStarted=r);
+  globalThis.fetch=async(url,init)=>{
+   if(url.includes('/prices/'))return Response.json({active:true,currency:'usd',unit_amount:500,type:'one_time'});
+   keys.push(init.headers['Idempotency-Key']);
+   if(keys.length===1){creatorStarted();return new Promise(r=>rejectCreator=()=>r(Response.json({error},{status:400})));}
+   if(keys.length===2){replayStarted();return new Promise(r=>finishReplay=()=>r(Response.json({id:'cs_race',url:'https://checkout.stripe.com/c/race',status:'open'})));}
+   return Response.json({error:{type:'invalid_request_error',code:'idempotency_key_in_use'}},{status:400});
+  };
+  try {
+   const creator=createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'});const rejection=assert.rejects(creator);
+   await creatorReady;const replay=createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'});await replayReady;
+   rejectCreator();await rejection;assert.equal(sql.prepare('SELECT count(*) n FROM stripe_checkout_locks').get().n,1);
+   await assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'}));assert.equal(new Set(keys).size,1);
+   finishReplay();await replay;
+  } finally {globalThis.fetch=previous;}
+ });
+}
+test('idempotency conflicts retain even an unreplayed creator lock',async()=>{
+ for(const error of [{type:'invalid_request_error',code:'idempotency_key_in_use'},{type:'idempotency_error'},{type:'invalid_request_error',message:'Idempotency parameter mismatch'}]){
+ const {env,sql}=fixture(),previous=globalThis.fetch;
+ globalThis.fetch=async url=>url.includes('/prices/')?Response.json({active:true,currency:'usd',unit_amount:500,type:'one_time'}):Response.json({error},{status:400});
+ try{await assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'}));assert.equal(sql.prepare('SELECT count(*) n FROM stripe_checkout_locks').get().n,1);}finally{globalThis.fetch=previous;}
+ }
+});
+test('recoverer whose reservation was released before registration cannot POST',async()=>{
+ const {env,sql,db}=fixture(),previous=globalThis.fetch;
+ sql.exec("INSERT INTO stripe_checkout_locks VALUES('u1','released',9999999999); INSERT INTO stripe_checkout_attempts(attempt,user_id,price_id,request_body,created_at) VALUES('released','u1','price_credits','mode=payment',unixepoch())");
+ const prepare=db.prepare;db.prepare=q=>{
+  const st=prepare(q);
+  if(q.startsWith('UPDATE stripe_checkout_attempts')){const first=st.first;st.first=async()=>{sql.exec("DELETE FROM stripe_checkout_locks WHERE attempt='released'");return first.call(st);};}
+  return st;
+ };
+ let posts=0;globalThis.fetch=async(url,init)=>{if(init.method==='POST')posts++;return Response.json({active:true,currency:'usd',unit_amount:500,type:'one_time'});};
+ try{await assert.rejects(createCheckout(env,{id:'u1',email:'u@example.com'},{credits:'2h'}),e=>e.status===409);assert.equal(posts,0);}finally{globalThis.fetch=previous;}
 });
